@@ -217,6 +217,14 @@ vec reflect(const vec& incident, const vec& normal)
   return incident - 2*dot(incident,normal)*normal;
 }
 
+vec refract(const vec& incident, const vec& normal, double refractive_indices_ratio)
+{
+  double cos_incidence_angle = dot(-incident,normal);
+  vec refracted_perp = refractive_indices_ratio * (incident + cos_incidence_angle * normal);
+  vec refracted_parallel = - std::sqrt(1.0 - refracted_perp.norm_squared()) * normal;
+  return refracted_perp + refracted_parallel;
+}
+
 // color utility functions
 void write_color(std::ostream &out, color pixel_color) // write down a single pixel color in PPM format
 {
@@ -234,14 +242,14 @@ void write_color(std::ostream &out, color pixel_color, int samples_per_pixel) //
   // Divide the color by the number of samples, then gamma-correct it
   // Gamma correction: raising to 1/gamma
   double scale = 1.0 / samples_per_pixel;
+  /*
   r = std::pow(scale * r, 1.0/5.0);
   g = std::pow(scale * g, 1.0/5.0);
   b = std::pow(scale * b, 1.0/5.0);
-  /*
+  */
   r = std::sqrt(scale * r);
   g = std::sqrt(scale * g);
   b = std::sqrt(scale * b);
-  */
 
   out << static_cast<int>(255 * clamp(r, 0, 1.0)) << ' '
       << static_cast<int>(255 * clamp(g, 0, 1.0)) << ' '

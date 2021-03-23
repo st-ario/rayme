@@ -111,6 +111,7 @@ vec unit(vec v);
 vec unit(color v) = delete;
 
 vec reflect(const vec& incident, const vec& normal);
+vec refract(const vec& incident, const vec& normal, double refractive_indices_ratio);
 
 // color utility functions
 void write_color(std::ostream &out, color pixel_color); // write down a single pixel color in PPM format
