@@ -82,14 +82,27 @@ vec vec::random(double min, double max)
   return vec(random_double(min,max), random_double(min,max), random_double(min,max));
 }
 
-vec vec::random_unit() // computed using axial projection
+vec vec::random_unit() // computed normalizing standard Gaussians for each coordinate to get the uniform distribution on the surface
 {
-  using std::sin;
-  using std::cos;
-  double random_angle = random_double(0, 2*pi);
-  double random_z = random_double(-1,1);
-  double aux = std::sqrt(1 - random_z*random_z);
-  return vec(aux * cos(random_angle), aux * sin(random_angle), random_z);
+  double rx = standard_normal_random_double();
+  double ry = standard_normal_random_double();
+  double rz = standard_normal_random_double();
+  double norm = std::sqrt(rx*rx + ry*ry + rz*rz);
+  if (norm == 0)
+    return vec(0,0,0);
+  return (vec(rx,ry,rz) / norm);
+}
+
+vec vec::random_in_unit_sphere()
+{
+  double random_radius = random_double();
+  return random_radius * vec::random_unit();
+}
+
+bool vec::near_zero() const // return true if the vector is close to being the zero vector
+{
+  const double epsilon = 1e-8;
+  return (fabs(v0) < epsilon) && (fabs(v1) < epsilon) && (fabs(v2) < epsilon);
 }
 
 // color member functions
@@ -199,6 +212,11 @@ vec unit(vec v) // return unit vector corresponding to v
   return point(x);
 }
 
+vec reflect(const vec& incident, const vec& normal)
+{
+  return incident - 2*dot(incident,normal)*normal;
+}
+
 // color utility functions
 void write_color(std::ostream &out, color pixel_color) // write down a single pixel color in PPM format
 {
@@ -214,11 +232,16 @@ void write_color(std::ostream &out, color pixel_color, int samples_per_pixel) //
   double b = pixel_color.b();
 
   // Divide the color by the number of samples, then gamma-correct it
-  // Gamma correction: raising to 1/gamma, for gamma=2
+  // Gamma correction: raising to 1/gamma
   double scale = 1.0 / samples_per_pixel;
+  r = std::pow(scale * r, 1.0/5.0);
+  g = std::pow(scale * g, 1.0/5.0);
+  b = std::pow(scale * b, 1.0/5.0);
+  /*
   r = std::sqrt(scale * r);
   g = std::sqrt(scale * g);
   b = std::sqrt(scale * b);
+  */
 
   out << static_cast<int>(255 * clamp(r, 0, 1.0)) << ' '
       << static_cast<int>(255 * clamp(g, 0, 1.0)) << ' '

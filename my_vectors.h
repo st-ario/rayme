@@ -41,6 +41,9 @@ class vec
     static vec random();
     static vec random(double min, double max);
     static vec random_unit();
+    static vec random_in_unit_sphere();
+
+    bool near_zero() const;
 };
 
 class point : public vec
@@ -106,6 +109,8 @@ vec cross(const color &v, const color &w) = delete;
 // return unit vector corresponding to v
 vec unit(vec v);
 vec unit(color v) = delete;
+
+vec reflect(const vec& incident, const vec& normal);
 
 // color utility functions
 void write_color(std::ostream &out, color pixel_color); // write down a single pixel color in PPM format

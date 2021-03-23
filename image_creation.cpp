@@ -6,6 +6,7 @@
 #include "elements.h"
 #include "camera.h"
 #include "math.h"
+#include "materials.h"
 
 color ray_color(const ray& r, const element& world, int depth)
 {
@@ -17,8 +18,15 @@ color ray_color(const ray& r, const element& world, int depth)
   double shadow_acne_treshold = 0.001;
   if (world.hit(r, shadow_acne_treshold, infinity, rec))
   {
+    ray scattered;
+    color attenuation;
+    if (rec.ptr_mat->scatter(r, rec, attenuation, scattered))
+      return attenuation * ray_color(scattered, world, depth-1);
+    return color(0,0,0);
+    /*
     point offset = rec.get_normal() + vec::random_unit();
     return 0.5 * ray_color(ray(rec.p, offset), world, depth - 1);
+    */
   }
 
   // else: gradient background, depending only on the z coordinate;
@@ -31,18 +39,31 @@ int main()
 {
   // World
   scene world;
+  /*
   world.add(std::make_shared<sphere>(sphere{point(0,1,0), 0.5}));
   world.add(std::make_shared<sphere>(sphere{point(0,1,-100.5), 100}));
+  */
+  auto material_ground = std::make_shared<lambertian>(color(0.8, 0.8, 0.0));
+  auto material_center = std::make_shared<lambertian>(color(0.7, 0.3, 0.3));
+  auto material_left   = std::make_shared<metal>(color(0.8, 0.8, 0.8),0.3);
+  auto material_right  = std::make_shared<metal>(color(0.8, 0.6, 0.2), 1.0);
+
+  world.add(std::make_shared<sphere>(point( 0.0, 1.0, -100.5), 100.0, material_ground));
+  world.add(std::make_shared<sphere>(point( 0.0, 1.0,    0.0),   0.5, material_center));
+  world.add(std::make_shared<sphere>(point(-1.0, 1.0,    0.0),   0.5, material_left));
+  world.add(std::make_shared<sphere>(point( 1.0, 1.0,    0.0),   0.5, material_right));
 
   // Camera
   camera cam;
 
   // Image
   const double aspect_ratio = cam.get_aspect_ratio();
-  const int image_width = 1920;
+  //const int image_width = 1920;
+  //const int image_width = 1280;
+  const int image_width = 800;
   const int image_height = static_cast<int>(image_width / aspect_ratio);
-  const int samples_per_pixel = 100;
-  const int max_depth = 50;
+  const int samples_per_pixel = 500;
+  const int max_depth = 200;
 
   // Render
   std::cout << "P3\n" << image_width <<  ' ' << image_height << "\n255\n";

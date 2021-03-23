@@ -21,6 +21,13 @@ double random_double(double min, double max)
     return distribution(generator);
 }
 
+double standard_normal_random_double()
+{
+  static std::normal_distribution<double> distribution(0,1);
+  static std::mt19937_64 generator;
+  return distribution(generator);
+}
+
 double clamp(double value, double min, double max)
 {
   if (value < min) return min;

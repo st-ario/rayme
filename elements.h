@@ -6,11 +6,14 @@
 #include <vector>
 #include <memory>
 
+class material; // defined in materials.h
+
 struct hit_record
 {
   point p;
   double t;
   bool front_face;
+  std::shared_ptr<material> ptr_mat;
 
   vec get_normal() const
   {
@@ -72,9 +75,10 @@ class sphere : public element
   public:
     point center;
     double radius;
+    std::shared_ptr<material> ptr_mat;
     
     sphere() : center{point(0,0,0)}, radius{0} {};
-    sphere(point c, double r) : center{c}, radius{r} {};
+    sphere(point c, double r, std::shared_ptr<material> m) : center{c}, radius{r}, ptr_mat{m} {};
 
     bool hit(const ray& r, double t_min, double t_max, hit_record& rec) const override
     {
@@ -94,6 +98,7 @@ class sphere : public element
       rec.p = r.at(rec.t);
       vec nonunital_outward_normal = rec.p - center;
       rec.set_face_normal(r, nonunital_outward_normal);
+      rec.ptr_mat = ptr_mat;
 
       return true;
     }

@@ -13,5 +13,6 @@ double degrees_to_radians(double degrees);
 
 double random_double();
 double random_double(double min, double max);
+double standard_normal_random_double();
 
 double clamp(double value, double min, double max);
