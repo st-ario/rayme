@@ -96,8 +96,11 @@ class sphere : public element
 
       rec.t = root;
       rec.p = r.at(rec.t);
-      vec nonunital_outward_normal = rec.p - center;
-      rec.set_face_normal(r, nonunital_outward_normal);
+      //not allowing negative radius trick
+      //vec nonunital_outward_normal = rec.p - center; 
+      //rec.set_face_normal(r, nonunital_outward_normal);
+      vec outward_normal = (rec.p - center)/radius;
+      rec.set_face_normal(r, outward_normal);
       rec.ptr_mat = ptr_mat;
 
       return true;

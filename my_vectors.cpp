@@ -89,7 +89,8 @@ vec vec::random_unit() // computed normalizing standard Gaussians for each coord
   double rz = standard_normal_random_double();
   double norm = std::sqrt(rx*rx + ry*ry + rz*rz);
   if (norm == 0)
-    return vec(0,0,0);
+    //return vec(0,0,0);
+    return vec::random_unit();
   return (vec(rx,ry,rz) / norm);
 }
 

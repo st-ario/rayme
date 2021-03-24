@@ -40,18 +40,10 @@ int main()
   // World
   scene world;
   /*
-  world.add(std::make_shared<sphere>(sphere{point(0,1,0), 0.5}));
-  world.add(std::make_shared<sphere>(sphere{point(0,1,-100.5), 100}));
-  */
-  /*
-  auto material_ground = std::make_shared<lambertian>(color(0.8, 0.8, 0.0));
-  auto material_center = std::make_shared<lambertian>(color(0.7, 0.3, 0.3));
   auto material_left   = std::make_shared<metal>(color(0.8, 0.8, 0.8),0.3);
   auto material_right  = std::make_shared<metal>(color(0.8, 0.6, 0.2), 1.0);
-  */
   auto material_ground = std::make_shared<lambertian>(color(0.8, 0.8, 0.0));
-  //auto material_center = std::make_shared<lambertian>(color(0.7, 0.3, 0.3));
-  auto material_center = std::make_shared<dielectric>(1.5);
+  auto material_center = std::make_shared<lambertian>(color(0.7, 0.3, 0.3));
   auto material_left   = std::make_shared<dielectric>(1.5);
   auto material_right  = std::make_shared<metal>(color(0.8, 0.6, 0.2), 0.8);
 
@@ -59,18 +51,34 @@ int main()
   world.add(std::make_shared<sphere>(point( 0.0, 1.0,    0.0),   0.5, material_center));
   world.add(std::make_shared<sphere>(point(-1.0, 1.0,    0.0),   0.5, material_left));
   world.add(std::make_shared<sphere>(point( 1.0, 1.0,    0.0),   0.5, material_right));
+  */
+
+  auto material_ground = std::make_shared<lambertian>(color(0.8, 0.8, 0.0));
+  auto material_center = std::make_shared<lambertian>(color(0.1, 0.2, 0.5));
+  auto material_left   = std::make_shared<dielectric>(1.5);
+  auto material_right  = std::make_shared<metal>(color(0.8, 0.6, 0.2), 0.0);
+  
+  world.add(std::make_shared<sphere>(point( 0.0, 1.0, -100.5), 100.0, material_ground));
+  world.add(std::make_shared<sphere>(point( 0.0, 1.0,    0.0),   0.5, material_center));
+  world.add(std::make_shared<sphere>(point(-1.0, 1.0,    0.0),   0.5, material_left));
+  world.add(std::make_shared<sphere>(point(-1.0, 1.0,    0.0), -0.45, material_left));
+  world.add(std::make_shared<sphere>(point( 1.0, 1.0,    0.0),   0.5, material_right));
 
   // Camera
-  camera cam;
+  const double aspect_ratio = 16.0/9.0;
+  const double focal_length = 1.0;
+  camera cam(point(-2,-1,2), vec(2,2,-2), 1.0, 20.0, aspect_ratio, vec(0,0,1));
+  //camera cam(point(0,0,0), vec(0,1,0), 1.0, 90.0, aspect_ratio, vec(0,0,1));
 
   // Image
-  const double aspect_ratio = cam.get_aspect_ratio();
-  const int image_width = 1920;
+  //const int image_width = 1920;
   //const int image_width = 1280;
-  //const int image_width = 800;
+  const int image_width = 400;
   const int image_height = static_cast<int>(image_width / aspect_ratio);
-  const int samples_per_pixel = 500;
-  const int max_depth = 200;
+  //const int samples_per_pixel = 500;
+  //const int max_depth = 200;
+  const int samples_per_pixel = 100;
+  const int max_depth = 50;
 
   // Render
   std::cout << "P3\n" << image_width <<  ' ' << image_height << "\n255\n";
