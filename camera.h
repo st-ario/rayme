@@ -4,6 +4,18 @@
 #include "ray.h"
 #include "math.h"
 
+static vec random_in_unit_disk()
+{
+  double rx = standard_normal_random_double();
+  double ry = standard_normal_random_double();
+  double norm = std::sqrt(rx*rx + ry*ry);
+  if (norm == 0)
+    return random_in_unit_disk();
+  vec rp = (vec(rx,ry,0) / norm);
+  double random_radius = random_double();
+  return random_radius * vec::random_unit();
+}
+
 class camera
 {
   private:
@@ -50,15 +62,3 @@ class camera
     }
 
 };
-
-static vec random_in_unit_disk()
-{
-  double rx = standard_normal_random_double();
-  double ry = standard_normal_random_double();
-  double norm = std::sqrt(rx*rx + ry*ry);
-  if (norm == 0)
-    return random_in_unit_disk();
-  vec rp = (vec(rx,ry,0) / norm);
-  double random_radius = random_double();
-  return random_radius * vec::random_unit();
-}

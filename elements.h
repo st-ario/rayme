@@ -36,7 +36,6 @@ class element
     virtual bool hit(const ray& r, double t_min, double t_max, hit_record& rec) const = 0;
 };
 
-// scene should at some point become a singleton (?)
 // TODO restructure this class
 class scene : public element
 {
@@ -96,7 +95,7 @@ class sphere : public element
 
       rec.t = root;
       rec.p = r.at(rec.t);
-      //not allowing negative radius trick
+      //not allowing negative radius trick:
       //vec nonunital_outward_normal = rec.p - center; 
       //rec.set_face_normal(r, nonunital_outward_normal);
       vec outward_normal = (rec.p - center)/radius;

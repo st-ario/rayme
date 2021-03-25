@@ -23,10 +23,6 @@ color ray_color(const ray& r, const element& world, int depth)
     if (rec.ptr_mat->scatter(r, rec, attenuation, scattered))
       return attenuation * ray_color(scattered, world, depth-1);
     return color(0,0,0);
-    /*
-    point offset = rec.get_normal() + vec::random_unit();
-    return 0.5 * ray_color(ray(rec.p, offset), world, depth - 1);
-    */
   }
 
   // else: gradient background, depending only on the z coordinate;
@@ -39,19 +35,6 @@ int main()
 {
   // World
   scene world;
-  /*
-  auto material_left   = std::make_shared<metal>(color(0.8, 0.8, 0.8),0.3);
-  auto material_right  = std::make_shared<metal>(color(0.8, 0.6, 0.2), 1.0);
-  auto material_ground = std::make_shared<lambertian>(color(0.8, 0.8, 0.0));
-  auto material_center = std::make_shared<lambertian>(color(0.7, 0.3, 0.3));
-  auto material_left   = std::make_shared<dielectric>(1.5);
-  auto material_right  = std::make_shared<metal>(color(0.8, 0.6, 0.2), 0.8);
-
-  world.add(std::make_shared<sphere>(point( 0.0, 1.0, -100.5), 100.0, material_ground));
-  world.add(std::make_shared<sphere>(point( 0.0, 1.0,    0.0),   0.5, material_center));
-  world.add(std::make_shared<sphere>(point(-1.0, 1.0,    0.0),   0.5, material_left));
-  world.add(std::make_shared<sphere>(point( 1.0, 1.0,    0.0),   0.5, material_right));
-  */
 
   auto material_ground = std::make_shared<lambertian>(color(0.8, 0.8, 0.0));
   auto material_center = std::make_shared<lambertian>(color(0.1, 0.2, 0.5));
@@ -68,17 +51,12 @@ int main()
   const double aspect_ratio = 16.0/9.0;
   const double focal_length = 1.0;
   camera cam(point(-2,-1,2), vec(2,2,-2), 1.0, 20.0, aspect_ratio, vec(0,0,1));
-  //camera cam(point(0,0,0), vec(0,1,0), 1.0, 90.0, aspect_ratio, vec(0,0,1));
 
   // Image
-  //const int image_width = 1920;
-  //const int image_width = 1280;
-  const int image_width = 400;
+  const int image_width = 800;
   const int image_height = static_cast<int>(image_width / aspect_ratio);
-  //const int samples_per_pixel = 500;
-  //const int max_depth = 200;
-  const int samples_per_pixel = 100;
-  const int max_depth = 50;
+  const int samples_per_pixel = 500;
+  const int max_depth = 100;
 
   // Render
   std::cout << "P3\n" << image_width <<  ' ' << image_height << "\n255\n";

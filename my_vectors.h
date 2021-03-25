@@ -85,7 +85,6 @@ class color : public vec
 bool operator==(const vec& v, const vec& w);
 bool operator!=(const vec& v, const vec& w);
 
-// TODO(?) operators for colors should be changed to keep the colors unital?
 vec operator+(const vec &v, const vec &w);
 vec operator-(const vec &v, const vec &w);
 vec operator*(const vec &v, const vec &w);
@@ -95,15 +94,15 @@ vec operator/(const vec &v, double t);
 std::ostream& operator<<(std::ostream &out, const vec &v);
 
 // dot product of vectors
-double dot(const vec &v, const vec &w);
-double dot(const color &v, const vec &w) = delete;
-double dot(const vec &v, const color &w) = delete;
+double dot(const vec   &v, const vec   &w);
+double dot(const color &v, const vec   &w) = delete;
+double dot(const vec   &v, const color &w) = delete;
 double dot(const color &v, const color &w) = delete;
 
 // cross product of vectors
-vec cross(const vec &v, const vec &w);
-vec cross(const vec &v, const color &w) = delete;
-vec cross(const color &v, const vec &w) = delete;
+vec cross(const vec   &v, const vec   &w);
+vec cross(const vec   &v, const color &w) = delete;
+vec cross(const color &v, const vec   &w) = delete;
 vec cross(const color &v, const color &w) = delete;
 
 // return unit vector corresponding to v
