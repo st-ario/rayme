@@ -7,8 +7,6 @@
 vec::vec() : v0{0}, v1{0}, v2{0} {}
 vec::vec(double x, double y, double z) : v0{x}, v1{y}, v2{z} {}
 vec::vec(const vec& w) : v0{w.x()}, v1{w.y()}, v2{w.z()} {}
-vec::vec(vec&& w) : v0{w.x()}, v1{w.y()}, v2{w.z()} {}
-
 
 vec& vec::operator=(const vec& w)
 {
@@ -17,16 +15,6 @@ vec& vec::operator=(const vec& w)
   v2 = w.z();
   return *this;
 }
-
-vec& vec::operator=(vec&& w)
-{
-  v0 = w.x();
-  v1 = w.y();
-  v2 = w.z();
-  return *this;
-}
-
-vec::~vec() {}
 
 double vec::x()  const { return v0; }
 double vec::y()  const { return v1; }
@@ -52,34 +40,25 @@ vec& vec::operator*=(const double t)
   return *this;
 }
 
-vec& vec::operator/=(const double t)
-{
-  return *this *= 1/t;
-}
-
-vec vec::operator-() const
-{
-  return point(-x(),-y(),-z());
-}
-
-double vec::norm() const
-{
-  return std::sqrt(norm_squared());
-}
-
-double vec::norm_squared() const
-{
-  return x()*x() + y()*y() + z()*z();
-}
+vec&   vec::operator/=(const double t)       { return *this *= 1/t; }
+vec    vec::operator-()                const { return point(-x(),-y(),-z()); }
+double vec::norm()                     const { return std::sqrt(norm_squared()); }
+double vec::norm_squared()             const { return x()*x() + y()*y() + z()*z(); }
 
 vec vec::random()
 {
-  return vec(random_double(), random_double(), random_double());
+  return vec( random_double()
+            , random_double()
+            , random_double()
+            );
 }
 
 vec vec::random(double min, double max)
 {
-  return vec(random_double(min,max), random_double(min,max), random_double(min,max));
+  return vec( random_double(min,max)
+            , random_double(min,max)
+            , random_double(min,max)
+            );
 }
 
 vec vec::random_unit() // computed normalizing standard Gaussians for each coordinate to get the uniform distribution on the surface
@@ -106,6 +85,27 @@ bool vec::near_zero() const // return true if the vector is close to being the z
   return (fabs(v0) < epsilon) && (fabs(v1) < epsilon) && (fabs(v2) < epsilon);
 }
 
+// normed_vec member functions
+normed_vec::normed_vec(const vec& v) // construct a normed vector from an ordinary one by normalizing it
+{
+  double norm = v.norm();
+  x() = v.x() / norm;
+  y() = v.y() / norm;
+  z() = v.z() / norm;
+}
+
+normed_vec& normed_vec::operator=(const normed_vec& w)
+{
+  x() = w.x();
+  y() = w.y();
+  z() = w.z();
+}
+
+double normed_vec::norm()         const { return 1.0; }
+double normed_vec::norm_squared() const { return 1.0; };
+
+vec normed_vec::to_vec() const { return vec(x(),y(),z()); }
+
 // color member functions
 color::color(vec v) : vec{v.x(), v.y(), v.z()} {}
 
@@ -129,17 +129,17 @@ double& color::b() { return z(); }
 point::point(vec v) : vec{v.x(), v.y(), v.z()} {}
 
 // vec utility functions
-bool operator==(const vec& v, const vec& w)
+inline bool operator==(const vec& v, const vec& w)
 {
   return ((v.x() == w.x()) && (v.y() == w.y()) && (v.z() == w.z()));
 }
 
-bool operator!=(const vec& v, const vec& w)
+inline bool operator!=(const vec& v, const vec& w)
 {
   return !(v == w);
 }
 
-vec operator+(const vec &v, const vec &w)
+inline vec operator+(const vec &v, const vec &w)
 {
   double x = v.x() + w.x();
   double y = v.y() + w.y();
@@ -147,7 +147,7 @@ vec operator+(const vec &v, const vec &w)
   return vec(x,y,z);
 }
 
-vec operator-(const vec &v, const vec &w)
+inline vec operator-(const vec &v, const vec &w)
 {
   double x = v.x() - w.x();
   double y = v.y() - w.y();
@@ -155,7 +155,7 @@ vec operator-(const vec &v, const vec &w)
   return vec(x,y,z);
 }
 
-vec operator*(const vec &v, const vec &w)
+inline vec operator*(const vec &v, const vec &w)
 {
   double x = v.x() * w.x();
   double y = v.y() * w.y();
@@ -163,7 +163,7 @@ vec operator*(const vec &v, const vec &w)
   return vec(x,y,z);
 }
 
-vec operator*(double t, const vec &w)
+inline vec operator*(double t, const vec &w)
 {
   double x = t * w.x();
   double y = t * w.y();
@@ -171,7 +171,7 @@ vec operator*(double t, const vec &w)
   return vec(x,y,z);
 }
 
-vec operator*(const vec &v, double t)
+inline vec operator*(const vec &v, double t)
 {
   double x = v.x() * t;
   double y = v.y() * t;
@@ -179,7 +179,7 @@ vec operator*(const vec &v, double t)
   return vec(x,y,z);
 }
 
-vec operator/(const vec &v, double t)
+inline vec operator/(const vec &v, double t)
 {
   double x = v.x() / t;
   double y = v.y() / t;
@@ -187,7 +187,7 @@ vec operator/(const vec &v, double t)
   return vec(x,y,z);
 }
 
-std::ostream& operator<<(std::ostream &out, const vec &v)
+inline std::ostream& operator<<(std::ostream &out, const vec &v)
 {
   return out << v.x() << ' ' << v.y() << ' ' << v.z();
 }
@@ -199,31 +199,44 @@ double dot(const vec &v, const vec &w) // dot product of vectors
        + v.z() * w.z();
 }
 
-vec cross(const vec &v, const vec &w) // cross product of vectors
+inline vec cross(const vec &v, const vec &w) // cross product of vectors
 {
   double x = v.y() * w.z() - v.z() * w.y();
   double y = v.z() * w.x() - v.x() * w.z();
   double z = v.x() * w.y() - v.y() * w.x();
-  return point(x,y,z);
+  return vec(x,y,z);
 }
 
-vec unit(vec v) // return unit vector corresponding to v
+inline normed_vec cross(const normed_vec &v, const normed_vec &w) // cross product of vectors
 {
-  vec x = v / v.norm();
-  return point(x);
+  double x = v.y() * w.z() - v.z() * w.y();
+  double y = v.z() * w.x() - v.x() * w.z();
+  double z = v.x() * w.y() - v.y() * w.x();
+  return unit(vec(x,y,z)); // correct for possible rounding errors
 }
 
-vec reflect(const vec& incident, const vec& normal)
+inline normed_vec unit(const vec& v) // return unit vector corresponding to v
 {
-  return incident - 2*dot(incident,normal)*normal;
+  return normed_vec(v);
 }
 
-vec refract(const vec& incident, const vec& normal, double refractive_indices_ratio)
+normed_vec reflect(const normed_vec& incident, const normed_vec& normal)
 {
+  vec i = incident.to_vec();
+  vec n = normal.to_vec();
+
+  return unit(i - 2 * dot(i,n) * n);
+}
+
+normed_vec refract(const normed_vec& incident, const normed_vec& normal, double refractive_indices_ratio)
+{
+  vec i = incident.to_vec();
+  vec n = normal.to_vec();
+
   double cos_incidence_angle = dot(-incident,normal);
-  vec refracted_perp = refractive_indices_ratio * (incident + cos_incidence_angle * normal);
-  vec refracted_parallel = - std::sqrt(1.0 - refracted_perp.norm_squared()) * normal;
-  return refracted_perp + refracted_parallel;
+  vec refracted_perp = refractive_indices_ratio * (i + cos_incidence_angle * n);
+  vec refracted_parallel = - std::sqrt(1.0 - refracted_perp.norm_squared()) * n;
+  return unit(refracted_perp + refracted_parallel);
 }
 
 // color utility functions

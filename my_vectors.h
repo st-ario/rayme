@@ -15,11 +15,7 @@ class vec
   public:
     vec();
     vec(double w0, double w1, double w2);
-    vec(const vec& w);
-    vec(vec&& w);
     vec& operator=(const vec& w);
-    vec& operator=(vec&& w);
-    ~vec();
 
     double x()  const;
     double y()  const;
@@ -35,8 +31,8 @@ class vec
 
     vec operator-() const; // negate vector
 
-    double norm() const;
-    double norm_squared() const;
+    virtual double norm() const;
+    virtual double norm_squared() const;
 
     static vec random();
     static vec random(double min, double max);
@@ -44,6 +40,48 @@ class vec
     static vec random_in_unit_sphere();
 
     bool near_zero() const;
+};
+
+class normed_vec : public vec
+{
+  public:
+    normed_vec() = delete; // no meaningful default value
+    explicit normed_vec(const vec& v); // construct a normed vector from an ordinary one by normalizing it
+    normed_vec& operator=(const normed_vec& w);
+    normed_vec& operator=(const vec& w) = delete; // assignment from a vector is potentially confusing
+    normed_vec& operator=(vec&& w)      = delete;
+
+    normed_vec operator-() const;
+
+    // coordinates can only be returned by value, to preserve the invariant
+    double x()  const;
+    double y()  const;
+    double z()  const;
+
+    // provide different implementation:
+    double norm() const override;
+    double norm_squared() const override;
+
+    static normed_vec random() = delete; // calling normed_vec::random() is potentially confusing
+                                         // normed_vec::random_unit() is the same as vec::random_unit()
+    static normed_vec random(double min, double max) = delete;
+    static normed_vec random_in_unit_sphere() = delete;
+
+    normed_vec& operator+=(const vec &w)   = delete;
+    normed_vec& operator*=(const double t) = delete;
+    normed_vec& operator/=(const double t) = delete;
+
+    bool near_zero() const = delete;
+
+    vec to_vec() const;
+
+  private:
+    normed_vec(double w0, double w1, double w2);
+
+    // coordinates can only be returned by value, to preserve the invariant
+    double& x();
+    double& y();
+    double& z();
 };
 
 class point : public vec
@@ -54,6 +92,8 @@ class point : public vec
 };
 
 class color : public vec
+// TODO should enforce taking values in the positive unit cube and throw exceptions if the
+// client tries to go out of bounds
 {
   public:
     using vec::vec; // same constructors as vec
@@ -67,7 +107,7 @@ class color : public vec
     double& g();
     double& b();
 
-    vec operator-() const = delete;
+    color operator-() const = delete;
     double norm() = delete;
     double norm_squared() = delete;
   
@@ -91,6 +131,18 @@ vec operator*(const vec &v, const vec &w);
 vec operator*(double t, const vec &w);
 vec operator*(const vec &v, double t);
 vec operator/(const vec &v, double t);
+
+// algebra for normed vectors is not allowed
+vec operator+(const normed_vec &v, const vec &w) = delete;
+vec operator-(const normed_vec &v, const vec &w) = delete;
+vec operator*(const normed_vec &v, const vec &w) = delete;
+vec operator+(const vec &v, const normed_vec &w) = delete;
+vec operator-(const vec &v, const normed_vec &w) = delete;
+vec operator*(const vec &v, const normed_vec &w) = delete;
+vec operator*(double t, const normed_vec &w)     = delete;
+vec operator*(const normed_vec &v, double t)     = delete;
+vec operator/(const normed_vec &v, double t)     = delete;
+
 std::ostream& operator<<(std::ostream &out, const vec &v);
 
 // dot product of vectors
@@ -105,12 +157,15 @@ vec cross(const vec   &v, const color &w) = delete;
 vec cross(const color &v, const vec   &w) = delete;
 vec cross(const color &v, const color &w) = delete;
 
+// cross product of normed vectors is normed
+normed_vec cross(const normed_vec   &v, const normed_vec   &w);
+
 // return unit vector corresponding to v
-vec unit(vec v);
+normed_vec unit(const vec& v);
 vec unit(color v) = delete;
 
-vec reflect(const vec& incident, const vec& normal);
-vec refract(const vec& incident, const vec& normal, double refractive_indices_ratio);
+normed_vec reflect(const normed_vec& incident, const normed_vec& normal);
+normed_vec refract(const normed_vec& incident, const normed_vec& normal, double refractive_indices_ratio);
 
 // color utility functions
 void write_color(std::ostream &out, color pixel_color); // write down a single pixel color in PPM format

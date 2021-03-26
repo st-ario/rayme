@@ -14,20 +14,13 @@ struct hit_record
   double t;
   bool front_face;
   std::shared_ptr<material> ptr_mat;
-
-  vec get_normal() const
-  {
-    return normal;
-  }
+  normed_vec normal;
 
   inline void set_face_normal(const ray& r, const vec& nonunital_outward_normal)
   {
-    front_face = dot(r.direction(), nonunital_outward_normal) < 0;
+    front_face = dot(r.direction, nonunital_outward_normal) < 0;
     normal = front_face ? unit(nonunital_outward_normal) : - unit(nonunital_outward_normal);
   }
-
-  private:
-    vec normal;
 };
 
 class element
@@ -52,8 +45,9 @@ class scene : public element
 };
 
 // TODO change things in such a way that normals are computed only for the closest hit
-bool scene::hit(const ray& r, double t_min, double t_max, hit_record& rec) const {
-    hit_record temp_rec;
+bool scene::hit(const ray& r, double t_min, double t_max, hit_record& rec) const
+{
+    //hit_record temp_rec{rec};
     bool hit_anything = false;
     auto closest_so_far = t_max;
 
@@ -81,8 +75,8 @@ class sphere : public element
 
     bool hit(const ray& r, double t_min, double t_max, hit_record& rec) const override
     {
-      vec center_to_origin = r.origin() - center;
-      double b_halved = dot(center_to_origin,r.direction());
+      vec center_to_origin = r.origin - center;
+      double b_halved = dot(center_to_origin,r.direction);
       double c = center_to_origin.norm_squared() - radius*radius;
       double discriminant = b_halved*b_halved - c;
       if (discriminant < 0)

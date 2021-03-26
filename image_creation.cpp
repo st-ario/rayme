@@ -26,7 +26,7 @@ color ray_color(const ray& r, const element& world, int depth)
   }
 
   // else: gradient background, depending only on the z coordinate;
-  double t = 0.5 * (1 + (r.direction().z()));
+  double t = 0.5 * (1 + (r.direction.z()));
   return ((1.0 - t) * color(1.0, 1.0, 1.0) + t * color(0.5, 0.7, 1.0));
 }
 
