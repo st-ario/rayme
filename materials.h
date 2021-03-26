@@ -4,16 +4,22 @@
 #include "my_vectors.h"
 #include "elements.h"
 
+#include <optional>
+
 struct hit_record;
 
 class material
 {
   public:
-    virtual bool scatter(
+    virtual std::optional<ray> scatter(
         const ray& r
+      , const point& p
+      , double t
+      , bool front_face
+      , const std::shared_ptr<material>& ptr_mat
+      , const normed_vec& normal
       , const hit_record& rec
       , color& attenuation
-      , ray& scattered
       ) const = 0;
 };
 
@@ -24,11 +30,15 @@ class lambertian : public material
 
     lambertian(const color& a) : albedo{a} {}
 
-    virtual bool scatter(
+    virtual std::optional<ray> scatter(
         const ray& r
+      , const point& p
+      , double t
+      , bool front_face
+      , const std::shared_ptr<material>& ptr_mat
+      , const normed_vec& normal
       , const hit_record& rec
       , color& attenuation
-      , ray& scattered
       ) const override;
 };
 
@@ -40,11 +50,15 @@ class metal : public material
 
     metal(const color& a, double r) : albedo{a}, roughness{r < 1 ? r : 1} {};
 
-    virtual bool scatter(
+    virtual std::optional<ray> scatter(
         const ray& r
+      , const point& p
+      , double t
+      , bool front_face
+      , const std::shared_ptr<material>& ptr_mat
+      , const normed_vec& normal
       , const hit_record& rec
       , color& attenuation
-      , ray& scattered
       ) const override;
 };
 
@@ -55,10 +69,18 @@ class dielectric : public material
 
     dielectric(double ri) : refraction_index{ri} {};
 
-    virtual bool scatter(
+    virtual std::optional<ray> scatter(
         const ray& r
+      , const point& p
+      , double t
+      , bool front_face
+      , const std::shared_ptr<material>& ptr_mat
+      , const normed_vec& normal
       , const hit_record& rec
       , color& attenuation
-      , ray& scattered
       ) const override;
 };
+
+static normed_vec get_direction(bool b, normed_vec dir, normed_vec n, double ref_ratio);
+static double reflectance(double cos, double refraction_index);
+static double fresnel_reflectance(double cos_incidence, double cos_refraction, double refraction_index);

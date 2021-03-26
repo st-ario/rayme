@@ -42,46 +42,27 @@ class vec
     bool near_zero() const;
 };
 
-class normed_vec : public vec
+class normed_vec
 {
+  private:
+    double v0, v1, v2;
+    normed_vec(double w0, double w1, double w2);
+
   public:
     normed_vec() = delete; // no meaningful default value
     explicit normed_vec(const vec& v); // construct a normed vector from an ordinary one by normalizing it
-    normed_vec& operator=(const normed_vec& w);
-    normed_vec& operator=(const vec& w) = delete; // assignment from a vector is potentially confusing
-    normed_vec& operator=(vec&& w)      = delete;
+
+    // coordinates can only be returned by value, to preserve the invariant
+    double x() const;
+    double y() const;
+    double z() const;
+
+    double norm() const;
+    double norm_squared() const;
 
     normed_vec operator-() const;
 
-    // coordinates can only be returned by value, to preserve the invariant
-    double x()  const;
-    double y()  const;
-    double z()  const;
-
-    // provide different implementation:
-    double norm() const override;
-    double norm_squared() const override;
-
-    static normed_vec random() = delete; // calling normed_vec::random() is potentially confusing
-                                         // normed_vec::random_unit() is the same as vec::random_unit()
-    static normed_vec random(double min, double max) = delete;
-    static normed_vec random_in_unit_sphere() = delete;
-
-    normed_vec& operator+=(const vec &w)   = delete;
-    normed_vec& operator*=(const double t) = delete;
-    normed_vec& operator/=(const double t) = delete;
-
-    bool near_zero() const = delete;
-
     vec to_vec() const;
-
-  private:
-    normed_vec(double w0, double w1, double w2);
-
-    // coordinates can only be returned by value, to preserve the invariant
-    double& x();
-    double& y();
-    double& z();
 };
 
 class point : public vec
@@ -132,33 +113,25 @@ vec operator*(double t, const vec &w);
 vec operator*(const vec &v, double t);
 vec operator/(const vec &v, double t);
 
-// algebra for normed vectors is not allowed
-vec operator+(const normed_vec &v, const vec &w) = delete;
-vec operator-(const normed_vec &v, const vec &w) = delete;
-vec operator*(const normed_vec &v, const vec &w) = delete;
-vec operator+(const vec &v, const normed_vec &w) = delete;
-vec operator-(const vec &v, const normed_vec &w) = delete;
-vec operator*(const vec &v, const normed_vec &w) = delete;
-vec operator*(double t, const normed_vec &w)     = delete;
-vec operator*(const normed_vec &v, double t)     = delete;
-vec operator/(const normed_vec &v, double t)     = delete;
-
 std::ostream& operator<<(std::ostream &out, const vec &v);
 
 // dot product of vectors
-double dot(const vec   &v, const vec   &w);
+double dot(const vec &v, const vec &w);
+double dot(const normed_vec &v, const normed_vec &w);
+double dot(const vec &v, const normed_vec &w);
+double dot(const normed_vec &v, const vec &w);
 double dot(const color &v, const vec   &w) = delete;
 double dot(const vec   &v, const color &w) = delete;
 double dot(const color &v, const color &w) = delete;
 
 // cross product of vectors
-vec cross(const vec   &v, const vec   &w);
+vec cross(const vec &v, const vec &w);
+vec cross(const normed_vec &v, const normed_vec &w);
+vec cross(const normed_vec &v, const vec &w);
+vec cross(const vec &v, const normed_vec &w);
 vec cross(const vec   &v, const color &w) = delete;
 vec cross(const color &v, const vec   &w) = delete;
 vec cross(const color &v, const color &w) = delete;
-
-// cross product of normed vectors is normed
-normed_vec cross(const normed_vec   &v, const normed_vec   &w);
 
 // return unit vector corresponding to v
 normed_vec unit(const vec& v);

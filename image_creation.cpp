@@ -10,18 +10,18 @@
 
 color ray_color(const ray& r, const element& world, int depth)
 {
-  hit_record rec;
-
   if (depth <= 0)
     return color(0,0,0);
 
   double shadow_acne_treshold = 0.001;
-  if (world.hit(r, shadow_acne_treshold, infinity, rec))
+  auto rec = world.hit(r, shadow_acne_treshold, infinity);
+  if (rec)
   {
-    ray scattered;
+    auto record = rec.value();
     color attenuation;
-    if (rec.ptr_mat->scatter(r, rec, attenuation, scattered))
-      return attenuation * ray_color(scattered, world, depth-1);
+    auto scattered_ray = rec.value().ptr_mat->scatter(r, record.p, record.t, record.front_face, record.ptr_mat, record.normal, record, attenuation);
+    if (scattered_ray)
+      return attenuation * ray_color(scattered_ray.value(), world, depth-1);
     return color(0,0,0);
   }
 
@@ -53,10 +53,10 @@ int main()
   camera cam(point(-2,-1,2), vec(2,2,-2), 1.0, 20.0, aspect_ratio, vec(0,0,1));
 
   // Image
-  const int image_width = 800;
+  const int image_width = 600;
   const int image_height = static_cast<int>(image_width / aspect_ratio);
-  const int samples_per_pixel = 500;
-  const int max_depth = 100;
+  const int samples_per_pixel = 100;
+  const int max_depth = 50;
 
   // Render
   std::cout << "P3\n" << image_width <<  ' ' << image_height << "\n255\n";

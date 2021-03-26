@@ -23,8 +23,8 @@ class camera
     double aspect_ratio;
     double focal_length;
     point upper_left_corner;
-    vec rel_x;
-    vec rel_z;
+    normed_vec rel_x;
+    normed_vec rel_z;
     double viewport_width;
     double viewport_height;
   
@@ -35,30 +35,29 @@ class camera
           , double vertical_fov_in_deg
           , double image_ratio
           , vec absolute_z
-          ) : origin{orig}, aspect_ratio{image_ratio}, focal_length{focal_len}
+          ) : origin{orig}, aspect_ratio{image_ratio}, focal_length{focal_len},
+              rel_x{cross(nonunital_dir_of_view,absolute_z)},
+              rel_z{cross(rel_x,nonunital_dir_of_view)}
           {
-            rel_x = unit(cross(nonunital_dir_of_view,absolute_z));
-            rel_z = unit(cross(rel_x,nonunital_dir_of_view));
-
             double angle = degrees_to_radians(vertical_fov_in_deg);
             double h  = std::tan(angle/2.0);
             viewport_height = h * 2.0;
             viewport_width = aspect_ratio * viewport_height;
 
-            point viewport_center = origin + focal_length * unit(nonunital_dir_of_view);
+            point viewport_center = origin + focal_length * unit(nonunital_dir_of_view).to_vec();
 
             upper_left_corner = viewport_center
-                              - (viewport_width/2.0)  * rel_x
-                              + (viewport_height/2.0) * rel_z;
+                              - (viewport_width/2.0)  * rel_x.to_vec()
+                              + (viewport_height/2.0) * rel_z.to_vec();
           }
 
     ray get_ray(double horiz_factor, double vert_factor)
     {
       vec nonunital_direction = upper_left_corner
-                              + (horiz_factor * viewport_width) * rel_x
-                              - (vert_factor  * viewport_height) * rel_z
+                              + (horiz_factor * viewport_width) * rel_x.to_vec()
+                              - (vert_factor  * viewport_height) * rel_z.to_vec()
                               - origin;
-      return ray(origin, nonunital_direction);
+      return ray(origin, unit(nonunital_direction));
     }
 
 };
