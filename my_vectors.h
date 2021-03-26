@@ -5,8 +5,6 @@
 // Using 3d vectors; the interface for points and colors should be such that
 // migrating to 4d vectors at any time works seamlessly
 
-// add class for unit vectors
-
 class vec
 {
   private:

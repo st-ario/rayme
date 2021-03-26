@@ -13,11 +13,6 @@ class material
   public:
     virtual std::optional<ray> scatter(
         const ray& r
-      , const point& p
-      , double t
-      , bool front_face
-      , const std::shared_ptr<material>& ptr_mat
-      , const normed_vec& normal
       , const hit_record& rec
       , color& attenuation
       ) const = 0;
@@ -32,11 +27,6 @@ class lambertian : public material
 
     virtual std::optional<ray> scatter(
         const ray& r
-      , const point& p
-      , double t
-      , bool front_face
-      , const std::shared_ptr<material>& ptr_mat
-      , const normed_vec& normal
       , const hit_record& rec
       , color& attenuation
       ) const override;
@@ -52,11 +42,6 @@ class metal : public material
 
     virtual std::optional<ray> scatter(
         const ray& r
-      , const point& p
-      , double t
-      , bool front_face
-      , const std::shared_ptr<material>& ptr_mat
-      , const normed_vec& normal
       , const hit_record& rec
       , color& attenuation
       ) const override;
@@ -71,11 +56,6 @@ class dielectric : public material
 
     virtual std::optional<ray> scatter(
         const ray& r
-      , const point& p
-      , double t
-      , bool front_face
-      , const std::shared_ptr<material>& ptr_mat
-      , const normed_vec& normal
       , const hit_record& rec
       , color& attenuation
       ) const override;

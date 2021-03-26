@@ -1,3 +1,4 @@
 *.ppm
 *.txt
 *.bin
+.vscode/

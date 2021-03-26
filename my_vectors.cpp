@@ -39,26 +39,14 @@ vec& vec::operator*=(const double t)
   return *this;
 }
 
-vec&   vec::operator/=(const double t)       { return *this *= 1/t; }
-vec    vec::operator-()                const { return point(-x(),-y(),-z()); }
-double vec::norm()                     const { return std::sqrt(norm_squared()); }
-double vec::norm_squared()             const { return x()*x() + y()*y() + z()*z(); }
+vec&   vec::operator/=(const double t) { return *this *= 1/t; }
+vec    vec::operator-()    const { return point(-x(),-y(),-z()); }
+double vec::norm()         const { return std::sqrt(norm_squared()); }
+double vec::norm_squared() const { return x()*x() + y()*y() + z()*z(); }
 
-vec vec::random()
-{
-  return vec( random_double()
-            , random_double()
-            , random_double()
-            );
-}
+vec vec::random() { return vec(random_double(), random_double(), random_double()); }
 
-vec vec::random(double min, double max)
-{
-  return vec( random_double(min,max)
-            , random_double(min,max)
-            , random_double(min,max)
-            );
-}
+vec vec::random(double min, double max) { return vec(random_double(min,max), random_double(min,max), random_double(min,max)); }
 
 vec vec::random_unit() // computed normalizing standard Gaussians for each coordinate to get the uniform distribution on the surface
 {
@@ -127,15 +115,8 @@ double& color::b() { return z(); }
 point::point(vec v) : vec{v.x(), v.y(), v.z()} {}
 
 // vec utility functions
-bool operator==(const vec& v, const vec& w)
-{
-  return ((v.x() == w.x()) && (v.y() == w.y()) && (v.z() == w.z()));
-}
-
-bool operator!=(const vec& v, const vec& w)
-{
-  return !(v == w);
-}
+bool operator==(const vec& v, const vec& w) { return ((v.x() == w.x()) && (v.y() == w.y()) && (v.z() == w.z())); }
+bool operator!=(const vec& v, const vec& w) { return !(v == w); }
 
 vec operator+(const vec &v, const vec &w)
 {
@@ -252,11 +233,10 @@ vec cross(const vec &v, const normed_vec &w)
   return vec(x,y,z);
 }
 
-inline normed_vec unit(const vec& v) // return unit vector corresponding to v
-{
-  return normed_vec(v);
-}
+// return unit vector corresponding to v
+inline normed_vec unit(const vec& v) { return normed_vec(v); }
 
+// normed_vec utility functions
 normed_vec reflect(const normed_vec& incident, const normed_vec& normal)
 {
   vec i = incident.to_vec();
@@ -276,10 +256,7 @@ normed_vec refract(const normed_vec& incident, const normed_vec& normal, double 
   return unit(refracted_perp + refracted_parallel);
 }
 
-normed_vec normed_vec::operator-() const
-{
-  return normed_vec(-x(),-y(),-z());
-}
+normed_vec normed_vec::operator-() const { return normed_vec(-x(),-y(),-z()); }
 
 // color utility functions
 void write_color(std::ostream &out, color pixel_color) // write down a single pixel color in PPM format

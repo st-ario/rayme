@@ -19,7 +19,7 @@ color ray_color(const ray& r, const element& world, int depth)
   {
     auto record = rec.value();
     color attenuation;
-    auto scattered_ray = rec.value().ptr_mat->scatter(r, record.p, record.t, record.front_face, record.ptr_mat, record.normal, record, attenuation);
+    auto scattered_ray = rec.value().ptr_mat->scatter(r, record, attenuation);
     if (scattered_ray)
       return attenuation * ray_color(scattered_ray.value(), world, depth-1);
     return color(0,0,0);
