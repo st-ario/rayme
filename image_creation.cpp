@@ -25,12 +25,12 @@ color ray_color(const ray& r, const element& world, int depth)
     return color(0,0,0);
   }
 
-  // else: gradient background, depending only on the z coordinate;
-  double t = 0.5 * (1 + (r.direction.z()));
+  // else: gradient background, depending only on the y coordinate;
+  double t = 0.5 * (1 + (r.direction.y()));
   return ((1.0 - t) * color(1.0, 1.0, 1.0) + t * color(0.5, 0.7, 1.0));
 }
 
-// z = up, x = right, y = forward
+// y = up, x = right, right-handed
 int main()
 {
   // World
@@ -41,16 +41,16 @@ int main()
   auto material_left   = std::make_shared<dielectric>(1.5);
   auto material_right  = std::make_shared<metal>(color(0.8, 0.6, 0.2), 0.0);
   
-  world.add(std::make_shared<sphere>(point( 0.0, 1.0, -100.5), 100.0, material_ground));
-  world.add(std::make_shared<sphere>(point( 0.0, 1.0,    0.0),   0.5, material_center));
-  world.add(std::make_shared<sphere>(point(-1.0, 1.0,    0.0),   0.5, material_left));
-  world.add(std::make_shared<sphere>(point(-1.0, 1.0,    0.0), -0.45, material_left));
-  world.add(std::make_shared<sphere>(point( 1.0, 1.0,    0.0),   0.5, material_right));
+  world.add(std::make_shared<sphere>(point( 0.0, -100.5, -1.0), 100.0, material_ground));
+  world.add(std::make_shared<sphere>(point( 0.0,    0.0, -1.0),   0.5, material_center));
+  world.add(std::make_shared<sphere>(point(-1.0,    0.0, -1.0),   0.5, material_left));
+  world.add(std::make_shared<sphere>(point(-1.0,    0.0, -1.0), -0.45, material_left));
+  world.add(std::make_shared<sphere>(point( 1.0,    0.0, -1.0),   0.5, material_right));
 
   // Camera
   const double aspect_ratio = 16.0/9.0;
   const double focal_length = 1.0;
-  camera cam(point(-2,-1,2), vec(2,2,-2), 1.0, 20.0, aspect_ratio, vec(0,0,1));
+  camera cam(point(-2,2,1), vec(2,-2,-2), 20.0, aspect_ratio, vec(0,1,0));
 
   // Image
   const int image_width = 600;
@@ -70,9 +70,9 @@ int main()
       color pixel_color(0,0,0);
       for (int s = 0; s < samples_per_pixel + 1; ++s)
       {
-        double x_factor = (i + random_double())/(image_width-1);
-        double z_factor = (j + random_double())/(image_height-1);
-        ray r = cam.get_ray(x_factor, z_factor);
+        double horiz_factor = (i + random_double())/(image_width-1);
+        double vert_factor = (j + random_double())/(image_height-1);
+        ray r = cam.get_ray(horiz_factor, vert_factor);
         pixel_color += ray_color(r, world, max_depth);
       }
       write_color(std::cout, pixel_color, samples_per_pixel); }
