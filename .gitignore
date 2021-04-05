@@ -1,4 +1,5 @@
 *.ppm
 *.txt
 *.bin
+.directory
 .vscode/

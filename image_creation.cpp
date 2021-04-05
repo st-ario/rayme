@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <cmath>
 
 #include "my_vectors.h"
@@ -8,20 +9,19 @@
 #include "math.h"
 #include "materials.h"
 
-color ray_color(const ray& r, const element& world, int depth)
+color ray_color(const ray& r, const element& world, int depth, double znear, double zfar)
 {
   if (depth <= 0)
     return color(0,0,0);
 
-  double shadow_acne_treshold = 0.001;
-  auto rec = world.hit(r, shadow_acne_treshold, infinity);
+  auto rec = world.hit(r, znear, zfar);
   if (rec)
   {
     auto record = rec.value();
     color attenuation;
     auto scattered_ray = rec.value().ptr_mat->scatter(r, record, attenuation);
     if (scattered_ray)
-      return attenuation * ray_color(scattered_ray.value(), world, depth-1);
+      return attenuation * ray_color(scattered_ray.value(), world, depth-1, znear, zfar);
     return color(0,0,0);
   }
 
@@ -50,7 +50,8 @@ int main()
   // Camera
   const double aspect_ratio = 16.0/9.0;
   const double focal_length = 1.0;
-  camera cam(point(-2,2,1), vec(2,-2,-2), 20.0, aspect_ratio, vec(0,1,0));
+  double shadow_acne_treshold = 0.001;
+  camera cam(point(-2,2,1), vec(0,0,-1), 20.0, aspect_ratio, vec(0,1,0), shadow_acne_treshold);
 
   // Image
   const int image_width = 600;
@@ -59,7 +60,10 @@ int main()
   const int max_depth = 50;
 
   // Render
-  std::cout << "P3\n" << image_width <<  ' ' << image_height << "\n255\n";
+  std::ofstream image_file;
+  image_file.open("image.ppm");
+
+  image_file << "P3\n" << image_width <<  ' ' << image_height << "\n255\n";
 
   for (int j = 0; j< image_height; ++j)
   {
@@ -73,10 +77,11 @@ int main()
         double horiz_factor = (i + random_double())/(image_width-1);
         double vert_factor = (j + random_double())/(image_height-1);
         ray r = cam.get_ray(horiz_factor, vert_factor);
-        pixel_color += ray_color(r, world, max_depth);
+        pixel_color += ray_color(r, world, max_depth, cam.get_znear(),cam.get_zfar());
       }
-      write_color(std::cout, pixel_color, samples_per_pixel); }
+      write_color(image_file, pixel_color, samples_per_pixel); }
   }
+  image_file.close();
 
   std::cerr << "\nDone!\n";
 }
