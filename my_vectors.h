@@ -2,9 +2,6 @@
 
 #include <iostream>
 
-// Using 3d vectors; the interface for points and colors should be such that
-// migrating to 4d vectors at any time works seamlessly
-
 class vec
 {
   private:
@@ -15,9 +12,9 @@ class vec
     vec(double w0, double w1, double w2);
     vec& operator=(const vec& w);
 
-    double x()  const;
-    double y()  const;
-    double z()  const;
+    double x() const;
+    double y() const;
+    double z() const;
 
     double& x();
     double& y();
@@ -70,13 +67,13 @@ class point : public vec
     point(vec v);
 };
 
-class color : public vec
+class color
 // TODO should enforce taking values in the positive unit cube and throw exceptions if the
 // client tries to go out of bounds
 {
   public:
-    using vec::vec; // same constructors as vec
-    color(vec v);
+    color();
+    color(double r, double g, double b);
 
     double r() const;
     double g() const;
@@ -86,18 +83,12 @@ class color : public vec
     double& g();
     double& b();
 
-    color operator-() const = delete;
-    double norm() = delete;
-    double norm_squared() = delete;
+    color& operator+=(const color& c);
   
   private:
-    double x() const;
-    double y() const;
-    double z() const;
-
-    double& x();
-    double& y();
-    double& z();
+    double red;
+    double green;
+    double blue;
 };
 
 // vec utility functions
@@ -118,26 +109,25 @@ double dot(const vec &v, const vec &w);
 double dot(const normed_vec &v, const normed_vec &w);
 double dot(const vec &v, const normed_vec &w);
 double dot(const normed_vec &v, const vec &w);
-double dot(const color &v, const vec   &w) = delete;
-double dot(const vec   &v, const color &w) = delete;
-double dot(const color &v, const color &w) = delete;
 
 // cross product of vectors
 vec cross(const vec &v, const vec &w);
 vec cross(const normed_vec &v, const normed_vec &w);
 vec cross(const normed_vec &v, const vec &w);
 vec cross(const vec &v, const normed_vec &w);
-vec cross(const vec   &v, const color &w) = delete;
-vec cross(const color &v, const vec   &w) = delete;
-vec cross(const color &v, const color &w) = delete;
 
 // return unit vector corresponding to v
 normed_vec unit(const vec& v);
-vec unit(color v) = delete;
 
 normed_vec reflect(const normed_vec& incident, const normed_vec& normal);
 normed_vec refract(const normed_vec& incident, const normed_vec& normal, double refractive_indices_ratio);
 
 // color utility functions
-void write_color(std::ostream &out, color pixel_color); // write down a single pixel color in PPM format
-void write_color(std::ostream &out, color pixel_color, int samples_per_pixel); // write down a single pixel color in PPM format
+color operator+(const color &v, const color &w);
+color operator*(const color &v, const color &w);
+color operator*(const color &v, double t);
+color operator*(double t, const color &v);
+color operator/(const color &v, double t);
+
+void gamma2_correct(color& c);
+void gamma_correct(color& c, double factor);

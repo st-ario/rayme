@@ -2,6 +2,7 @@
 #include "math.h"
 
 #include <cmath>
+#include <string>
 
 // vec member functions
 vec::vec() : v0{0}, v1{0}, v2{0} {}
@@ -93,23 +94,25 @@ double normed_vec::y() const { return v1; }
 double normed_vec::z() const { return v2; }
 
 // color member functions
-color::color(vec v) : vec{v.x(), v.y(), v.z()} {}
+color::color() : red{0}, green{0}, blue{0} {}
+color::color(double r, double g, double b) : red{r}, green{g}, blue{b} {}
 
-double color::x() const { return vec::x(); }
-double color::y() const { return vec::y(); }
-double color::z() const { return vec::z(); }
+color& color::operator+=(const color& c)
+{
+  red += c.r();
+  green += c.g();
+  blue += c.b();
 
-double& color::x() { return vec::x(); }
-double& color::y() { return vec::y(); }
-double& color::z() { return vec::z(); }
+  return *this;
+}
 
-double color::r() const { return x(); }
-double color::g() const { return y(); }
-double color::b() const { return z(); }
+double color::r() const { return red; }
+double color::g() const { return green; }
+double color::b() const { return blue; }
 
-double& color::r() { return x(); }
-double& color::g() { return y(); }
-double& color::b() { return z(); }
+double& color::r() { return red; }
+double& color::g() { return green; }
+double& color::b() { return blue; }
 
 // point member functions
 point::point(vec v) : vec{v.x(), v.y(), v.z()} {}
@@ -259,32 +262,57 @@ normed_vec refract(const normed_vec& incident, const normed_vec& normal, double 
 normed_vec normed_vec::operator-() const { return normed_vec(-x(),-y(),-z()); }
 
 // color utility functions
-void write_color(std::ostream &out, color pixel_color) // write down a single pixel color in PPM format
+
+color operator+(const color &v, const color &w)
 {
-  out << static_cast<int>(255 * pixel_color.r()) << ' '
-      << static_cast<int>(255 * pixel_color.g()) << ' '
-      << static_cast<int>(255 * pixel_color.b()) << '\n';
+  double r = v.r() + w.r();
+  double g = v.g() + w.g();
+  double b = v.b() + w.b();
+  return color(r,g,b);
 }
 
-void write_color(std::ostream &out, color pixel_color, int samples_per_pixel) // write down a single pixel color in PPM format
+color operator*(const color &v, const color &w)
 {
-  double r = pixel_color.r();
-  double g = pixel_color.g();
-  double b = pixel_color.b();
+  double r = v.r() * w.r();
+  double g = v.g() * w.g();
+  double b = v.b() * w.b();
+  return color(r,g,b);
+}
 
-  // Divide the color by the number of samples, then gamma-correct it
-  // Gamma correction: raising to 1/gamma
-  double scale = 1.0 / samples_per_pixel;
-  /*
-  r = std::pow(scale * r, 1.0/5.0);
-  g = std::pow(scale * g, 1.0/5.0);
-  b = std::pow(scale * b, 1.0/5.0);
-  */
-  r = std::sqrt(scale * r);
-  g = std::sqrt(scale * g);
-  b = std::sqrt(scale * b);
+color operator*(const color &v, double t)
+{
+  double r = v.r() * t;
+  double g = v.g() * t;
+  double b = v.b() * t;
+  return color(r,g,b);
+}
 
-  out << static_cast<int>(255 * clamp(r, 0, 1.0)) << ' '
-      << static_cast<int>(255 * clamp(g, 0, 1.0)) << ' '
-      << static_cast<int>(255 * clamp(b, 0, 1.0)) << '\n';
+color operator*(double t, const color &v)
+{
+  double r = t * v.r();
+  double g = t * v.g();
+  double b = t * v.b();
+  return color(r,g,b);
+}
+
+color operator/(const color &v, double t)
+{
+  double r = v.r() / t;
+  double g = v.g() / t;
+  double b = v.b() / t;
+  return color(r,g,b);
+}
+
+void gamma2_correct(color& c)
+{
+  c.r() = std::sqrt(c.r());
+  c.g() = std::sqrt(c.g());
+  c.b() = std::sqrt(c.b());
+}
+
+void gamma_correct(color& c, double gamma)
+{
+  c.r() = std::pow(c.r(), 1.0/gamma);
+  c.g() = std::pow(c.g(), 1.0/gamma);
+  c.b() = std::pow(c.b(), 1.0/gamma);
 }

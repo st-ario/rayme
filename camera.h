@@ -34,7 +34,7 @@ class camera
           , double zfar
           );
 
-    ray get_ray(double horiz_factor, double vert_factor);
-    double get_znear();
-    double get_zfar();
+    ray get_ray(double horiz_factor, double vert_factor) const;
+    double get_znear() const;
+    double get_zfar() const;
 };

@@ -2,33 +2,14 @@
 #include <fstream>
 #include <cmath>
 
+#include "render.h"
 #include "my_vectors.h"
 #include "ray.h"
 #include "elements.h"
 #include "camera.h"
 #include "math.h"
 #include "materials.h"
-
-color ray_color(const ray& r, const element& world, int depth, double znear, double zfar)
-{
-  if (depth <= 0)
-    return color(0,0,0);
-
-  auto rec = world.hit(r, znear, zfar);
-  if (rec)
-  {
-    auto record = rec.value();
-    color attenuation;
-    auto scattered_ray = rec.value().ptr_mat->scatter(r, record, attenuation);
-    if (scattered_ray)
-      return attenuation * ray_color(scattered_ray.value(), world, depth-1, znear, zfar);
-    return color(0,0,0);
-  }
-
-  // else: gradient background, depending only on the y coordinate;
-  double t = 0.5 * (1 + (r.direction.y()));
-  return ((1.0 - t) * color(1.0, 1.0, 1.0) + t * color(0.5, 0.7, 1.0));
-}
+#include "images.h"
 
 // y = up, x = right, right-handed
 int main()
@@ -56,32 +37,15 @@ int main()
   // Image
   const int image_width = 600;
   const int image_height = static_cast<int>(image_width / aspect_ratio);
-  const int samples_per_pixel = 100;
+  const int samples_per_pixel = 40;
   const int max_depth = 50;
 
   // Render
-  std::ofstream image_file;
-  image_file.open("image.ppm");
 
-  image_file << "P3\n" << image_width <<  ' ' << image_height << "\n255\n";
+  image picture(image_width,image_height);
+  render(picture, samples_per_pixel, max_depth, cam, world);
 
-  for (int j = 0; j< image_height; ++j)
-  {
-    std::cerr << "\x1b[2K" << "\rRemaining lines to render: " << (image_height - j - 1);
-    std::flush(std::cerr);
-    for (int i = 0; i < image_width; ++i)
-    {
-      color pixel_color(0,0,0);
-      for (int s = 0; s < samples_per_pixel + 1; ++s)
-      {
-        double horiz_factor = (i + random_double())/(image_width-1);
-        double vert_factor = (j + random_double())/(image_height-1);
-        ray r = cam.get_ray(horiz_factor, vert_factor);
-        pixel_color += ray_color(r, world, max_depth, cam.get_znear(),cam.get_zfar());
-      }
-      write_color(image_file, pixel_color, samples_per_pixel); }
-  }
-  image_file.close();
+  picture.write_to_ppm("image.ppm");
 
   std::cerr << "\nDone!\n";
 }

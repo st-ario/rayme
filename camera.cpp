@@ -53,7 +53,7 @@ camera::camera( point orig
                           + (viewport_height/2.0) * rel_y.to_vec();
       }
 
-ray camera::get_ray(double horiz_factor, double vert_factor)
+ray camera::get_ray(double horiz_factor, double vert_factor) const
 {
   vec nonunital_direction = upper_left_corner
                           + (horiz_factor * viewport_width) * rel_x.to_vec()
@@ -62,5 +62,5 @@ ray camera::get_ray(double horiz_factor, double vert_factor)
   return ray(origin, unit(nonunital_direction));
 }
 
-double camera::get_znear() { return znear; }
-double camera::get_zfar()  { return zfar; }
+double camera::get_znear() const { return znear; }
+double camera::get_zfar()  const { return zfar; }
