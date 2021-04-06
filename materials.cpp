@@ -29,7 +29,7 @@ std::optional<ray> metal::scatter(
   vec reflected = reflect(r.direction, rec.normal).to_vec();
   normed_vec scattered_direction = unit(reflected + roughness*vec::random_in_unit_sphere());
   ray scattered = ray(rec.p, scattered_direction);
-  if (dot(scattered.direction, rec.normal) > 0);
+  if (dot(scattered.direction, rec.normal) > 0)
     return scattered;
   return std::nullopt;
 }

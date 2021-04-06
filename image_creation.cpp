@@ -35,15 +35,18 @@ int main()
   camera cam(point(-2,2,1), vec(0,0,-1), 20.0, aspect_ratio, vec(0,1,0), shadow_acne_treshold);
 
   // Image
-  const int image_width = 600;
+  const int image_width = 800;
   const int image_height = static_cast<int>(image_width / aspect_ratio);
-  const int samples_per_pixel = 40;
+  const int samples_per_pixel = 100;
   const int max_depth = 50;
 
   // Render
 
   image picture(image_width,image_height);
   render(picture, samples_per_pixel, max_depth, cam, world);
+
+  std::cerr << "\nExporting file...";
+  std::flush(std::cerr);
 
   picture.write_to_ppm("image.ppm");
 
