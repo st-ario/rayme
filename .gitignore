@@ -1,4 +1,5 @@
 *.ppm
+*.png
 *.txt
 *.bin
 .directory

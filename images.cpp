@@ -1,6 +1,11 @@
+#include <fstream>
+#include <cstdint>
+
 #include "images.h"
 #include "math.h"
-#include <fstream>
+
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "third-parties/stb_image_write.h"
 
 image::image(int pixel_width, int pixel_height) : width{pixel_width}, height{pixel_height}
 {
@@ -18,7 +23,7 @@ image::image(int pixel_width, int pixel_height) : width{pixel_width}, height{pix
 void image::write_to_ppm(std::string file_name)
 {
   std::ofstream image_file;
-  image_file.open(file_name);
+  image_file.open(file_name + ".ppm");
 
   image_file << "P3\n" << width <<  ' ' << height << "\n255\n";
   int ppm_red;
@@ -37,6 +42,23 @@ void image::write_to_ppm(std::string file_name)
   }
 
   image_file.close();
+}
+
+void image::write_to_png(std::string file_name)
+{
+  uint8_t data[width * height * 3]; //3 channels, RGB
+  int index = 0; 
+  for (std::vector<color> row : pixels)
+  {
+    for (color c : row)
+    {
+      data[index++] = static_cast<uint8_t>(255.0 * clamp(c.r(), 0, 1.0));
+      data[index++] = static_cast<uint8_t>(255.0 * clamp(c.g(), 0, 1.0));
+      data[index++] = static_cast<uint8_t>(255.0 * clamp(c.b(), 0, 1.0));
+    }
+  }
+
+  stbi_write_png((file_name + ".png").c_str(), width, height, 3, data, width * 3);
 }
 
 int image::get_height() const { return height; }
