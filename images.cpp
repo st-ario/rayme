@@ -5,7 +5,7 @@
 #include "math.h"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "third-parties/stb_image_write.h"
+#include "extern/stb/stb_image_write.h"
 
 image::image(int pixel_width, int pixel_height) : width{pixel_width}, height{pixel_height}
 {
