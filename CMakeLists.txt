@@ -34,16 +34,25 @@ endif()
 
 #####    CHECK ALL THE SUBMODULES
 if(NOT EXISTS "${PROJECT_SOURCE_DIR}/extern/stb/stb_image_write.h")
-    message(FATAL_ERROR "The stb submodule was not downloaded! GIT_SUBMODULE was turned off of failed; please update submodules and try again.")
+    message(FATAL_ERROR "The stb submodule was not downloaded! GIT_SUBMODULE was turned off or failed; please update submodules and try again.")
+endif()
+if(NOT EXISTS "${PROJECT_SOURCE_DIR}/extern/simdjson/singleheader/simdjson.h")
+    message(FATAL_ERROR "The simdjson submodule was not downloaded! GIT_SUBMODULE was turned off or failed; please update submodules and try again.")
+endif()
+if(NOT EXISTS "${PROJECT_SOURCE_DIR}/extern/simdjson/singleheader/simdjson.cpp")
+    message(FATAL_ERROR "The simdjson submodule was not downloaded! GIT_SUBMODULE was turned off or failed; please update submodules and try again.")
 endif()
 
 #add_subdirectory(extern/stb)
+#add_subdirectory(extern/simdjson)
 
 target_link_directories(${PROJECT_NAME}
     PRIVATE extern/stb
+    PRIVATE extern/simdjson
 )
 
 add_library(stb extern/stb/stb_image_write.h)
+add_library(simdjson extern/simdjson/singleheader/stb_image_write.h)
 set_target_properties(stb PROPERTIES LINKER_LANGUAGE CXX)
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
