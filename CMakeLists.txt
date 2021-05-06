@@ -52,8 +52,9 @@ target_link_directories(${PROJECT_NAME}
 )
 
 add_library(stb extern/stb/stb_image_write.h)
-add_library(simdjson extern/simdjson/singleheader/stb_image_write.h)
 set_target_properties(stb PROPERTIES LINKER_LANGUAGE CXX)
+add_library(simdjson extern/simdjson/singleheader/simdjson.h)
+set_target_properties(simdjson PROPERTIES LINKER_LANGUAGE CXX)
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)

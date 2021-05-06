@@ -1,18 +1,27 @@
 #pragma once
 
 #include <limits>
+#include <vector>
+#include <string_view>
 
 // Constants
 
-const double infinity = std::numeric_limits<double>::infinity();
-const double pi = 3.1415926535897932385;
+constexpr float infinity = std::numeric_limits<float>::infinity();
+constexpr float pi{3.141592653f};
 
 // Utility Functions
 
-double degrees_to_radians(double degrees);
+float degrees_to_radians(float degrees);
 
-double random_double();
-double random_double(double min, double max);
-double standard_normal_random_double();
+float random_float();
+float random_float(float min, float max);
+float standard_normal_random_float();
 
-double clamp(double value, double min, double max);
+float clamp(float value, float min, float max);
+
+float fast_inverse_sqrt(float x);
+
+namespace base64
+{
+  std::vector<unsigned char> decode(const std::string_view& encoded_string);
+}

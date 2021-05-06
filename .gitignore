@@ -4,7 +4,10 @@
 .directory
 .vscode/
 build/
+misc/
 *.sh
+*.gltf
+*.glb
 
 #cmake stuff
 CMakeLists.txt.user

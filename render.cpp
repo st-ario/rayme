@@ -8,7 +8,7 @@
 #include "materials.h"
 
 // temporary solution, to use before properly dealing with lights
-static color ray_color(const ray& r, const element& world, int depth, double znear, double zfar)
+static color ray_color(const ray& r, const element& world, int depth, float znear, float zfar)
 {
   if (depth <= 0)
     return color(0,0,0);
@@ -25,7 +25,7 @@ static color ray_color(const ray& r, const element& world, int depth, double zne
   }
 
   // else: gradient background, depending only on the y coordinate;
-  double t = 0.5 * (1 + (r.direction.y()));
+  float t = 0.5 * (1 + (r.direction.y()));
   return ((1.0 - t) * color(1.0, 1.0, 1.0) + t * color(0.5, 0.7, 1.0));
 }
 
@@ -52,8 +52,8 @@ static void render_tile( image* picture
         break;
       for (int s = 0; s < samples_per_pixel + 1; ++s)
       {
-        double horiz_factor = (h_offset + x + random_double())/(picture->get_width()-1);
-        double vert_factor = (v_offset + y + random_double())/(picture->get_height()-1);
+        float horiz_factor = (h_offset + x + random_float())/(picture->get_width()-1);
+        float vert_factor = (v_offset + y + random_float())/(picture->get_height()-1);
         ray r = cam->get_ray(horiz_factor, vert_factor);
         pixel_color += ray_color(r, *world, depth, cam->get_znear(),cam->get_zfar());
       }
@@ -72,8 +72,8 @@ void render( image& picture
            , const element& world)
 {
   const int tile_size{16};
-  const int num_columns{static_cast<int>(std::ceil(double(picture.get_width() / double(tile_size))))};
-  const int num_rows{static_cast<int>(std::ceil(double(picture.get_height() / double(tile_size))))};
+  const int num_columns{static_cast<int>(std::ceil(float(picture.get_width() / float(tile_size))))};
+  const int num_rows{static_cast<int>(std::ceil(float(picture.get_height() / float(tile_size))))};
 
   int counter{0};
 

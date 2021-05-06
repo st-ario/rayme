@@ -42,21 +42,21 @@ std::optional<ray> dielectric::scatter(
 {
   attenuation = color(1.0, 1.0, 1.0);
 
-  double refraction_ratio = rec.front_face ? (1.0 / refraction_index) : refraction_index;
-  double cos_incindence_angle = std::fmin(1.0, dot(r.direction, rec.normal));
-  double sin_incindence_angle = std::sqrt(1.0 - cos_incindence_angle * cos_incindence_angle);
-  double sin_refracted_angle = refraction_ratio * sin_incindence_angle;
-  double cos_refracted_angle = std::sqrt(1.0 - sin_refracted_angle * sin_refracted_angle);
+  float refraction_ratio = rec.front_face ? (1.0 / refraction_index) : refraction_index;
+  float cos_incindence_angle = std::fmin(1.0, dot(r.direction, rec.normal));
+  float sin_incindence_angle = std::sqrt(1.0 - cos_incindence_angle * cos_incindence_angle);
+  float sin_refracted_angle = refraction_ratio * sin_incindence_angle;
+  float cos_refracted_angle = std::sqrt(1.0 - sin_refracted_angle * sin_refracted_angle);
   bool cannot_refract = sin_refracted_angle > 1.0;
 
-  bool aux = (cannot_refract || random_double() > fresnel_reflectance(cos_incindence_angle, cos_refracted_angle, refraction_index));
+  bool aux = (cannot_refract || random_float() > fresnel_reflectance(cos_incindence_angle, cos_refracted_angle, refraction_index));
 
   normed_vec direction = get_direction(aux, r.direction, rec.normal, refraction_ratio);
 
   return ray(rec.p,direction);
 }
 
-static normed_vec get_direction(bool b, normed_vec dir, normed_vec n, double ref_ratio)
+static normed_vec get_direction(bool b, normed_vec dir, normed_vec n, float ref_ratio)
 {
   if (b)
     return reflect(dir,n);
@@ -64,22 +64,22 @@ static normed_vec get_direction(bool b, normed_vec dir, normed_vec n, double ref
     return refract(dir,n,ref_ratio);
 }
 
-static double reflectance(double cos, double refraction_index)
+static float reflectance(float cos, float refraction_index)
 {
   // Use Schlick's approximation for reflectance.
-  double r0 = (1.0 - refraction_index) / (1.0 + refraction_index);
+  float r0 = (1.0 - refraction_index) / (1.0 + refraction_index);
   r0 = r0*r0;
   return r0 + (1.0 - r0) * std::pow((1.0 - cos), 5);
 }
 
-static double fresnel_reflectance(double cos_incidence, double cos_refraction, double refraction_index)
+static float fresnel_reflectance(float cos_incidence, float cos_refraction, float refraction_index)
 {
-  double parallel = (refraction_index * cos_incidence - cos_refraction)/ (refraction_index * cos_incidence + cos_refraction);
+  float parallel = (refraction_index * cos_incidence - cos_refraction)/ (refraction_index * cos_incidence + cos_refraction);
   parallel = parallel * parallel;
 
-  double perp = (cos_refraction - refraction_index * cos_incidence)/ (cos_refraction + refraction_index * cos_incidence);
+  float perp = (cos_refraction - refraction_index * cos_incidence)/ (cos_refraction + refraction_index * cos_incidence);
   perp = perp * perp;
 
-  double factor = (parallel + perp)/2;
+  float factor = (parallel + perp)/2;
   return factor;
 }

@@ -12,13 +12,13 @@ class material; // defined in materials.h
 struct hit_record
 {
   point p;
-  double t;
+  float t;
   bool front_face;
   std::shared_ptr<material> ptr_mat;
   normed_vec normal;
 
   hit_record( point pt
-            , double at
+            , float at
             , bool front
             , std::shared_ptr<material> p_mat
             , normed_vec n
@@ -28,7 +28,7 @@ struct hit_record
 class element
 {
   public:
-    virtual std::optional<hit_record> hit(const ray& r, double t_min, double t_max) const = 0;
+    virtual std::optional<hit_record> hit(const ray& r, float t_min, float t_max) const = 0;
 };
 
 // TODO restructure this class
@@ -44,10 +44,10 @@ class scene : public element
     void add(std::shared_ptr<element> obj) { objects.push_back(obj); }
 
     // TODO change things in such a way that normals are computed only for the closest hit
-    virtual std::optional<hit_record> hit(const ray& r, double t_min, double t_max) const override
+    virtual std::optional<hit_record> hit(const ray& r, float t_min, float t_max) const override
     {
         std::optional<hit_record> record{};
-        double closest_so_far = t_max;
+        float closest_so_far = t_max;
     
         for (const auto& object : objects) {
             auto partial_record = object->hit(r, t_min, closest_so_far);
@@ -66,23 +66,23 @@ class sphere : public element
 {
   public:
     point center;
-    double radius;
+    float radius;
     std::shared_ptr<material> ptr_mat;
     
     sphere() : center{point(0,0,0)}, radius{0} {};
-    sphere(point c, double r, std::shared_ptr<material> m) : center{c}, radius{r}, ptr_mat{m} {};
+    sphere(point c, float r, std::shared_ptr<material> m) : center{c}, radius{r}, ptr_mat{m} {};
 
-    std::optional<hit_record> hit(const ray& r, double t_min, double t_max) const override
+    std::optional<hit_record> hit(const ray& r, float t_min, float t_max) const override
     {
       vec center_to_origin = r.origin - center;
-      double b_halved = dot(center_to_origin,r.direction);
-      double c = center_to_origin.norm_squared() - radius*radius;
-      double discriminant = b_halved*b_halved - c;
+      float b_halved = dot(center_to_origin,r.direction);
+      float c = center_to_origin.norm_squared() - radius*radius;
+      float discriminant = b_halved*b_halved - c;
       if (discriminant < 0)
         return std::nullopt;
 
-      double sqrtdel = std::sqrt(discriminant);
-      double root = -b_halved - std::sqrt(discriminant);
+      float sqrtdel = std::sqrt(discriminant);
+      float root = -b_halved - std::sqrt(discriminant);
       if (root < t_min || root > t_max)
         return std::nullopt;
 

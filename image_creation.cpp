@@ -29,9 +29,9 @@ int main()
   world.add(std::make_shared<sphere>(point( 1.0,    0.0, -1.0),   0.5, material_right));
 
   // Camera
-  const double aspect_ratio = 16.0/9.0;
-  const double focal_length = 1.0;
-  double shadow_acne_treshold = 0.001;
+  const float aspect_ratio = 16.0/9.0;
+  const float focal_length = 1.0;
+  float shadow_acne_treshold = 0.001;
   camera cam(point(-2,2,1), vec(0,0,-1), 20.0, aspect_ratio, vec(0,1,0), shadow_acne_treshold);
 
   // Image

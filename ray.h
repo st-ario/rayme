@@ -10,5 +10,5 @@ struct ray
   ray() = delete;
   ray(const point& origin, const normed_vec& direction);
 
-  point at(double t) const;
+  point at(float t) const;
 };

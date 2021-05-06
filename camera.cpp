@@ -4,10 +4,10 @@
 
 camera::camera( point orig
       , vec look_at
-      , double vertical_fov_in_deg
-      , double image_ratio
+      , float vertical_fov_in_deg
+      , float image_ratio
       , vec absolute_y
-      , double z_near
+      , float z_near
       ) : origin{orig}, aspect_ratio{image_ratio}
         , rel_z{orig-look_at}
         , rel_x{cross(absolute_y,rel_z)}
@@ -15,8 +15,8 @@ camera::camera( point orig
         , znear{z_near}
         , zfar{infinity}
       {
-        double angle = degrees_to_radians(vertical_fov_in_deg);
-        double h  = std::tan(angle/2.0);
+        float angle = degrees_to_radians(vertical_fov_in_deg);
+        float h  = std::tan(angle/2.0);
         viewport_height = h * 2.0;
         viewport_width = aspect_ratio * viewport_height;
 
@@ -29,11 +29,11 @@ camera::camera( point orig
 
 camera::camera( point orig
       , vec look_at
-      , double vertical_fov_in_deg
-      , double image_ratio
+      , float vertical_fov_in_deg
+      , float image_ratio
       , vec absolute_y
-      , double z_near
-      , double z_far
+      , float z_near
+      , float z_far
       ) : origin{orig}, aspect_ratio{image_ratio}
         , rel_z{orig-look_at}
         , rel_x{cross(absolute_y,rel_z)}
@@ -41,8 +41,8 @@ camera::camera( point orig
         , znear{z_near}
         , zfar{z_far}
       {
-        double angle = degrees_to_radians(vertical_fov_in_deg);
-        double h  = std::tan(angle/2.0);
+        float angle = degrees_to_radians(vertical_fov_in_deg);
+        float h  = std::tan(angle/2.0);
         viewport_height = h * 2.0;
         viewport_width = aspect_ratio * viewport_height;
 
@@ -53,7 +53,7 @@ camera::camera( point orig
                           + (viewport_height/2.0) * rel_y.to_vec();
       }
 
-ray camera::get_ray(double horiz_factor, double vert_factor) const
+ray camera::get_ray(float horiz_factor, float vert_factor) const
 {
   vec nonunital_direction = upper_left_corner
                           + (horiz_factor * viewport_width) * rel_x.to_vec()
@@ -62,5 +62,5 @@ ray camera::get_ray(double horiz_factor, double vert_factor) const
   return ray(origin, unit(nonunital_direction));
 }
 
-double camera::get_znear() const { return znear; }
-double camera::get_zfar()  const { return zfar; }
+float camera::get_znear() const { return znear; }
+float camera::get_zfar()  const { return zfar; }

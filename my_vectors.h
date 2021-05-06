@@ -5,32 +5,32 @@
 class vec
 {
   private:
-    double v0, v1, v2;
+    float v0, v1, v2;
     
   public:
     vec();
-    vec(double w0, double w1, double w2);
+    vec(float w0, float w1, float w2);
     vec& operator=(const vec& w);
 
-    double x() const;
-    double y() const;
-    double z() const;
+    float x() const;
+    float y() const;
+    float z() const;
 
-    double& x();
-    double& y();
-    double& z();
+    float& x();
+    float& y();
+    float& z();
 
-    vec& operator+=(const vec &w);
-    vec& operator*=(const double t);
-    vec& operator/=(const double t);
+    vec& operator+=(const vec& w);
+    vec& operator*=(const float t);
+    vec& operator/=(const float t);
 
     vec operator-() const; // negate vector
 
-    virtual double norm() const;
-    virtual double norm_squared() const;
+    virtual float norm() const;
+    virtual float norm_squared() const;
 
     static vec random();
-    static vec random(double min, double max);
+    static vec random(float min, float max);
     static vec random_unit();
     static vec random_in_unit_sphere();
 
@@ -40,20 +40,20 @@ class vec
 class normed_vec
 {
   private:
-    double v0, v1, v2;
-    normed_vec(double w0, double w1, double w2);
+    float v0, v1, v2;
+    normed_vec(float w0, float w1, float w2);
 
   public:
     normed_vec() = delete; // no meaningful default value
     explicit normed_vec(const vec& v); // construct a normed vector from an ordinary one by normalizing it
 
     // coordinates can only be returned by value, to preserve the invariant
-    double x() const;
-    double y() const;
-    double z() const;
+    float x() const;
+    float y() const;
+    float z() const;
 
-    double norm() const;
-    double norm_squared() const;
+    float norm() const;
+    float norm_squared() const;
 
     normed_vec operator-() const;
 
@@ -73,22 +73,22 @@ class color
 {
   public:
     color();
-    color(double r, double g, double b);
+    color(float r, float g, float b);
 
-    double r() const;
-    double g() const;
-    double b() const;
+    float r() const;
+    float g() const;
+    float b() const;
 
-    double& r();
-    double& g();
-    double& b();
+    float& r();
+    float& g();
+    float& b();
 
     color& operator+=(const color& c);
   
   private:
-    double red;
-    double green;
-    double blue;
+    float red;
+    float green;
+    float blue;
 };
 
 // vec utility functions
@@ -98,17 +98,34 @@ bool operator!=(const vec& v, const vec& w);
 vec operator+(const vec &v, const vec &w);
 vec operator-(const vec &v, const vec &w);
 vec operator*(const vec &v, const vec &w);
-vec operator*(double t, const vec &w);
-vec operator*(const vec &v, double t);
-vec operator/(const vec &v, double t);
+vec operator*(float t, const vec &w);
+vec operator*(const vec &v, float t);
+vec operator/(const vec &v, float t);
 
 std::ostream& operator<<(std::ostream &out, const vec &v);
 
+// hashing for vectors
+namespace std
+{
+  template<>
+  struct hash<vec>
+  {
+    size_t operator()(const vec& v) const
+    {
+      // multiply the standard hashes by some big primes and XOR them
+      // following https://stackoverflow.com/a/5929567
+      return   (hash<float>()(v.x()) * 73856093)
+             ^ (hash<float>()(v.y()) * 19349669)
+             ^ (hash<float>()(v.z()) * 83492791);
+    }
+  };
+} // namespace std
+
 // dot product of vectors
-double dot(const vec &v, const vec &w);
-double dot(const normed_vec &v, const normed_vec &w);
-double dot(const vec &v, const normed_vec &w);
-double dot(const normed_vec &v, const vec &w);
+float dot(const vec &v, const vec &w);
+float dot(const normed_vec &v, const normed_vec &w);
+float dot(const vec &v, const normed_vec &w);
+float dot(const normed_vec &v, const vec &w);
 
 // cross product of vectors
 vec cross(const vec &v, const vec &w);
@@ -120,14 +137,14 @@ vec cross(const vec &v, const normed_vec &w);
 normed_vec unit(const vec& v);
 
 normed_vec reflect(const normed_vec& incident, const normed_vec& normal);
-normed_vec refract(const normed_vec& incident, const normed_vec& normal, double refractive_indices_ratio);
+normed_vec refract(const normed_vec& incident, const normed_vec& normal, float refractive_indices_ratio);
 
 // color utility functions
 color operator+(const color &v, const color &w);
 color operator*(const color &v, const color &w);
-color operator*(const color &v, double t);
-color operator*(double t, const color &v);
-color operator/(const color &v, double t);
+color operator*(const color &v, float t);
+color operator*(float t, const color &v);
+color operator/(const color &v, float t);
 
 void gamma2_correct(color& c);
-void gamma_correct(color& c, double factor);
+void gamma_correct(color& c, float factor);
