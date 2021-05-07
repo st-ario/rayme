@@ -61,6 +61,6 @@ class dielectric : public material
       ) const override;
 };
 
-static normed_vec get_direction(bool b, normed_vec dir, normed_vec n, float ref_ratio);
+static normed_vec3 get_direction(bool b, normed_vec3 dir, normed_vec3 n, float ref_ratio);
 static float reflectance(float cos, float refraction_index);
 static float fresnel_reflectance(float cos_incidence, float cos_refraction, float refraction_index);

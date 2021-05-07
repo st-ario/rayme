@@ -6,7 +6,7 @@
 
 namespace gltf {
 
-union number { int i; float f; };
+union numeric { int i; float f; };
 
 using buffer = std::vector<unsigned char>;
 
@@ -36,11 +36,11 @@ struct node
 {
   int camera;
   std::vector<int> children;
-  std::array<number,16> matrix{1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1};
+  std::array<gltf::numeric,16> matrix{1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1};
   int mesh;
-  std::array<number,4> rotation{0,0,0,1};
-  std::array<number,3> scale{1,1,1};
-  std::array<number,3> translation{0,0,0};
+  std::array<gltf::numeric,4> rotation{0,0,0,1};
+  std::array<gltf::numeric,3> scale{1,1,1};
+  std::array<gltf::numeric,3> translation{0,0,0};
 };
 
 struct buffer_view
@@ -115,12 +115,40 @@ int n_components(const accessor& acc)
   } else {
     //print error message and exit
   }
+
   return n;
 }
 
 int element_size(const accessor& acc)
 {
   return component_size(acc) * n_components(acc);
+}
+
+template<typename T, typename N>
+int process_elements(std::vector<T>& vec
+                    , accessor& acc
+                    , const std::vector<buffer_view>& views
+                    , const buffer& data)
+{
+  int n_elements = acc.count;
+  int offset = views[acc.buffer_view].byte_offset + acc.byte_offset;
+  int s = component_size(acc);
+  int s_element = element_size(acc);
+  int length = s_element * acc.count;
+          
+  for (int i = offset; i < offset + length; i+=s_element)
+  {
+    T x;
+    for (int j = 0; j < x.size(); j+=s)
+    {
+      N n;
+      std::memcpy(&n, &data[i+j], s);
+      // careful with the case vertex_indices.push_back((uint16_t)data[i]);
+      x[j] = n;
+    }
+    vec.push_back(x);
+  }
+  return n_elements;
 }
 
 void parse(std::string filename)
@@ -302,42 +330,51 @@ void parse(std::string filename)
           }
         }
         // ######## CREATE MESH OBJECT
-        // stuff to move into the mesh
-        int n_vertices{accessors[prim.attr_vertices].count};
-        int n_triangles{accessors[prim.indices].count / 3};
-        std::vector<vec> vertices;
+        std::vector<vec3> vertices;
+        int n_vertices{0};
+        { // unnamed scope
+          accessor& acc{accessors[prim.attr_vertices]};
+          n_vertices = acc.count;
+          int offset = views[acc.buffer_view].byte_offset
+                     + acc.byte_offset;
+          std::cout << "vertices offset: " << offset << "\n";
+          int s_element = element_size(acc);
+          int s_component = component_size(acc);
+          int length = s_element * accessors[prim.attr_vertices].count;
+          std::cout << "vertices length: " << length << "\n";
 
-        int offset = views[accessors[prim.attr_vertices].buffer_view].byte_offset
-                   + accessors[prim.attr_vertices].byte_offset;
-        std::cout << "vertices offset: " << offset << "\n";
-        int length = 12 * accessors[prim.attr_vertices].count;
-        std::cout << "vertices length: " << length << "\n";
-        std::vector<unsigned char>& data = buffers[views[accessors[prim.attr_vertices].buffer_view].buffer_index];
+          buffer& data{buffers[views[acc.buffer_view].buffer_index]};
 
-        for (int i = offset; i < offset + length; i+=12)
-        {
-          point p;
-          float f;
-          std::memcpy(&f, &data[i], 4);
-          p.x() = f;
-          std::memcpy(&f, &data[i+4], 4);
-          p.y() = f;
-          std::memcpy(&f, &data[i+8], 4);
-          p.z() = f;
-          vertices.push_back(p);
-        }
+          for (int i = offset; i < offset + length; i+=s_element)
+          {
+            point p;
+            float f;
+            std::memcpy(&f, &data[i], s_component);
+            p.x() = f;
+            std::memcpy(&f, &data[i+s_component], s_component);
+            p.y() = f;
+            std::memcpy(&f, &data[i+2*s_component], s_component);
+            p.z() = f;
+            vertices.push_back(p);
+          }
+        } // unnamed scope
 
         std::vector<int> vertex_indices;
+        int n_triangles{0};
+        { // unnamed scope
+          accessor& acc{accessors[prim.indices]};
+          n_triangles = acc.count / 3;
+          int offset = views[acc.buffer_view].byte_offset
+                     + acc.byte_offset;
+          std::cout << "vertices offset: " << offset << "\n";
+          int s_component = component_size(acc);
+          int length = s_component * acc.count;
+          std::cout << "vertices length: " << length << "\n";
+          buffer& data = buffers[views[acc.buffer_view].buffer_index];
 
-        offset = views[accessors[prim.indices].buffer_view].byte_offset
-                   + accessors[prim.indices].byte_offset;
-        std::cout << "vertices offset: " << offset << "\n";
-        length = 2 * accessors[prim.indices].count;
-        std::cout << "vertices length: " << length << "\n";
-        data = buffers[views[accessors[prim.indices].buffer_view].buffer_index];
-
-        for (int i = offset; i < offset + length ; i+=2)
-          vertex_indices.push_back((uint16_t)data[i]);
+          for (int i = offset; i < offset + length ; i+=s_component)
+            vertex_indices.push_back((uint16_t)data[i]);
+        } // unnamed scope
 
         std::cout << "indices:\n";
         for (auto i : vertex_indices)

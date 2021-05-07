@@ -15,13 +15,13 @@ struct hit_record
   float t;
   bool front_face;
   std::shared_ptr<material> ptr_mat;
-  normed_vec normal;
+  normed_vec3 normal;
 
   hit_record( point pt
             , float at
             , bool front
             , std::shared_ptr<material> p_mat
-            , normed_vec n
+            , normed_vec3 n
             ) : p{pt}, t{at}, front_face{front}, ptr_mat{p_mat}, normal{n} {}
 };
 
@@ -74,7 +74,7 @@ class sphere : public element
 
     std::optional<hit_record> hit(const ray& r, float t_min, float t_max) const override
     {
-      vec center_to_origin = r.origin - center;
+      vec3 center_to_origin = r.origin - center;
       float b_halved = dot(center_to_origin,r.direction);
       float c = center_to_origin.norm_squared() - radius*radius;
       float discriminant = b_halved*b_halved - c;
@@ -87,10 +87,10 @@ class sphere : public element
         return std::nullopt;
 
       point p = r.at(root);
-      vec nonunital_candidate_normal = p - center;
+      vec3 nonunital_candidate_normal = p - center;
 
       bool front_face = dot(r.direction, nonunital_candidate_normal) < 0;
-      normed_vec normal = front_face ? unit(nonunital_candidate_normal) : - unit(nonunital_candidate_normal);
+      normed_vec3 normal = front_face ? unit(nonunital_candidate_normal) : - unit(nonunital_candidate_normal);
 
       hit_record record = hit_record(p, root, front_face, ptr_mat, normal);
 

@@ -32,7 +32,7 @@ int main()
   const float aspect_ratio = 16.0/9.0;
   const float focal_length = 1.0;
   float shadow_acne_treshold = 0.001;
-  camera cam(point(-2,2,1), vec(0,0,-1), 20.0, aspect_ratio, vec(0,1,0), shadow_acne_treshold);
+  camera cam(point(-2,2,1), vec3(0,0,-1), 20.0, aspect_ratio, vec3(0,1,0), shadow_acne_treshold);
 
   // Image
   const int image_width = 800;

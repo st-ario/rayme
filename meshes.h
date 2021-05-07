@@ -8,15 +8,15 @@ class mesh
     const int n_triangles;
     std::vector<int> vertex_indices;
     std::vector<point> vertices;
-    std::vector<normed_vec> normals;
-    std::vector<normed_vec> tangents;
+    std::vector<normed_vec3> normals;
+    std::vector<normed_vec3> tangents;
 
     mesh( int n_vertices
         , int n_triangles
         , std::vector<int> vertex_indices
         , std::vector<point> vertices
-        , std::vector<normed_vec> normals = {}
-        , std::vector<normed_vec> tangents = {}) :
+        , std::vector<normed_vec3> normals = {}
+        , std::vector<normed_vec3> tangents = {}) :
         n_vertices{n_vertices}, n_triangles{n_triangles},
         vertex_indices{vertex_indices}, vertices{vertices},
         normals{normals}, tangents{tangents} {}

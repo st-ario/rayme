@@ -2,15 +2,15 @@
 
 #include <iostream>
 
-class vec
+class vec3
 {
   private:
     float v0, v1, v2;
     
   public:
-    vec();
-    vec(float w0, float w1, float w2);
-    vec& operator=(const vec& w);
+    vec3();
+    vec3(float w0, float w1, float w2);
+    vec3& operator=(const vec3& w);
 
     float x() const;
     float y() const;
@@ -20,32 +20,32 @@ class vec
     float& y();
     float& z();
 
-    vec& operator+=(const vec& w);
-    vec& operator*=(const float t);
-    vec& operator/=(const float t);
+    vec3& operator+=(const vec3& w);
+    vec3& operator*=(const float t);
+    vec3& operator/=(const float t);
 
-    vec operator-() const; // negate vector
+    vec3 operator-() const;
 
     virtual float norm() const;
     virtual float norm_squared() const;
 
-    static vec random();
-    static vec random(float min, float max);
-    static vec random_unit();
-    static vec random_in_unit_sphere();
+    static vec3 random();
+    static vec3 random(float min, float max);
+    static vec3 random_unit();
+    static vec3 random_in_unit_sphere();
 
     bool near_zero() const;
 };
 
-class normed_vec
+class normed_vec3
 {
   private:
     float v0, v1, v2;
-    normed_vec(float w0, float w1, float w2);
+    normed_vec3(float w0, float w1, float w2);
 
   public:
-    normed_vec() = delete; // no meaningful default value
-    explicit normed_vec(const vec& v); // construct a normed vector from an ordinary one by normalizing it
+    normed_vec3() = delete; // no meaningful default value
+    explicit normed_vec3(const vec3& v); // construct a normed vector from an ordinary one by normalizing it
 
     // coordinates can only be returned by value, to preserve the invariant
     float x() const;
@@ -55,16 +55,16 @@ class normed_vec
     float norm() const;
     float norm_squared() const;
 
-    normed_vec operator-() const;
+    normed_vec3 operator-() const;
 
-    vec to_vec() const;
+    vec3 to_vec3() const;
 };
 
-class point : public vec
+class point : public vec3
 {
   public:
-    using vec::vec; // same constructors as vec
-    point(vec v);
+    using vec3::vec3; // same constructors as vec3
+    point(vec3 v);
 };
 
 class color
@@ -91,26 +91,26 @@ class color
     float blue;
 };
 
-// vec utility functions
-bool operator==(const vec& v, const vec& w);
-bool operator!=(const vec& v, const vec& w);
+// vec3 utility functions
+bool operator==(const vec3& v, const vec3& w);
+bool operator!=(const vec3& v, const vec3& w);
 
-vec operator+(const vec &v, const vec &w);
-vec operator-(const vec &v, const vec &w);
-vec operator*(const vec &v, const vec &w);
-vec operator*(float t, const vec &w);
-vec operator*(const vec &v, float t);
-vec operator/(const vec &v, float t);
+vec3 operator+(const vec3 &v, const vec3 &w);
+vec3 operator-(const vec3 &v, const vec3 &w);
+vec3 operator*(const vec3 &v, const vec3 &w);
+vec3 operator*(float t, const vec3 &w);
+vec3 operator*(const vec3 &v, float t);
+vec3 operator/(const vec3 &v, float t);
 
-std::ostream& operator<<(std::ostream &out, const vec &v);
+std::ostream& operator<<(std::ostream &out, const vec3 &v);
 
 // hashing for vectors
 namespace std
 {
   template<>
-  struct hash<vec>
+  struct hash<vec3>
   {
-    size_t operator()(const vec& v) const
+    size_t operator()(const vec3& v) const
     {
       // multiply the standard hashes by some big primes and XOR them
       // following https://stackoverflow.com/a/5929567
@@ -122,22 +122,22 @@ namespace std
 } // namespace std
 
 // dot product of vectors
-float dot(const vec &v, const vec &w);
-float dot(const normed_vec &v, const normed_vec &w);
-float dot(const vec &v, const normed_vec &w);
-float dot(const normed_vec &v, const vec &w);
+float dot(const vec3 &v, const vec3 &w);
+float dot(const normed_vec3 &v, const normed_vec3 &w);
+float dot(const vec3 &v, const normed_vec3 &w);
+float dot(const normed_vec3 &v, const vec3 &w);
 
 // cross product of vectors
-vec cross(const vec &v, const vec &w);
-vec cross(const normed_vec &v, const normed_vec &w);
-vec cross(const normed_vec &v, const vec &w);
-vec cross(const vec &v, const normed_vec &w);
+vec3 cross(const vec3 &v, const vec3 &w);
+vec3 cross(const normed_vec3 &v, const normed_vec3 &w);
+vec3 cross(const normed_vec3 &v, const vec3 &w);
+vec3 cross(const vec3 &v, const normed_vec3 &w);
 
 // return unit vector corresponding to v
-normed_vec unit(const vec& v);
+normed_vec3 unit(const vec3& v);
 
-normed_vec reflect(const normed_vec& incident, const normed_vec& normal);
-normed_vec refract(const normed_vec& incident, const normed_vec& normal, float refractive_indices_ratio);
+normed_vec3 reflect(const normed_vec3& incident, const normed_vec3& normal);
+normed_vec3 refract(const normed_vec3& incident, const normed_vec3& normal, float refractive_indices_ratio);
 
 // color utility functions
 color operator+(const color &v, const color &w);

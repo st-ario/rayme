@@ -8,9 +8,9 @@ class camera
     point origin;
     float aspect_ratio;
     point upper_left_corner;
-    normed_vec rel_z;
-    normed_vec rel_x;
-    normed_vec rel_y;
+    normed_vec3 rel_z;
+    normed_vec3 rel_x;
+    normed_vec3 rel_y;
     float viewport_width;
     float viewport_height;
     float znear;
@@ -18,18 +18,18 @@ class camera
   
   public:
     camera( point orig
-          , vec look_at
+          , vec3 look_at
           , float vertical_fov_in_deg
           , float image_ratio
-          , vec absolute_y
+          , vec3 absolute_y
           , float znear
           );
 
     camera( point orig
-          , vec look_at
+          , vec3 look_at
           , float vertical_fov_in_deg
           , float image_ratio
-          , vec absolute_y
+          , vec3 absolute_y
           , float znear
           , float zfar
           );

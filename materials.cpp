@@ -8,7 +8,7 @@ std::optional<ray> lambertian::scatter(
   ) const
 {
   attenuation = albedo;
-  vec nonunital_scatter_direction = rec.normal.to_vec() + vec::random_unit();
+  vec3 nonunital_scatter_direction = rec.normal.to_vec3() + vec3::random_unit();
   if (nonunital_scatter_direction.near_zero())
   {
     return ray(rec.p, rec.normal);
@@ -26,8 +26,8 @@ std::optional<ray> metal::scatter(
  ) const
 {
   attenuation = albedo;
-  vec reflected = reflect(r.direction, rec.normal).to_vec();
-  normed_vec scattered_direction = unit(reflected + roughness*vec::random_in_unit_sphere());
+  vec3 reflected = reflect(r.direction, rec.normal).to_vec3();
+  normed_vec3 scattered_direction = unit(reflected + roughness*vec3::random_in_unit_sphere());
   ray scattered = ray(rec.p, scattered_direction);
   if (dot(scattered.direction, rec.normal) > 0)
     return scattered;
@@ -51,12 +51,12 @@ std::optional<ray> dielectric::scatter(
 
   bool aux = (cannot_refract || random_float() > fresnel_reflectance(cos_incindence_angle, cos_refracted_angle, refraction_index));
 
-  normed_vec direction = get_direction(aux, r.direction, rec.normal, refraction_ratio);
+  normed_vec3 direction = get_direction(aux, r.direction, rec.normal, refraction_ratio);
 
   return ray(rec.p,direction);
 }
 
-static normed_vec get_direction(bool b, normed_vec dir, normed_vec n, float ref_ratio)
+static normed_vec3 get_direction(bool b, normed_vec3 dir, normed_vec3 n, float ref_ratio)
 {
   if (b)
     return reflect(dir,n);
