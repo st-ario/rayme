@@ -8,7 +8,7 @@ std::optional<ray> lambertian::scatter(
   ) const
 {
   attenuation = albedo;
-  vec3 nonunital_scatter_direction = rec.normal.to_vec3() + vec3::random_unit();
+  vec3 nonunital_scatter_direction = rec.normal.to_vec3() + normed_vec3::random_unit().to_vec3();
   if (nonunital_scatter_direction.near_zero())
   {
     return ray(rec.p, rec.normal);

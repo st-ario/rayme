@@ -75,7 +75,6 @@ void render( image& picture
   const int num_columns{static_cast<int>(std::ceil(float(picture.get_width() / float(tile_size))))};
   const int num_rows{static_cast<int>(std::ceil(float(picture.get_height() / float(tile_size))))};
 
-  int counter{0};
 
   std::vector<std::pair<int,int>> cartesian_product;
 
@@ -87,8 +86,9 @@ void render( image& picture
     }
   }
 
-//#define NOTPAR 1
-#if NOTPAR
+// #define NOTPAR 1
+#ifdef NOTPAR
+  int counter{0};
   for (const auto pair : cartesian_product)
   {
       ++counter;
@@ -99,11 +99,10 @@ void render( image& picture
 #else
   std::vector<std::future<void>> future_tiles;
 
+  std::cout << "Rendering in progres...\n";
+
   for (const auto pair : cartesian_product)
   {
-    ++counter;
-    std::cerr << "\x1b[2K" << "\rEstimated remaining tiles to render: " << (num_rows * num_columns - counter);
-    std::flush(std::cerr);
     future_tiles.push_back(std::async(std::launch::async, render_tile, &picture, tile_size, pair.first, pair.second, samples_per_pixel, depth, &cam, &world));
   }
 #endif

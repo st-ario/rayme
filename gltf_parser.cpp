@@ -391,9 +391,11 @@ void parse(std::string filename)
 }
 } // namespace gltf
 
+/*
 int main()
 {
   //gltf::parse("Box.gltf");
   gltf::parse("Box(bin_ref).gltf");
   return 0;
 }
+*/

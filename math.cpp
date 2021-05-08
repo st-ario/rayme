@@ -47,7 +47,7 @@ float fast_inverse_sqrt(float x) // https://en.wikipedia.org/wiki/Fast_inverse_s
   i = 0x5F375A86 - (i >> 1);
   y = *(float*) &i;
   y  = y * ( threehalfs - ( x2 * y * y ) );
-  // y  = y * ( threehalfs - ( x2 * y * y ) ); // decide wether to keep this or not
+  y  = y * ( threehalfs - ( x2 * y * y ) ); // decide wether to keep this or not
 
   return y;
 }
