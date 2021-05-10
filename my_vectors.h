@@ -54,10 +54,10 @@ class my_const_iterator
 
     constexpr const Number&      operator*()  const noexcept { return *current; }
     constexpr const Number*      operator->() const noexcept { return  current; }
-    constexpr my_const_iterator& operator++()       noexcept { ++current; return *this; }
-    constexpr my_const_iterator  operator++(int)    noexcept { return my_const_iterator(current++); }
-    constexpr my_const_iterator& operator--()       noexcept { --current; return *this; }
-    constexpr my_const_iterator  operator--(int)    noexcept { return my_const_iterator(current--); }
+    constexpr my_const_iterator& operator++()    noexcept { ++current; return *this; }
+    constexpr my_const_iterator  operator++(int) noexcept { return my_const_iterator(current++); }
+    constexpr my_const_iterator& operator--()    noexcept { --current; return *this; }
+    constexpr my_const_iterator  operator--(int) noexcept { return my_const_iterator(current--); }
 
     constexpr friend bool operator==(const my_const_iterator<Container>& lhs,
                                      const my_const_iterator<Container>& rhs) noexcept
@@ -139,11 +139,14 @@ bool operator==(const my_container<Number,Size>& v, const my_container<Number,Si
 template<typename Number, unsigned short int Size>
 bool operator!=(const my_container<Number,Size>& v, const my_container<Number,Size>& w);
 template<typename Number, unsigned short int Size>
-my_container<Number,Size> operator+(const my_container<Number,Size>& v, const my_container<Number,Size>& w);
+my_container<Number,Size> operator+(const my_container<Number,Size>& v,
+                                    const my_container<Number,Size>& w);
 template<typename Number, unsigned short int Size>
-my_container<Number,Size> operator-(const my_container<Number,Size>& v, const my_container<Number,Size>& w);
+my_container<Number,Size> operator-(const my_container<Number,Size>& v,
+                                    const my_container<Number,Size>& w);
 template<typename Number, unsigned short int Size>
-my_container<Number,Size> operator*(const my_container<Number,Size>& v, const my_container<Number,Size>& w);
+my_container<Number,Size> operator*(const my_container<Number,Size>& v,
+                                    const my_container<Number,Size>& w);
 template<typename Number, unsigned short int Size>
 my_container<Number,Size> operator*(Number t, const my_container<Number,Size>& w);
 template<typename Number, unsigned short int Size>
@@ -215,26 +218,25 @@ class point : public vec3
     float norm_squared() = delete;
 };
 
-class color
-// TODO should enforce taking values in the positive unit cube and throw exceptions if the
-// client tries to go out of bounds
+// color values are stored as doubles to prevent mixing color and vec3 operations
+class color : public my_container<double,3>
 {
-  public:
-    color();
-    color(float r, float g, float b);
-
-    float r() const;
-    float g() const;
-    float b() const;
-
-    float& r();
-    float& g();
-    float& b();
-
-    color& operator+=(const color& c);
-  
   private:
-    float m_array[3];
+    using my_container<double,3>::m_array;
+
+  public:
+    using my_container<double,3>::my_container;
+
+    color(double r, double g, double b);
+    color(const my_container<double,3>& v);
+
+    double r() const;
+    double g() const;
+    double b() const;
+
+    double& r();
+    double& g();
+    double& b();
 };
 
 // TODO change when they'll be actually used
@@ -248,6 +250,8 @@ typedef my_container<float,16> mat4;
 template<typename Number, unsigned short int Size>
 Number dot(const rigid_container<Number,Size>& v, const rigid_container<Number,Size>& w);
 
+double dot(const color&, const color&) = delete;
+
 // cross product of vectors
 vec3 cross(const rigid_container<float,3>& v, const rigid_container<float,3>& w);
 
@@ -255,17 +259,11 @@ vec3 cross(const rigid_container<float,3>& v, const rigid_container<float,3>& w)
 inline normed_vec3 unit(const rigid_container<float,3>& v) { return normed_vec3(v); }
 
 normed_vec3 reflect(const normed_vec3& incident, const normed_vec3& normal);
-normed_vec3 refract(const normed_vec3& incident, const normed_vec3& normal, float refractive_indices_ratio);
-
-// color utility functions
-color operator+(const color &v, const color &w);
-color operator*(const color &v, const color &w);
-color operator*(const color &v, float t);
-color operator*(float t, const color &v);
-color operator/(const color &v, float t);
+normed_vec3 refract(const normed_vec3& incident, const normed_vec3& normal,
+                    float refractive_indices_ratio);
 
 void gamma2_correct(color& c);
-void gamma_correct(color& c, float factor);
+void gamma_correct(color& c, double gamma);
 
 // hashing functions
 namespace std
@@ -302,7 +300,9 @@ inline rigid_container<Number,Size>::rigid_container(const rigid_container<Numbe
 }
 
 template<typename Number, unsigned short int Size>
-inline rigid_container<Number,Size>& rigid_container<Number,Size>::operator=(const rigid_container<Number,Size>& w)
+inline
+rigid_container<Number,Size>& rigid_container<Number,Size>::operator=(
+                                                              const rigid_container<Number,Size>& w)
 {
   for (size_t i = 0; i < Size; ++i)
     m_array[i] = w[i];
@@ -353,21 +353,24 @@ inline my_container<Number,Size>& my_container<Number,Size>::operator/=(Number t
 }
 
 template<typename Number, unsigned short int Size>
-inline my_container<Number,Size>& my_container<Number,Size>::operator+=(const my_container<Number,Size>& w)
+inline my_container<Number,Size>& my_container<Number,Size>::operator+=(
+                                                               const my_container<Number,Size>& w)
 {
   this->inplace_zip_with(w,[](Number& n, Number m){n+=m;});
   return *this;
 }
 
 template<typename Number, unsigned short int Size>
-inline my_container<Number,Size>& my_container<Number,Size>::operator*=(const my_container<Number,Size>& w)
+inline my_container<Number,Size>& my_container<Number,Size>::operator*=(
+                                                               const my_container<Number,Size>& w)
 {
   this->inplace_zip_with(w,[](Number& n, Number m){n*=m;});
   return *this;
 }
 
 template<typename Number, unsigned short int Size>
-inline my_container<Number,Size>& my_container<Number,Size>::operator/=(const my_container<Number,Size>& w)
+inline
+my_container<Number,Size>& my_container<Number,Size>::operator/=(const my_container<Number,Size>& w)
 {
   this->inplace_zip_with(w,[](Number& n, Number m){n/=m;});
   return *this;
@@ -407,7 +410,8 @@ Number rigid_container<Number,Size>::operator[](unsigned short int i) const
 }
 
 template<typename Number, unsigned short int Size>
-inline my_container<Number,Size>& my_container<Number,Size>::apply_componentwise(void(*function)(Number&))
+inline
+my_container<Number,Size>& my_container<Number,Size>::apply_componentwise(void(*function)(Number&))
 {
   for (Number& x : *this)
     function(x);
@@ -415,7 +419,10 @@ inline my_container<Number,Size>& my_container<Number,Size>::apply_componentwise
 }
 
 template<typename Number, unsigned short int Size>
-inline my_container<Number,Size>& my_container<Number,Size>::inplace_zip_with(const my_container<Number,Size>& w, void(*function)(Number&, Number))
+inline
+my_container<Number,Size>& my_container<Number,Size>::inplace_zip_with(
+                                                        const my_container<Number,Size>& w,
+                                                        void(*function)(Number&, Number))
 {
   for (size_t i = 0; i < Size; ++i)
     function(m_array[i],w[i]);
@@ -423,7 +430,11 @@ inline my_container<Number,Size>& my_container<Number,Size>::inplace_zip_with(co
 }
 
 template<typename Number, unsigned short int Size>
-inline my_container<Number,Size> my_container<Number,Size>::zip_with(const my_container<Number,Size>& w, Number(*function)(Number, Number)) const
+inline
+my_container<Number,Size> my_container<Number,Size>::zip_with(
+                                                       const my_container<Number,Size>& w,
+                                                       Number(*function)(Number, Number))
+const
 {
   my_container<Number,Size> res;
   for (size_t i = 0; i < Size; ++i)
@@ -432,19 +443,22 @@ inline my_container<Number,Size> my_container<Number,Size>::zip_with(const my_co
 }
 
 template<typename Number, unsigned short int Size>
-inline my_container<Number,Size> operator+(const my_container<Number,Size>& v, const my_container<Number,Size>& w)
+inline my_container<Number,Size> operator+(const my_container<Number,Size>& v,
+                                           const my_container<Number,Size>& w)
 {
   return v.zip_with(w,[](Number n, Number m){return n+m;});
 }
 
 template<typename Number, unsigned short int Size>
-inline my_container<Number,Size> operator-(const my_container<Number,Size>& v, const my_container<Number,Size>& w)
+inline my_container<Number,Size> operator-(const my_container<Number,Size>& v,
+                                           const my_container<Number,Size>& w)
 {
   return v.zip_with(w,[](Number n, Number m){return n-m;});
 }
 
 template<typename Number, unsigned short int Size>
-inline my_container<Number,Size> operator*(const my_container<Number,Size>& v, const my_container<Number,Size>& w)
+inline my_container<Number,Size> operator*(const my_container<Number,Size>& v,
+                                           const my_container<Number,Size>& w)
 {
   return v.zip_with(w,[](Number n, Number m){return n*m;});
 }
@@ -572,65 +586,27 @@ inline vec3::vec3(const my_container<float,3>& v)
   m_array[2] = v[2];
 }
 
-inline color::color() : m_array{0.0f, 0.0f, 0.0f} {}
-inline color::color(float r, float g, float b) : m_array{r, g, b} {}
-
-inline color& color::operator+=(const color& c)
+inline color::color(double r, double g, double b)
 {
-  m_array[0] += c.r();
-  m_array[1] += c.g();
-  m_array[2] += c.b();
-
-  return *this;
+  m_array[0] = r;
+  m_array[1] = g;
+  m_array[2] = b;
 }
 
-inline float color::r() const { return m_array[0]; }
-inline float color::g() const { return m_array[1]; }
-inline float color::b() const { return m_array[2]; }
-
-inline float& color::r() { return m_array[0]; }
-inline float& color::g() { return m_array[1]; }
-inline float& color::b() { return m_array[2]; }
-
-inline color operator+(const color &v, const color &w)
+inline color::color(const my_container<double,3>& v)
 {
-  float r = v.r() + w.r();
-  float g = v.g() + w.g();
-  float b = v.b() + w.b();
-  return color(r,g,b);
+  m_array[0] = v[0];
+  m_array[1] = v[1];
+  m_array[2] = v[2];
 }
 
-inline color operator*(const color &v, const color &w)
-{
-  float r = v.r() * w.r();
-  float g = v.g() * w.g();
-  float b = v.b() * w.b();
-  return color(r,g,b);
-}
+inline double color::r() const { return m_array[0]; }
+inline double color::g() const { return m_array[1]; }
+inline double color::b() const { return m_array[2]; }
 
-inline color operator*(const color &v, float t)
-{
-  float r = v.r() * t;
-  float g = v.g() * t;
-  float b = v.b() * t;
-  return color(r,g,b);
-}
-
-inline color operator*(float t, const color &v)
-{
-  float r = t * v.r();
-  float g = t * v.g();
-  float b = t * v.b();
-  return color(r,g,b);
-}
-
-inline color operator/(const color &v, float t)
-{
-  float r = v.r() / t;
-  float g = v.g() / t;
-  float b = v.b() / t;
-  return color(r,g,b);
-}
+inline double& color::r() { return m_array[0]; }
+inline double& color::g() { return m_array[1]; }
+inline double& color::b() { return m_array[2]; }
 
 inline void gamma2_correct(color& c)
 {
@@ -639,7 +615,7 @@ inline void gamma2_correct(color& c)
   c.b() = std::sqrt(c.b());
 }
 
-inline void gamma_correct(color& c, float gamma)
+inline void gamma_correct(color& c, double gamma)
 {
   c.r() = std::pow(c.r(), 1.0/gamma);
   c.g() = std::pow(c.g(), 1.0/gamma);

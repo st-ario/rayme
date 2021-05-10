@@ -25,7 +25,7 @@ static color ray_color(const ray& r, const element& world, int depth, float znea
   }
 
   // else: gradient background, depending only on the y coordinate;
-  float t = 0.5 * (1 + (r.direction.y()));
+  double t = 0.5 * (1 + (r.direction.y()));
   return ((1.0 - t) * color(1.0, 1.0, 1.0) + t * color(0.5, 0.7, 1.0));
 }
 
@@ -57,7 +57,7 @@ static void render_tile( image* picture
         ray r = cam->get_ray(horiz_factor, vert_factor);
         pixel_color += ray_color(r, *world, depth, cam->get_znear(),cam->get_zfar());
       }
-      pixel_color = pixel_color / samples_per_pixel;
+      pixel_color = pixel_color / double(samples_per_pixel);
       gamma2_correct(pixel_color);
 
       picture->pixels[v_offset + y][h_offset + x] = pixel_color;
