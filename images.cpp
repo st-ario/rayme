@@ -9,14 +9,17 @@
 
 image::image(int pixel_width, int pixel_height) : width{pixel_width}, height{pixel_height}
 {
+  pixels.reserve(pixel_height);
   for (int r = 0; r < pixel_height; ++r)
   {
     std::vector<color> row;
+    row.reserve(pixel_width);
+
     for (int c = 0; c < pixel_width; ++c)
     {
-      row.push_back(color(0,0,0));
+      row.emplace_back(color(0,0,0));
     }
-    pixels.push_back(row);
+    pixels.emplace_back(std::move(row));
   }
 }
 

@@ -1,10 +1,9 @@
 #include <iostream>
 #include <fstream>
-#include <cmath>
 
+#include "ray.h"
 #include "render.h"
 #include "my_vectors.h"
-#include "ray.h"
 #include "camera.h"
 #include "math.h"
 #include "materials.h"
@@ -34,9 +33,9 @@ int main()
   world.add(std::make_shared<sphere>(point( 0.0, -100.5, -1.0), 100.0, material_ground));
   //world.add(std::make_shared<sphere>(point( 0.0,    0.0, -1.0),   0.5, material_center));
   // currently parse_gltf just loads triangle meshes
-  //parse_gltf("Box(bin_ref).gltf", world, material_center);
+  parse_gltf("Box(bin_ref).gltf", world, material_center);
   //parse_gltf("untitled.gltf", world, material_center);
-  parse_gltf("torus.gltf", world, material_center);
+  //parse_gltf("torus.gltf", world, material_center);
 
   // Camera
   const float aspect_ratio = 16.0f/9.0f;

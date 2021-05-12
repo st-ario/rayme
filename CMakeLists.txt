@@ -12,7 +12,6 @@ add_executable(${PROJECT_NAME}
   materials.cpp
   math.cpp
   my_vectors.cpp
-  ray.cpp
   render.cpp
   extern/simdjson/singleheader/simdjson.cpp
   image_creation.cpp)
