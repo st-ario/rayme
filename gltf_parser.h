@@ -1,18 +1,17 @@
+#pragma once
+
 #include "extern/simdjson/singleheader/simdjson.h"
 #include "meshes.h"
-#include "math.h"
 
 #include <fstream>
 
-namespace gltf {
+union gltf_numeric { int i; float f; };
 
-union numeric { int i; float f; };
+using gltf_buffer = std::vector<unsigned char>;
 
-using buffer = std::vector<unsigned char>;
+struct gltf_scene {};
 
-struct scene {};
-
-struct primitive
+struct gltf_primitive
 {
   int attr_vertices = -1;
   int attr_normals  = -1;
@@ -23,24 +22,23 @@ struct primitive
   int indices = -1;
   int material = -1;
   int mode = 4;
-
 };
 
-struct camera {};
-struct material {};
-struct texture {};
-struct image {};
-struct sampler {};
+struct gltf_camera {};
+struct gltf_material {};
+struct glft_texture {};
+struct gltf_image {};
+struct gltf_sampler {};
 
-struct node
+struct gltf_node
 {
   int camera;
   std::vector<int> children;
-  std::array<gltf::numeric,16> matrix{1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1};
+  std::array<gltf_numeric,16> matrix{1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1};
   int mesh;
-  std::array<gltf::numeric,4> rotation{0,0,0,1};
-  std::array<gltf::numeric,3> scale{1,1,1};
-  std::array<gltf::numeric,3> translation{0,0,0};
+  std::array<gltf_numeric,4> rotation{0,0,0,1};
+  std::array<gltf_numeric,3> scale{1,1,1};
+  std::array<gltf_numeric,3> translation{0,0,0};
 };
 
 struct buffer_view
@@ -128,7 +126,7 @@ template<typename T, typename N>
 int process_elements(std::vector<T>& vec
                     , accessor& acc
                     , const std::vector<buffer_view>& views
-                    , const buffer& data)
+                    , const gltf_buffer& data)
 {
   int n_elements = acc.count;
   int offset = views[acc.buffer_view].byte_offset + acc.byte_offset;
@@ -151,7 +149,7 @@ int process_elements(std::vector<T>& vec
   return n_elements;
 }
 
-void parse(std::string filename)
+void parse_gltf(std::string filename, scene& world, std::shared_ptr<material> ptr_mat)
 //void parse_gltf(std::string filename, std::vector<mesh>& meshes)
 {
   simdjson::ondemand::parser parser;
@@ -180,7 +178,7 @@ void parse(std::string filename)
   // ###############################################################################################
   // store information about buffers and buffer views
   // ###############################################################################################
-  std::vector<gltf::buffer> buffers;
+  std::vector<gltf_buffer> buffers;
 
   { // unnamed scope
     simdjson::ondemand::array buffs = doc["buffers"];
@@ -198,7 +196,7 @@ void parse(std::string filename)
           uri = std::string_view(property.value());
       }
 
-      buffer current;
+      gltf_buffer current;
       current.reserve(byte_length);
 
       constexpr char signature[38] = "data:application/octet-stream;base64,";
@@ -222,15 +220,15 @@ void parse(std::string filename)
     }
   } // unnamed scope
 
-  std::vector<gltf::buffer_view> views;
+  std::vector<buffer_view> views;
   { // unnamed scope
     simdjson::ondemand::array buffer_views = doc["bufferViews"];
     for (auto b : buffer_views)
     {
-      auto buffer_view = b.get_object();
-      gltf::buffer_view current;
+      auto b_view_obj = b.get_object();
+      buffer_view current;
 
-      for (auto property : buffer_view)
+      for (auto property : b_view_obj)
       {
         // ignoring target, name, extensions and extras
         if (property.key() == "buffer")
@@ -246,15 +244,15 @@ void parse(std::string filename)
     }
   } // unnamed scope
 
-  std::vector<gltf::accessor> accessors;
+  std::vector<accessor> accessors;
   { // unnamed scope
     simdjson::ondemand::array accs = doc["accessors"];
     for (auto a : accs)
     {
-      auto accessor = a.get_object();
-      gltf::accessor current;
+      auto acc_obj = a.get_object();
+      accessor current;
 
-      for (auto property : accessor)
+      for (auto property : acc_obj)
       {
         // ignoring name, extension and extra
         // currently ignoring also min, max and sparse
@@ -278,21 +276,21 @@ void parse(std::string filename)
   // ###############################################################################################
   // store meshes
   // ###############################################################################################
-  std::vector<mesh> meshes;
+  std::vector<std::shared_ptr<mesh>> meshes;
 
   { // unnamed scope
     simdjson::ondemand::array gltf_meshes = doc["meshes"];
-    for (auto x : gltf_meshes)
+    for (auto mesh_x : gltf_meshes)
     {
-      auto gltf_mesh = x.get_object();
+      auto gltf_mesh = mesh_x.get_object();
       // ignoring "weights", "name", "extensions" and "extras"
       simdjson::ondemand::array primitives = gltf_mesh["primitives"];
-      for (auto x : primitives)
+      for (auto prim_x : primitives)
       {
-        primitive prim;
+        gltf_primitive prim;
 
-        auto p = x.get_object();
-        for (auto property : p)
+        auto obj_pr = prim_x.get_object();
+        for (auto property : obj_pr)
         {
           // ignoring "targets", "extensions" and "extras"
           if (property.key() == "attributes")
@@ -311,14 +309,14 @@ void parse(std::string filename)
                 prim.attr_texcoord0 = uint64_t(attr.value());
               if (attr.key() == "TEXCOORD_1")
                 prim.attr_texcoord1 = uint64_t(attr.value());
-              if (attr.key() == "COLOR_1")
+              if (attr.key() == "COLOR_0")
                 prim.attr_color0 = uint64_t(attr.value());
             }
           }
           if (property.key() == "indices")
           {
             prim.indices = uint64_t(property.value());
-            // if not defined, the mesh has to be created differently
+            // TODO if not defined, the mesh has to be created differently
             // (i.e. following GL's drawArrays() instead of drawElements())
           }
           if (property.key() == "material")
@@ -330,20 +328,18 @@ void parse(std::string filename)
           }
         }
         // ######## CREATE MESH OBJECT
-        std::vector<vec3> vertices;
+        std::vector<point> vertices;
         int n_vertices{0};
         { // unnamed scope
           accessor& acc{accessors[prim.attr_vertices]};
           n_vertices = acc.count;
           int offset = views[acc.buffer_view].byte_offset
                      + acc.byte_offset;
-          std::cout << "vertices offset: " << offset << "\n";
-          int s_element = element_size(acc);
-          int s_component = component_size(acc);
+          int s_component = 4;
+          int s_element = 12;
           int length = s_element * accessors[prim.attr_vertices].count;
-          std::cout << "vertices length: " << length << "\n";
 
-          buffer& data{buffers[views[acc.buffer_view].buffer_index]};
+          gltf_buffer& data{buffers[views[acc.buffer_view].buffer_index]};
 
           for (int i = offset; i < offset + length; i+=s_element)
           {
@@ -366,16 +362,87 @@ void parse(std::string filename)
           n_triangles = acc.count / 3;
           int offset = views[acc.buffer_view].byte_offset
                      + acc.byte_offset;
-          std::cout << "vertices offset: " << offset << "\n";
           int s_component = component_size(acc);
           int length = s_component * acc.count;
-          std::cout << "vertices length: " << length << "\n";
-          buffer& data = buffers[views[acc.buffer_view].buffer_index];
+          gltf_buffer& data{buffers[views[acc.buffer_view].buffer_index]};
 
           for (int i = offset; i < offset + length ; i+=s_component)
             vertex_indices.push_back((uint16_t)data[i]);
         } // unnamed scope
 
+        std::vector<normed_vec3> normals;
+        if (prim.attr_normals != -1) 
+        {
+          accessor& acc{accessors[prim.attr_normals]};
+          int offset = views[acc.buffer_view].byte_offset
+                     + acc.byte_offset;
+          int s_component = 4;
+          int s_element = 12;
+          int length = s_element * accessors[prim.attr_normals].count;
+          gltf_buffer& data{buffers[views[acc.buffer_view].buffer_index]};
+
+          for (int i = offset; i < offset + length; i+=s_element)
+          {
+            vec3 v;
+            float f;
+            std::memcpy(&f, &data[i], s_component);
+            v.x() = f;
+            std::memcpy(&f, &data[i+s_component], s_component);
+            v.y() = f;
+            std::memcpy(&f, &data[i+2*s_component], s_component);
+            v.z() = f;
+            normals.emplace_back(normed_vec3(v));
+          }
+        }
+
+        std::vector<vec4> tangents;
+        if (prim.attr_tangents != -1) 
+        {
+          accessor& acc{accessors[prim.attr_tangents]};
+          int offset = views[acc.buffer_view].byte_offset
+                     + acc.byte_offset;
+          int s_component = 4;
+          int s_element = 16;
+          int length = s_element * accessors[prim.attr_tangents].count;
+          gltf_buffer& data{buffers[views[acc.buffer_view].buffer_index]};
+
+          for (int i = offset; i < offset + length; i+=s_element)
+          {
+            vec4 v;
+            float f;
+            std::memcpy(&f, &data[i], s_component);
+            v[0] = f;
+            std::memcpy(&f, &data[i+s_component], s_component);
+            v[1] = f;
+            std::memcpy(&f, &data[i+2*s_component], s_component);
+            v[2] = f;
+            std::memcpy(&f, &data[i+2*s_component], s_component);
+            v[3] = f;
+
+            tangents.push_back(v);
+          }
+        }
+        std::cout << "n_triangles:\n";
+        std::cout << n_triangles << "\n";
+        std::cout << vertex_indices.size() / 3 << "\n";
+
+        std::cout << "n_vertices:\n";
+        std::cout << n_vertices << "\n";
+        std::cout << vertices.size() << "\n";
+        
+        std::shared_ptr<mesh> current_mesh = std::make_shared<mesh>(
+          n_vertices, n_triangles, vertex_indices, vertices, ptr_mat, normals, tangents);
+        
+        int count = 0;
+        for (auto& tri : current_mesh->get_triangles())
+        {
+          ++count;
+          world.objects.emplace_back(std::move(tri));
+        }
+        std::cout << "count :\n";
+        std::cout << count << "\n";
+
+        /*
         std::cout << "indices:\n";
         for (auto i : vertex_indices)
           std::cout << i << "\n";
@@ -383,19 +450,10 @@ void parse(std::string filename)
         std::cout << "vertices:\n";
         for (auto p : vertices)
           std::cout << p.x() << " " << p.y() << " " << p.z() << "\n";
+        */
       }
     }
   } // unnamed scope
 
   // TODO add transform objects to the project
 }
-} // namespace gltf
-
-/*
-int main()
-{
-  //gltf::parse("Box.gltf");
-  gltf::parse("Box(bin_ref).gltf");
-  return 0;
-}
-*/

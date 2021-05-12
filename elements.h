@@ -48,7 +48,7 @@ class scene : public element
     {
         std::optional<hit_record> record{};
         float closest_so_far = t_max;
-    
+
         for (const auto& object : objects) {
             auto partial_record = object->hit(r, t_min, closest_so_far);
             if (partial_record) {
@@ -56,7 +56,7 @@ class scene : public element
                 record = partial_record;
             }
         }
-    
+
         return record;
     }
 };
@@ -68,7 +68,7 @@ class sphere : public element
     point center;
     float radius;
     std::shared_ptr<material> ptr_mat;
-    
+
     sphere() : center{point(0,0,0)}, radius{0} {};
     sphere(point c, float r, std::shared_ptr<material> m) : center{c}, radius{r}, ptr_mat{m} {};
 

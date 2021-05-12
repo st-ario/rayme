@@ -75,7 +75,7 @@ class my_const_iterator
 
 // parent class for both normed_vec3 and vec3
 template<typename Number, unsigned short int Size>
-class rigid_container 
+class rigid_container
 {
   public:
     using NumberType = Number;
@@ -104,7 +104,7 @@ class my_container : public rigid_container<Number,Size>
 {
   public:
     using Iterator = my_iterator<my_container<Number,Size>>;
-  
+
   protected:
     using rigid_container<Number,Size>::m_array;
 
@@ -177,6 +177,8 @@ class vec3 : public my_container<float,3>
     // float norm() const;
     float norm_squared() const;
 
+    friend vec3 permute(const vec3& v, int x, int y, int z);
+
     static vec3 random();
     static vec3 random(float min, float max);
     static vec3 random_in_unit_sphere();
@@ -204,19 +206,12 @@ class normed_vec3 : public rigid_container<float,3>
 
     static normed_vec3 random_unit();
 
+    friend normed_vec3 permute(const normed_vec3& v, int x, int y, int z);
+
     vec3 to_vec3() const;
 };
 
-class point : public vec3
-{
-  public:
-    // same constructors as parent
-    using vec3::vec3;
-    point(const my_container<float,3>& v);
-
-    // float norm() = delete;
-    float norm_squared() = delete;
-};
+typedef vec3 point;
 
 // color values are stored as doubles to prevent mixing color and vec3 operations
 class color : public my_container<double,3>
@@ -251,12 +246,21 @@ template<typename Number, unsigned short int Size>
 Number dot(const rigid_container<Number,Size>& v, const rigid_container<Number,Size>& w);
 
 double dot(const color&, const color&) = delete;
+template<typename Number, unsigned short int Size>
+double dot(const color&, const rigid_container<double,3>&) = delete;
+template<typename Number, unsigned short int Size>
+double dot(const rigid_container<double,3>&, const color&) = delete;
 
 // cross product of vectors
 vec3 cross(const rigid_container<float,3>& v, const rigid_container<float,3>& w);
 
 // return unit vector corresponding to v
 inline normed_vec3 unit(const rigid_container<float,3>& v) { return normed_vec3(v); }
+
+int max_dimension(const vec3& v);
+float max_component(const vec3& v);
+
+inline vec3 abs(const rigid_container<float,3>& v);
 
 normed_vec3 reflect(const normed_vec3& incident, const normed_vec3& normal);
 normed_vec3 refract(const normed_vec3& incident, const normed_vec3& normal,
@@ -314,7 +318,7 @@ rigid_container<Number,Size>& rigid_container<Number,Size>::operator-()
 {
   for (size_t i = 0; i < Size; ++i)
     m_array[i] = - m_array[i];
-  
+
   return *this;
 }
 
@@ -324,7 +328,7 @@ rigid_container<Number,Size> rigid_container<Number,Size>::operator-() const
   rigid_container<Number,Size> res;
   for (size_t i = 0; i < Size; ++i)
     res.m_array[i] = - this->m_array[i];
-  
+
   return res;
 }
 
@@ -396,7 +400,7 @@ Number& my_container<Number,Size>::operator[](unsigned short int i)
 {
   //if (i < Size)
     return m_array[i];
-  
+
   // TODO print error message and throw
 }
 
@@ -405,7 +409,7 @@ Number rigid_container<Number,Size>::operator[](unsigned short int i) const
 {
   //if (i < Size)
     return m_array[i];
-  
+
   // TODO print error message and throw
 }
 
@@ -572,15 +576,8 @@ inline normed_vec3 normed_vec3::operator-() const
   return normed_vec3(-m_array[0],-m_array[1],-m_array[2]);
 }
 
-inline point::point(const my_container<float,3>& v)
-{
-  m_array[0] = v[0];
-  m_array[1] = v[1];
-  m_array[2] = v[2];
-}
-
 inline vec3::vec3(const my_container<float,3>& v)
-{ 
+{
   m_array[0] = v[0];
   m_array[1] = v[1];
   m_array[2] = v[2];
@@ -620,4 +617,55 @@ inline void gamma_correct(color& c, double gamma)
   c.r() = std::pow(c.r(), 1.0/gamma);
   c.g() = std::pow(c.g(), 1.0/gamma);
   c.b() = std::pow(c.b(), 1.0/gamma);
+}
+
+inline int max_dimension(const vec3& v)
+{
+  if (v.x() > v.y())
+  {
+    if (v.x() > v.z())
+      return 0;
+
+    // z >= x > y
+    return 2;
+  }
+
+  // y >= x
+  if (v.y() > v.z())
+    return 1;
+  // z >= y >= x
+  return 2;
+}
+
+inline float max_component(const vec3& v)
+{
+  if (v.x() > v.y())
+  {
+    if (v.x() > v.z())
+      return v.x();
+
+    // z >= x > y
+    return v.z();
+  }
+
+  // y >= x
+  if (v.y() > v.z())
+    return v.y();
+  // z >= y >= x
+  return v.z();
+}
+
+inline vec3 abs(const rigid_container<float,3>& v)
+{
+  return vec3(std::abs(v[0]), std::abs(v[1]), std::abs(v[2]));
+}
+
+inline vec3 permute(const vec3& v, int x, int y, int z)
+{
+  return vec3{v[x], v[y], v[z]};
+}
+
+inline normed_vec3 permute(const normed_vec3& v, int x, int y, int z)
+{
+  return normed_vec3{v[x], v[y], v[z]};
 }

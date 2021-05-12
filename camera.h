@@ -23,15 +23,7 @@ class camera
           , float image_ratio
           , vec3 absolute_y
           , float znear
-          );
-
-    camera( point orig
-          , vec3 look_at
-          , float vertical_fov_in_deg
-          , float image_ratio
-          , vec3 absolute_y
-          , float znear
-          , float zfar
+          , float zfar = infinity
           );
 
     ray get_ray(float horiz_factor, float vert_factor) const;

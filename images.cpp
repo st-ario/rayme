@@ -47,7 +47,7 @@ void image::write_to_ppm(std::string file_name)
 void image::write_to_png(std::string file_name)
 {
   uint8_t data[width * height * 3]; //3 channels, RGB
-  int index = 0; 
+  int index = 0;
   for (std::vector<color> row : pixels)
   {
     for (color c : row)

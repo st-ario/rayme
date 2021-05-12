@@ -14,6 +14,7 @@ add_executable(${PROJECT_NAME}
   my_vectors.cpp
   ray.cpp
   render.cpp
+  extern/simdjson/singleheader/simdjson.cpp
   image_creation.cpp)
 
 #####    DOWNLOAD ALL THE SUBMODULES

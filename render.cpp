@@ -10,7 +10,7 @@
 // temporary solution, to use before properly dealing with lights
 static color ray_color(const ray& r, const element& world, int depth, float znear, float zfar)
 {
-  if (depth <= 0)
+  if (depth < 1)
     return color(0,0,0);
 
   auto rec = world.hit(r, znear, zfar);
@@ -82,24 +82,24 @@ void render( image& picture
   {
     for(int c = 0; c < num_columns; ++c)
     {
-      cartesian_product.push_back(std::make_pair(r,c));
+      cartesian_product.emplace_back(std::make_pair(r,c));
     }
   }
 
-// #define NOTPAR 1
+//#define NOTPAR 1
 #ifdef NOTPAR
-  int counter{0};
+  //int counter{0};
   for (const auto pair : cartesian_product)
   {
-      ++counter;
-      std::cerr << "\x1b[2K" << "\rRemaining tiles to render: " << (num_rows * num_columns - counter);
-      std::flush(std::cerr);
+      //++counter;
+      //std::cerr << "\x1b[2K" << "\rRemaining tiles to render: " << (num_rows * num_columns - counter);
+      //std::flush(std::cerr);
       render_tile(&picture, tile_size, pair.first, pair.second, samples_per_pixel, depth, &cam, &world);
   }
 #else
   std::vector<std::future<void>> future_tiles;
 
-  std::cout << "Rendering in progres...\n";
+  std::cout << "Rendering in progress...\n";
 
   for (const auto pair : cartesian_product)
   {
