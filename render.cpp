@@ -8,19 +8,19 @@
 #include "materials.h"
 
 // temporary solution, to use before properly dealing with lights
-static color ray_color(const ray& r, const element& world, int depth, float znear, float zfar)
+static color ray_color(const ray& r, const element& world, int depth, float zfar)
 {
   if (depth < 1)
     return color(0,0,0);
 
-  auto rec = world.hit(r, znear, zfar);
+  auto rec = world.hit(r, zfar);
   if (rec)
   {
     auto record = rec.value();
     color attenuation;
     auto scattered_ray = rec.value().ptr_mat->scatter(r, record, attenuation);
     if (scattered_ray)
-      return attenuation * ray_color(scattered_ray.value(), world, depth-1, znear, zfar);
+      return attenuation * ray_color(scattered_ray.value(), world, depth-1, zfar);
     return color(0,0,0);
   }
 
@@ -55,7 +55,7 @@ static void render_tile( image* picture
         float horiz_factor = (h_offset + x + random_float())/(picture->get_width()-1);
         float vert_factor = (v_offset + y + random_float())/(picture->get_height()-1);
         ray r = cam->get_ray(horiz_factor, vert_factor);
-        pixel_color += ray_color(r, *world, depth, cam->get_znear(),cam->get_zfar());
+        pixel_color += ray_color(r, *world, depth, cam->get_zfar());
       }
       pixel_color = pixel_color / double(samples_per_pixel);
       gamma2_correct(pixel_color);
@@ -88,12 +88,12 @@ void render( image& picture
 
 //#define NOTPAR 1
 #ifdef NOTPAR
-  //int counter{0};
+  int counter{0};
   for (const auto pair : cartesian_product)
   {
-      //++counter;
-      //std::cerr << "\x1b[2K" << "\rRemaining tiles to render: " << (num_rows * num_columns - counter);
-      //std::flush(std::cerr);
+      ++counter;
+      std::cerr << "\x1b[2K" << "\rRemaining tiles to render: " << (num_rows * num_columns - counter);
+      std::flush(std::cerr);
       render_tile(&picture, tile_size, pair.first, pair.second, samples_per_pixel, depth, &cam, &world);
   }
 #else

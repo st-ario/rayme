@@ -2,11 +2,6 @@
 
 #include "math.h"
 
-float degrees_to_radians(float degrees)
-{
-    return degrees * pi / 180.0;
-}
-
 float random_float()
 {
     static std::uniform_real_distribution<float> distribution(0.0, 1.0);
@@ -26,13 +21,6 @@ float standard_normal_random_float()
   static std::normal_distribution<float> distribution(0,1);
   static std::mt19937_64 generator;
   return distribution(generator);
-}
-
-float clamp(float value, float min, float max)
-{
-  if (value < min) return min;
-  if (value > max) return max;
-  return value;
 }
 
 float fast_inverse_sqrt(float x) // https://en.wikipedia.org/wiki/Fast_inverse_square_root

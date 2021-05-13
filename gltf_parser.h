@@ -34,7 +34,10 @@ struct gltf_node
 {
   int camera;
   std::vector<int> children;
-  std::array<gltf_numeric,16> matrix{1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1};
+  std::array<gltf_numeric,16> matrix{1,0,0,0,
+                                     0,1,0,0,
+                                     0,0,1,0,
+                                     0,0,0,1};
   int mesh;
   std::array<gltf_numeric,4> rotation{0,0,0,1};
   std::array<gltf_numeric,3> scale{1,1,1};
@@ -133,7 +136,7 @@ int process_elements(std::vector<T>& vec
   int s = component_size(acc);
   int s_element = element_size(acc);
   int length = s_element * acc.count;
-          
+
   for (int i = offset; i < offset + length; i+=s_element)
   {
     T x;
@@ -149,8 +152,8 @@ int process_elements(std::vector<T>& vec
   return n_elements;
 }
 
-void parse_gltf(std::string filename, scene& world, std::shared_ptr<material> ptr_mat)
-//void parse_gltf(std::string filename, std::vector<mesh>& meshes)
+void parse_gltf(const std::string& filename, scene& world, const std::shared_ptr<material>& ptr_mat)
+//void parse_gltf(const std::string& filename, std::vector<mesh>& meshes)
 {
   simdjson::ondemand::parser parser;
   auto gltf = simdjson::padded_string::load(filename);
@@ -181,13 +184,13 @@ void parse_gltf(std::string filename, scene& world, std::shared_ptr<material> pt
   std::vector<gltf_buffer> buffers;
 
   { // unnamed scope
-    simdjson::ondemand::array buffs = doc["buffers"];
-    for (auto x : buffs)
+    simdjson::ondemand::array document_buffers = doc["buffers"];
+    for (auto document_buffer : document_buffers)
     {
-      auto b = x.get_object();
+      auto buffer_obj = document_buffer.get_object();
       int byte_length;
       std::string_view uri;
-      for (auto property : b)
+      for (auto property : buffer_obj)
       {
         // ignoring "name", "extensions" and "extras"
         if (property.key() == "byteLength")
@@ -279,18 +282,18 @@ void parse_gltf(std::string filename, scene& world, std::shared_ptr<material> pt
   std::vector<std::shared_ptr<mesh>> meshes;
 
   { // unnamed scope
-    simdjson::ondemand::array gltf_meshes = doc["meshes"];
-    for (auto mesh_x : gltf_meshes)
+    simdjson::ondemand::array document_meshes = doc["meshes"];
+    for (auto mesh_iterator : document_meshes)
     {
-      auto gltf_mesh = mesh_x.get_object();
+      auto json_mesh = mesh_iterator.get_object();
       // ignoring "weights", "name", "extensions" and "extras"
-      simdjson::ondemand::array primitives = gltf_mesh["primitives"];
-      for (auto prim_x : primitives)
+      simdjson::ondemand::array mesh_primitives = json_mesh["primitives"];
+      for (auto primitive_iterator : mesh_primitives)
       {
         gltf_primitive prim;
 
-        auto obj_pr = prim_x.get_object();
-        for (auto property : obj_pr)
+        auto json_primitive = primitive_iterator.get_object();
+        for (auto property : json_primitive)
         {
           // ignoring "targets", "extensions" and "extras"
           if (property.key() == "attributes")
@@ -360,6 +363,7 @@ void parse_gltf(std::string filename, scene& world, std::shared_ptr<material> pt
         { // unnamed scope
           accessor& acc{accessors[prim.indices]};
           n_triangles = acc.count / 3;
+
           int offset = views[acc.buffer_view].byte_offset
                      + acc.byte_offset;
           int s_component = component_size(acc);
@@ -367,11 +371,15 @@ void parse_gltf(std::string filename, scene& world, std::shared_ptr<material> pt
           gltf_buffer& data{buffers[views[acc.buffer_view].buffer_index]};
 
           for (int i = offset; i < offset + length ; i+=s_component)
-            vertex_indices.push_back((uint16_t)data[i]);
+          {
+            uint16_t current_index;
+            std::memcpy(&current_index, &data[i], s_component);
+            vertex_indices.push_back(current_index);
+          }
         } // unnamed scope
 
         std::vector<normed_vec3> normals;
-        if (prim.attr_normals != -1) 
+        if (prim.attr_normals != -1)
         {
           accessor& acc{accessors[prim.attr_normals]};
           int offset = views[acc.buffer_view].byte_offset
@@ -396,7 +404,7 @@ void parse_gltf(std::string filename, scene& world, std::shared_ptr<material> pt
         }
 
         std::vector<vec4> tangents;
-        if (prim.attr_tangents != -1) 
+        if (prim.attr_tangents != -1)
         {
           accessor& acc{accessors[prim.attr_tangents]};
           int offset = views[acc.buffer_view].byte_offset
@@ -422,35 +430,12 @@ void parse_gltf(std::string filename, scene& world, std::shared_ptr<material> pt
             tangents.push_back(v);
           }
         }
-        std::cout << "n_triangles:\n";
-        std::cout << n_triangles << "\n";
-        std::cout << vertex_indices.size() / 3 << "\n";
 
-        std::cout << "n_vertices:\n";
-        std::cout << n_vertices << "\n";
-        std::cout << vertices.size() << "\n";
-        
         std::shared_ptr<mesh> current_mesh = std::make_shared<mesh>(
           n_vertices, n_triangles, vertex_indices, vertices, ptr_mat, normals, tangents);
-        
-        int count = 0;
+
         for (auto& tri : current_mesh->get_triangles())
-        {
-          ++count;
           world.objects.emplace_back(std::move(tri));
-        }
-        std::cout << "count :\n";
-        std::cout << count << "\n";
-
-        /*
-        std::cout << "indices:\n";
-        for (auto i : vertex_indices)
-          std::cout << i << "\n";
-
-        std::cout << "vertices:\n";
-        for (auto p : vertices)
-          std::cout << p.x() << " " << p.y() << " " << p.z() << "\n";
-        */
       }
     }
   } // unnamed scope

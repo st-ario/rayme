@@ -113,9 +113,11 @@ class my_container : public rigid_container<Number,Size>
     using rigid_container<Number,Size>::rigid_container;
 
     my_container& operator+=(Number t);
+    my_container& operator-=(Number t);
     my_container& operator*=(Number t);
     my_container& operator/=(Number t);
     my_container& operator+=(const my_container<Number,Size>& w);
+    my_container& operator-=(const my_container<Number,Size>& w);
     my_container& operator*=(const my_container<Number,Size>& w);
     my_container& operator/=(const my_container<Number,Size>& w);
     using rigid_container<Number,Size>::operator[];
@@ -162,7 +164,7 @@ class vec3 : public my_container<float,3>
   public:
     // same constructors as parent
     using my_container<float,3>::my_container;
-    vec3 (const my_container<float,3>& v);
+    vec3 (const rigid_container<float,3>& v);
     vec3 (float x, float y, float z);
 
     float x() const;
@@ -223,7 +225,7 @@ class color : public my_container<double,3>
     using my_container<double,3>::my_container;
 
     color(double r, double g, double b);
-    color(const my_container<double,3>& v);
+    color(const rigid_container<double,3>& v);
 
     double r() const;
     double g() const;
@@ -341,6 +343,14 @@ inline my_container<Number,Size>& my_container<Number,Size>::operator+=(Number t
 }
 
 template<typename Number, unsigned short int Size>
+inline my_container<Number,Size>& my_container<Number,Size>::operator-=(Number t)
+{
+  for (size_t i = 0; i < Size; ++i)
+    m_array[i] -= t;
+  return *this;
+}
+
+template<typename Number, unsigned short int Size>
 inline my_container<Number,Size>& my_container<Number,Size>::operator*=(Number t)
 {
   for (size_t i = 0; i < Size; ++i)
@@ -361,6 +371,14 @@ inline my_container<Number,Size>& my_container<Number,Size>::operator+=(
                                                                const my_container<Number,Size>& w)
 {
   this->inplace_zip_with(w,[](Number& n, Number m){n+=m;});
+  return *this;
+}
+
+template<typename Number, unsigned short int Size>
+inline my_container<Number,Size>& my_container<Number,Size>::operator-=(
+                                                               const my_container<Number,Size>& w)
+{
+  this->inplace_zip_with(w,[](Number& n, Number m){n-=m;});
   return *this;
 }
 
@@ -576,7 +594,7 @@ inline normed_vec3 normed_vec3::operator-() const
   return normed_vec3(-m_array[0],-m_array[1],-m_array[2]);
 }
 
-inline vec3::vec3(const my_container<float,3>& v)
+inline vec3::vec3(const rigid_container<float,3>& v)
 {
   m_array[0] = v[0];
   m_array[1] = v[1];
@@ -590,7 +608,7 @@ inline color::color(double r, double g, double b)
   m_array[2] = b;
 }
 
-inline color::color(const my_container<double,3>& v)
+inline color::color(const rigid_container<double,3>& v)
 {
   m_array[0] = v[0];
   m_array[1] = v[1];

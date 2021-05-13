@@ -7,7 +7,7 @@
 
 class triangle;
 
-class mesh
+class mesh : public std::enable_shared_from_this<mesh>
 {
   public:
     const int n_vertices;
@@ -31,15 +31,11 @@ class mesh
 
     std::vector<std::shared_ptr<triangle>> get_triangles()
     {
-      std::cout << "n_triangles (mesh): \n";
-      std::cout << n_triangles << "\n";
       std::vector<std::shared_ptr<triangle>> triangles;
+      triangles.reserve(n_triangles);
 
       for (int i = 0; i < n_triangles; ++i)
-        triangles.push_back(std::make_shared<triangle>(std::make_shared<mesh>(*this), i));
-
-      std::cout << "size of triangles (mesh): \n";
-      std::cout << triangles.size() << "\n";
+        triangles.push_back(std::make_shared<triangle>(shared_from_this(), i));
 
       return triangles;
     }
@@ -49,21 +45,19 @@ class triangle : public element
 {
   private:
     std::shared_ptr<mesh> parent_mesh;
-    const int* vert;
+    const int number;
 
   public:
-    triangle(const std::shared_ptr<mesh>& mesh, int triangle_number)
-    : parent_mesh{mesh}
-    {
-      vert = &(parent_mesh->vertex_indices[3 * triangle_number]);
-    }
+    triangle(const std::shared_ptr<mesh>& parent_mesh, int triangle_number)
+    : parent_mesh{parent_mesh}, number{triangle_number} {}
 
-    virtual std::optional<hit_record> hit(const ray& r, float t_min, float t_max) const override
+    virtual std::optional<hit_record> hit(const ray& r, float t_max) const override
     {
       // adapted from pbrt v3
-      const point& p0 = parent_mesh->vertices[vert[0]];
-      const point& p1 = parent_mesh->vertices[vert[1]];
-      const point& p2 = parent_mesh->vertices[vert[2]];
+      const point& p0 = parent_mesh->vertices[parent_mesh->vertex_indices[3*number]];
+      const point& p1 = parent_mesh->vertices[parent_mesh->vertex_indices[3*number+1]];
+      const point& p2 = parent_mesh->vertices[parent_mesh->vertex_indices[3*number+2]];
+
 
       // translate vertices based on ray origin
       point p0t = p0 - r.origin;
@@ -146,8 +140,7 @@ class triangle : public element
       float deltaY = gamma_bound(5) * (maxYt + maxZt);
 
       // Compute $\delta_e$ term for triangle $t$ error bounds
-      float deltaE =
-          2 * (gamma_bound(2) * maxXt * maxYt + deltaY * maxXt + deltaX * maxYt);
+      float deltaE = 2 * (gamma_bound(2) * maxXt * maxYt + deltaY * maxXt + deltaX * maxYt);
 
       // Compute $\delta_t$ term for triangle $t$ error bounds and check _t_
       float maxE = max_component(abs(vec3(e0, e1, e2)));
@@ -156,11 +149,18 @@ class triangle : public element
       if (t <= deltaT)
         return std::nullopt;
 
+      /* error bounds, reintroduce later
+      // Compute error bounds for triangle intersection
+      float xAbsSum = (std::abs(b0 * p0.x()) + std::abs(b1 * p1.x()) + std::abs(b2 * p2.x()));
+      float yAbsSum = (std::abs(b0 * p0.y()) + std::abs(b1 * p1.y()) + std::abs(b2 * p2.y()));
+      float zAbsSum = (std::abs(b0 * p0.z()) + std::abs(b1 * p1.z()) + std::abs(b2 * p2.z()));
+      vec3 pError = gamma_bound(7) * vec3(xAbsSum, yAbsSum, zAbsSum);
+      */
+
       point p = r.at(t);
       vec3 nonunital_candidate_normal = cross(p1-p0, p2-p0);
 
       bool front_face = dot(r.direction, nonunital_candidate_normal) < 0;
-      //bool front_face = true;
 
       normed_vec3 normal = front_face ? unit(nonunital_candidate_normal) : - unit(nonunital_candidate_normal);
 
