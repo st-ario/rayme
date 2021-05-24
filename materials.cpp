@@ -1,6 +1,6 @@
 #include "materials.h"
 #include "math.h"
-#include "elements.h"
+#include "bvh.h"
 
 std::optional<ray> lambertian::scatter(
     const ray& r
@@ -43,14 +43,15 @@ std::optional<ray> dielectric::scatter(
 {
   attenuation = color(1.0, 1.0, 1.0);
 
-  float refraction_ratio = rec.front_face ? (1.0 / refraction_index) : refraction_index;
-  float cos_incindence_angle = std::fmin(1.0, dot(r.direction, rec.normal));
-  float sin_incindence_angle = std::sqrt(1.0 - cos_incindence_angle * cos_incindence_angle);
+  float refraction_ratio = rec.front_face ? (1.0f / refraction_index) : refraction_index;
+  float cos_incindence_angle = std::fmin(1.0f, dot(r.direction, rec.normal));
+  float sin_incindence_angle = std::sqrt(1.0f - cos_incindence_angle * cos_incindence_angle);
   float sin_refracted_angle = refraction_ratio * sin_incindence_angle;
-  float cos_refracted_angle = std::sqrt(1.0 - sin_refracted_angle * sin_refracted_angle);
-  bool cannot_refract = sin_refracted_angle > 1.0;
+  // float cos_refracted_angle = std::sqrt(1.0f - sin_refracted_angle * sin_refracted_angle);
+  bool cannot_refract = sin_refracted_angle > 1.0f;
 
-  bool aux = (cannot_refract || random_float() > fresnel_reflectance(cos_incindence_angle, cos_refracted_angle, refraction_index));
+  // bool aux = (cannot_refract || random_float() > fresnel_reflectance(cos_incindence_angle, cos_refracted_angle, refraction_index));
+  bool aux = (cannot_refract || random_float() > reflectance(cos_incindence_angle, refraction_index));
 
   normed_vec3 direction = get_direction(aux, r.direction, rec.normal, refraction_ratio);
 

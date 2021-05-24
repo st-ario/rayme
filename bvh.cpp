@@ -1,4 +1,4 @@
-#include "elements.h"
+#include "bvh.h"
 #include <algorithm>
 
 aabb surrounding_box(aabb box0, aabb box1)
@@ -17,7 +17,7 @@ aabb surrounding_box(aabb box0, aabb box1)
 bvh_tree::bvh_tree(std::vector<std::shared_ptr<primitive>>&& primitives)
 : primitives{primitives}
 {
-  root = recursive_build(bvh_tree::primitives, 0, bvh_tree::primitives.size(), 0);
+  root = recursive_build(bvh_tree::primitives, 0, bvh_tree::primitives.size());
 }
 
 inline float surface_area(std::shared_ptr<primitive>& leaf)
@@ -39,12 +39,39 @@ float sah(std::vector<std::shared_ptr<primitive>>& leaves, size_t begin, size_t 
   return left_surface_area * (at - begin) + right_surface_area * (end - at);
 }
 
-std::shared_ptr<element> bvh_tree::recursive_build(std::vector<std::shared_ptr<primitive>>& leaves, size_t begin, size_t end, unsigned short int axis) const
+std::shared_ptr<element> bvh_tree::recursive_build(std::vector<std::shared_ptr<primitive>>& leaves, size_t begin, size_t end) const
 {
   if (begin + 1 == end)
   {
     return leaves[begin];
   }
+
+  // pick splitting axis with the largest extension
+  unsigned short int axis = 3;
+  { // unnamed scope
+    float span{-1.0f};
+
+    for (unsigned short int i = 0; i < 3; ++i)
+    {
+      float min_coord{infinity};
+      float max_coord{-infinity};
+
+      for (size_t i = begin+1; i < end; ++i)
+      {
+        if (leaves[i]->centroid[i] < min_coord)
+          min_coord = leaves[i]->centroid[i];
+        if (leaves[i]->centroid[i] > max_coord)
+          max_coord = leaves[i]->centroid[i];
+      }
+
+      float current_span = fabs(max_coord - min_coord);
+      if (current_span > span)
+      {
+        span = current_span;
+        axis = i;
+      }
+    }
+  } // unnamed scope
 
   // sort leaves based on their centroid coordinate
   std::sort(leaves.begin()+begin, leaves.begin()+end,
@@ -68,8 +95,8 @@ std::shared_ptr<element> bvh_tree::recursive_build(std::vector<std::shared_ptr<p
 
   // create a new node
   std::shared_ptr<bvh_node> new_node = std::make_shared<bvh_node>(leaves, begin, end);
-  new_node->left = recursive_build(leaves, begin, split_at, (axis + 1) % 3);
-  new_node->right = recursive_build(leaves, split_at, end, (axis + 1) % 3);
+  new_node->left = recursive_build(leaves, begin, split_at);
+  new_node->right = recursive_build(leaves, split_at, end);
 
   return new_node;
 }
@@ -81,4 +108,3 @@ bvh_node::bvh_node(const std::vector<std::shared_ptr<primitive>>& leaves, size_t
 }
 
 inline hit_check bvh_tree::hit(const ray& r, float t_max) const { return root->hit(r, t_max); }
-inline aabb bvh_tree::bounding_box() const { return root->bounding_box(); }

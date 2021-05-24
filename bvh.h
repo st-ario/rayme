@@ -22,7 +22,6 @@ struct hit_record
             ) : t{at}, front_face{front_face}, ptr_mat{ptr_mat}, normal{n} {}
 };
 
-
 class aabb
 {
   public:
@@ -96,8 +95,6 @@ class element
     // check whether a primitive contained in the element (or the element itself, in case _this_
     // points to a primitive) is hit
     virtual hit_check hit(const ray& r, float t_max) const = 0;
-
-    virtual aabb bounding_box() const = 0;
 };
 
 class primitive : public element
@@ -106,60 +103,6 @@ class primitive : public element
     point centroid;
   public:
     virtual hit_record get_record(const ray& r, float at) const = 0;
-};
-
-class sphere : public primitive
-{
-  public:
-    point center;
-    float radius;
-    std::shared_ptr<material> ptr_mat;
-
-    sphere() : center{point(0,0,0)}, radius{0}
-    {
-      bounds = bounding_box();
-      centroid = center;
-    };
-
-    sphere(point c, float r, std::shared_ptr<material> m) : center{c}, radius{r}, ptr_mat{m}
-    {
-      bounds = bounding_box();
-      centroid = center;
-    };
-
-    hit_check hit(const ray& r, float t_max) const override
-    {
-      vec3 center_to_origin = r.origin - center;
-      float b_halved = dot(center_to_origin,r.direction);
-      float c = center_to_origin.norm_squared() - radius*radius;
-      float discriminant = b_halved*b_halved - c;
-      if (discriminant < 0)
-        return std::nullopt;
-
-      float sqrtdel = std::sqrt(discriminant);
-      float root = -b_halved - std::sqrt(discriminant);
-      if (root < 0.0f || root > t_max)
-        return std::nullopt;
-
-      return std::make_pair(this, root);
-    }
-
-    hit_record get_record(const ray& r, float at) const
-    {
-      point p = r.at(at);
-      vec3 nonunital_candidate_normal = p - center;
-      bool front_face = dot(r.direction, nonunital_candidate_normal) < 0;
-      normed_vec3 normal = front_face ? unit(nonunital_candidate_normal) : - unit(nonunital_candidate_normal);
-      return hit_record(at, front_face, ptr_mat, normal);
-    }
-
-    aabb bounding_box() const
-    {
-      float padding = 0.001f;
-      float r = radius + padding;
-      return aabb{ center - vec3(r, r, r)
-                 , center + vec3(r, r, r)};
-    }
 };
 
 class bvh_node : public element
@@ -197,8 +140,6 @@ class bvh_node : public element
 
       return std::nullopt;
     }
-
-    virtual aabb bounding_box() const override { return bounds; }
 };
 
 class bvh_tree : public element
@@ -211,8 +152,7 @@ class bvh_tree : public element
     bvh_tree(std::vector<std::shared_ptr<primitive>>&& primitives);
 
     virtual hit_check hit(const ray& r, float t_max) const override;
-    virtual aabb bounding_box() const override;
 
   private:
-    std::shared_ptr<element> recursive_build(std::vector<std::shared_ptr<primitive>>& leaves, size_t begin, size_t end, unsigned short int axis) const;
+    std::shared_ptr<element> recursive_build(std::vector<std::shared_ptr<primitive>>& leaves, size_t begin, size_t end) const;
 };

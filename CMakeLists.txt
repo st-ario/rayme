@@ -7,15 +7,17 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_executable(${PROJECT_NAME}
+  bvh.cpp
   camera.cpp
-  elements.cpp
+  image_creation.cpp
   images.cpp
   materials.cpp
   math.cpp
+  meshes.cpp
   my_vectors.cpp
   render.cpp
   extern/simdjson/singleheader/simdjson.cpp
-  image_creation.cpp)
+  )
 
 #####    DOWNLOAD ALL THE SUBMODULES
 find_package(Git QUIET)

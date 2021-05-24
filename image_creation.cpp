@@ -2,7 +2,7 @@
 #include <fstream>
 
 #include "materials.h"
-#include "elements.h"
+#include "bvh.h"
 #include "render.h"
 #include "gltf_parser.h"
 

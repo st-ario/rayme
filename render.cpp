@@ -4,7 +4,7 @@
 #include "math.h"
 #include "my_vectors.h"
 #include "ray.h"
-#include "elements.h"
+#include "bvh.h"
 #include "materials.h"
 
 // temporary solution, to use before properly dealing with lights

@@ -4,7 +4,7 @@
 #include <fstream>
 
 #include "camera.h"
-#include "elements.h"
+#include "bvh.h"
 #include "images.h"
 
 void render( image& picture
