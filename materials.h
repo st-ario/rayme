@@ -1,8 +1,6 @@
 #pragma once
 
 #include "ray.h"
-#include "my_vectors.h"
-#include "elements.h"
 
 #include <optional>
 

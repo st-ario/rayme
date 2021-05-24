@@ -11,4 +11,4 @@ void render( image& picture
            , int samples_per_pixel
            , int depth
            , const camera& cam
-           , const element& world);
+           , const bvh_tree& world);

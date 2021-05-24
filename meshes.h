@@ -41,7 +41,7 @@ class mesh : public std::enable_shared_from_this<mesh>
     }
 }; // class mesh
 
-class triangle : public element
+class triangle : public primitive
 {
   private:
     std::shared_ptr<mesh> parent_mesh;
@@ -49,9 +49,31 @@ class triangle : public element
 
   public:
     triangle(const std::shared_ptr<mesh>& parent_mesh, int triangle_number)
-    : parent_mesh{parent_mesh}, number{triangle_number} {}
+    : parent_mesh{parent_mesh}, number{triangle_number}
+    {
+      bounds = bounding_box();
+      centroid = 0.5f * bounds.max() + 0.5f * bounds.min();
+    }
 
-    virtual std::optional<hit_record> hit(const ray& r, float t_max) const override
+    virtual aabb bounding_box() const override
+    {
+      float padding = 0.001f;
+      const point& p0 = parent_mesh->vertices[parent_mesh->vertex_indices[3*number]];
+      const point& p1 = parent_mesh->vertices[parent_mesh->vertex_indices[3*number+1]];
+      const point& p2 = parent_mesh->vertices[parent_mesh->vertex_indices[3*number+2]];
+
+      float min_x = fminf(p0.x(), fminf(p1.x(), p2.x())) - padding;
+      float min_y = fminf(p0.y(), fminf(p1.y(), p2.y())) - padding;
+      float min_z = fminf(p0.z(), fminf(p1.z(), p2.z())) - padding;
+
+      float max_x = fmaxf(p0.x(), fmaxf(p1.x(), p2.x())) + padding;
+      float max_y = fmaxf(p0.y(), fmaxf(p1.y(), p2.y())) + padding;
+      float max_z = fmaxf(p0.z(), fmaxf(p1.z(), p2.z())) + padding;
+
+      return aabb(vec3(min_x, min_y, min_z), vec3(max_x, max_y, max_z));
+    }
+
+    virtual hit_check hit(const ray& r, float t_max) const override
     {
       // adapted from pbrt v3
       const point& p0 = parent_mesh->vertices[parent_mesh->vertex_indices[3*number]];
@@ -157,13 +179,22 @@ class triangle : public element
       vec3 pError = gamma_bound(7) * vec3(xAbsSum, yAbsSum, zAbsSum);
       */
 
-      point p = r.at(t);
+      return std::make_pair(this, t);
+    }
+
+    virtual hit_record get_record(const ray& r, float at) const override
+    {
+      const point& p0 = parent_mesh->vertices[parent_mesh->vertex_indices[3*number]];
+      const point& p1 = parent_mesh->vertices[parent_mesh->vertex_indices[3*number+1]];
+      const point& p2 = parent_mesh->vertices[parent_mesh->vertex_indices[3*number+2]];
+
+      point p = r.at(at);
       vec3 nonunital_candidate_normal = cross(p1-p0, p2-p0);
 
       bool front_face = dot(r.direction, nonunital_candidate_normal) < 0;
 
       normed_vec3 normal = front_face ? unit(nonunital_candidate_normal) : - unit(nonunital_candidate_normal);
 
-      return hit_record(p, t, front_face, parent_mesh->ptr_mat, normal);
-     }
+      return hit_record(at, front_face, parent_mesh->ptr_mat, normal);
+    }
 }; // class triangle

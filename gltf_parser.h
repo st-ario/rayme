@@ -152,7 +152,7 @@ int process_elements(std::vector<T>& vec
   return n_elements;
 }
 
-void parse_gltf(const std::string& filename, scene& world, const std::shared_ptr<material>& ptr_mat)
+void parse_gltf(const std::string& filename, std::vector<std::shared_ptr<primitive>>& primitives, const std::shared_ptr<material>& ptr_mat)
 //void parse_gltf(const std::string& filename, std::vector<mesh>& meshes)
 {
   simdjson::ondemand::parser parser;
@@ -434,11 +434,11 @@ void parse_gltf(const std::string& filename, scene& world, const std::shared_ptr
         std::shared_ptr<mesh> current_mesh = std::make_shared<mesh>(
           n_vertices, n_triangles, vertex_indices, vertices, ptr_mat, normals, tangents);
 
+        primitives.reserve(primitives.size() + n_triangles);
+
         for (auto& tri : current_mesh->get_triangles())
-          world.objects.emplace_back(std::move(tri));
+          primitives.emplace_back(std::move(tri));
       }
     }
   } // unnamed scope
-
-  // TODO add transform objects to the project
 }

@@ -1,20 +1,15 @@
 #include <iostream>
 #include <fstream>
 
-#include "ray.h"
-#include "render.h"
-#include "my_vectors.h"
-#include "camera.h"
-#include "math.h"
 #include "materials.h"
-#include "images.h"
+#include "elements.h"
+#include "render.h"
 #include "gltf_parser.h"
 
 // y = up, x = right, right-handed
 int main()
 {
-  // World
-  scene world;
+  std::vector<std::shared_ptr<primitive>> primitives;
 
   auto material_ground = std::make_shared<lambertian>(color(0.8, 0.8, 0.0));
   auto material_center = std::make_shared<lambertian>(color(0.1, 0.2, 0.5));
@@ -30,12 +25,12 @@ int main()
   world.add(std::make_shared<sphere>(point( 1.0,    0.0, -1.0),   0.5, material_right));
   */
 
-  world.add(std::make_shared<sphere>(point( 0.0, -100.5, -1.0), 100.0, material_ground));
-  //world.add(std::make_shared<sphere>(point( 0.0,    0.0, -1.0),   0.5, material_center));
+  primitives.emplace_back(std::make_shared<sphere>(point( 0.0, -100.5, -1.0), 100.0, material_ground));
+  //primitives.emplace_back(std::make_shared<sphere>(point( 0.0,    0.0, -1.0),   0.5, material_center));
   // currently parse_gltf just loads triangle meshes
-  //parse_gltf("Box(bin_ref).gltf", world, material_center);
-  parse_gltf("monkey.gltf", world, material_center);
-  //parse_gltf("torus.gltf", world, material_center);
+  parse_gltf("monkey.gltf", primitives, material_center);
+
+  bvh_tree scene_tree{std::move(primitives)};
 
   // Camera
   const float aspect_ratio = 16.0f/9.0f;
@@ -52,7 +47,7 @@ int main()
 
   // Render
   image picture(image_width,image_height);
-  render(picture, samples_per_pixel, max_depth, cam, world);
+  render(picture, samples_per_pixel, max_depth, cam, scene_tree);
 
   std::cerr << "\nExporting file...";
   std::flush(std::cerr);

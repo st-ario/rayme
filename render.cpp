@@ -16,9 +16,9 @@ static color ray_color(const ray& r, const element& world, int depth, float zfar
   auto rec = world.hit(r, zfar);
   if (rec)
   {
-    auto record = rec.value();
+    hit_record record = rec.value().first->get_record(r,rec.value().second);
     color attenuation;
-    auto scattered_ray = rec.value().ptr_mat->scatter(r, record, attenuation);
+    auto scattered_ray = record.ptr_mat->scatter(r, record, attenuation);
     if (scattered_ray)
       return attenuation * ray_color(scattered_ray.value(), world, depth-1, zfar);
     return color(0,0,0);
@@ -36,7 +36,7 @@ static void render_tile( image* picture
                        , int samples_per_pixel
                        , int depth
                        , const camera* cam
-                       , const element* world)
+                       , const bvh_tree* world)
 {
   color pixel_color(0,0,0);
   int h_offset = column * tile_size;
@@ -69,7 +69,7 @@ void render( image& picture
            , int samples_per_pixel
            , int depth
            , const camera& cam
-           , const element& world)
+           , const bvh_tree& world)
 {
   const int tile_size{16};
   const int num_columns{static_cast<int>(std::ceil(float(picture.get_width() / float(tile_size))))};

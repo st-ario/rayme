@@ -1,6 +1,7 @@
 #pragma once
-#include "my_vectors.h"
 #include <vector>
+
+#include "my_vectors.h"
 
 class image
 {

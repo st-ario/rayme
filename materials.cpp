@@ -1,5 +1,6 @@
 #include "materials.h"
 #include "math.h"
+#include "elements.h"
 
 std::optional<ray> lambertian::scatter(
     const ray& r
@@ -11,9 +12,9 @@ std::optional<ray> lambertian::scatter(
   vec3 nonunital_scatter_direction = rec.normal.to_vec3() + normed_vec3::random_unit().to_vec3();
   if (nonunital_scatter_direction.near_zero())
   {
-    return ray(rec.p, rec.normal);
+    return ray(r.at(rec.t), rec.normal);
   } else {
-    return ray(rec.p, unit(nonunital_scatter_direction));
+    return ray(r.at(rec.t), unit(nonunital_scatter_direction));
   }
 }
 // Alternatively: scatter with probability p and have attenuation be given by albedo/p
@@ -28,7 +29,7 @@ std::optional<ray> metal::scatter(
   attenuation = albedo;
   vec3 reflected = reflect(r.direction, rec.normal).to_vec3();
   normed_vec3 scattered_direction = unit(reflected + roughness*vec3::random_in_unit_sphere());
-  ray scattered = ray(rec.p, scattered_direction);
+  ray scattered = ray(r.at(rec.t), scattered_direction);
   if (dot(scattered.direction, rec.normal) > 0)
     return scattered;
   return std::nullopt;
@@ -53,7 +54,7 @@ std::optional<ray> dielectric::scatter(
 
   normed_vec3 direction = get_direction(aux, r.direction, rec.normal, refraction_ratio);
 
-  return ray(rec.p,direction);
+  return ray(r.at(rec.t), direction);
 }
 
 static normed_vec3 get_direction(bool b, normed_vec3 dir, normed_vec3 n, float ref_ratio)

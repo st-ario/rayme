@@ -158,14 +158,13 @@ my_container<Number,Size> operator/(const my_container<Number,Size>&v, Number t)
 
 class vec3 : public my_container<float,3>
 {
-  private:
-    using my_container<float,3>::operator[];
-
   public:
     // same constructors as parent
     using my_container<float,3>::my_container;
     vec3 (const rigid_container<float,3>& v);
     vec3 (float x, float y, float z);
+
+    using my_container<float,3>::operator[];
 
     float x() const;
     float y() const;
@@ -175,8 +174,6 @@ class vec3 : public my_container<float,3>
     float& y();
     float& z();
 
-
-    // float norm() const;
     float norm_squared() const;
 
     friend vec3 permute(const vec3& v, int x, int y, int z);
@@ -670,6 +667,22 @@ inline float max_component(const vec3& v)
   if (v.y() > v.z())
     return v.y();
   // z >= y >= x
+  return v.z();
+}
+
+inline float min_component(const vec3& v)
+{
+  if (v.x() < v.y())
+  {
+    if (v.x() < v.z())
+      return v.x();
+
+    return v.z();
+  }
+
+  if (v.y() < v.z())
+    return v.y();
+
   return v.z();
 }
 
