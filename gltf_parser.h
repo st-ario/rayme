@@ -2,14 +2,13 @@
 
 #include "extern/simdjson/singleheader/simdjson.h"
 #include "meshes.h"
+#include "transformations.h"
 
 #include <fstream>
 
-union gltf_numeric { int i; float f; };
-
-using gltf_buffer = std::vector<unsigned char>;
-
-struct gltf_scene {};
+union  gltf_numeric { int i; float f; };
+using  gltf_buffer = std::vector<unsigned char>;
+struct gltf_scene { std::vector<int> roots; };
 
 struct gltf_primitive
 {
@@ -32,16 +31,12 @@ struct gltf_sampler {};
 
 struct gltf_node
 {
-  int camera;
+  int camera = -1;
   std::vector<int> children;
-  std::array<gltf_numeric,16> matrix{1,0,0,0,
-                                     0,1,0,0,
-                                     0,0,1,0,
-                                     0,0,0,1};
-  int mesh;
-  std::array<gltf_numeric,4> rotation{0,0,0,1};
-  std::array<gltf_numeric,3> scale{1,1,1};
-  std::array<gltf_numeric,3> translation{0,0,0};
+  bool is_root = false;
+  gltf_node* parent = nullptr;
+  int mesh = -1;
+  std::shared_ptr<transformation> matrix;
 };
 
 struct buffer_view
@@ -125,35 +120,9 @@ int element_size(const accessor& acc)
   return component_size(acc) * n_components(acc);
 }
 
-template<typename T, typename N>
-int process_elements(std::vector<T>& vec
-                    , accessor& acc
-                    , const std::vector<buffer_view>& views
-                    , const gltf_buffer& data)
-{
-  int n_elements = acc.count;
-  int offset = views[acc.buffer_view].byte_offset + acc.byte_offset;
-  int s = component_size(acc);
-  int s_element = element_size(acc);
-  int length = s_element * acc.count;
-
-  for (int i = offset; i < offset + length; i+=s_element)
-  {
-    T x;
-    for (int j = 0; j < x.size(); j+=s)
-    {
-      N n;
-      std::memcpy(&n, &data[i+j], s);
-      // careful with the case vertex_indices.push_back((uint16_t)data[i]);
-      x[j] = n;
-    }
-    vec.push_back(x);
-  }
-  return n_elements;
-}
-
+// the ptr_mat argument is a temporary hack, to pass to all meshes the same standard material for rendering
+// to be removed as soon as materials are properly dealt with
 void parse_gltf(const std::string& filename, std::vector<std::shared_ptr<primitive>>& primitives, const std::shared_ptr<material>& ptr_mat)
-//void parse_gltf(const std::string& filename, std::vector<mesh>& meshes)
 {
   simdjson::ondemand::parser parser;
   auto gltf = simdjson::padded_string::load(filename);
@@ -175,8 +144,121 @@ void parse_gltf(const std::string& filename, std::vector<std::shared_ptr<primiti
   // store which nodes are the root nodes of the scene
   // ###############################################################################################
 
-  // TODO; register doc["scene"] and only process the relevant resources
-  // if the "scene" property is not defined, print out an error message and exit
+  // TODO if the "scene" property is not defined, print out an error message and exit
+
+  simdjson::ondemand::value document_scene = doc["scene"]; // might throw
+  int selected_scene;
+  selected_scene = document_scene.get_int64();
+  gltf_scene scene;
+  simdjson::ondemand::array document_scenes = doc["scenes"];
+  { // unnamed scope
+    int j = 0;
+    for (auto s : document_scenes)
+    {
+      if (j == selected_scene)
+      {
+        auto scene_obj = s.get_object();
+        simdjson::ondemand::array scene_nodes = scene_obj["nodes"];
+        for (auto node : scene_nodes)
+          scene.roots.push_back(node.get_int64());
+      }
+      ++j;
+    }
+  } // unnamed scope
+
+  // ###############################################################################################
+  // traverse scene tree
+  // ###############################################################################################
+
+  // initialize root nodes of the scene
+  simdjson::ondemand::array document_nodes = doc["nodes"];
+  std::vector<gltf_node> scene_root_nodes;
+  for (int j : scene.roots)
+  {
+    int i = 0;
+    for (auto node : document_nodes)
+    {
+      if (i == j)
+      {
+        auto node_obj = node.get_object();
+        gltf_node current_node;
+        current_node.is_root = true;
+
+        for (auto property : node_obj)
+        {
+          if (property.key() == "camera")
+            current_node.camera = property.value().get_uint64();
+
+          if (property.key() == "mesh")
+            current_node.mesh = property.value().get_uint64();
+
+          if (property.key() == "children")
+          {
+            simdjson::ondemand::array children_iterator = property.value();
+            for (auto k : children_iterator)
+              current_node.children.emplace_back(k.get_uint64());
+          }
+          if (property.key() == "matrix")
+          {
+            mat4 mat;
+            simdjson::ondemand::array components = property.value();
+            unsigned short int s = 0;
+            for (auto k : components)
+            {
+              mat[s] = k.get_double();
+              ++s;
+            }
+            std::shared_ptr<transformation> mat_ptr{std::make_shared<transformation>(mat)};
+            current_node.matrix = mat_ptr;
+          }
+          if (property.key() == "rotation")
+          {
+            vec4 q;
+            simdjson::ondemand::array components = property.value();
+            unsigned short int s = 0;
+            for (auto k : components)
+            {
+              q[s] = k.get_double();
+              ++s;
+            }
+            std::shared_ptr<transformation> rot_ptr{std::make_shared<transformation>(rotation_matrix(q))};
+            current_node.matrix = rot_ptr;
+          }
+          if (property.key() == "scale")
+          {
+            vec3 scale;
+            simdjson::ondemand::array components = property.value();
+            unsigned short int s = 0;
+            for (auto k : components)
+            {
+              scale[s] = k.get_double();
+              ++s;
+            }
+            std::shared_ptr<transformation> scale_ptr{std::make_shared<transformation>(scale_matrix(scale))};
+            current_node.matrix = scale_ptr;
+          }
+          if (property.key() == "translation")
+          {
+            vec3 translation;
+            simdjson::ondemand::array components = property.value();
+            unsigned short int s = 0;
+            for (auto k : components)
+            {
+              translation[s] = k.get_double();
+              ++s;
+            }
+            std::shared_ptr<transformation> tr_ptr{std::make_shared<transformation>(translation_matrix(translation))};
+            current_node.matrix = tr_ptr;
+          }
+        }
+        scene_root_nodes.push_back(current_node);
+      }
+    }
+  }
+
+  // initialize the children of each root node
+  // TODO
+
 
   // ###############################################################################################
   // store information about buffers and buffer views
