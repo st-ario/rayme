@@ -8,7 +8,18 @@
 
 union  gltf_numeric { int i; float f; };
 using  gltf_buffer = std::vector<unsigned char>;
-struct gltf_scene { std::vector<int> roots; };
+
+struct gltf_node
+{
+  int camera = -1;
+  std::vector<int> children_indices;
+  std::vector<std::shared_ptr<gltf_node>> children;
+  std::weak_ptr<gltf_node> parent;
+  int mesh = -1;
+  std::shared_ptr<transformation> matrix;
+};
+
+struct gltf_scene { std::shared_ptr<gltf_node> root_node{std::make_shared<gltf_node>()}; };
 
 struct gltf_primitive
 {
@@ -28,16 +39,6 @@ struct gltf_material {};
 struct glft_texture {};
 struct gltf_image {};
 struct gltf_sampler {};
-
-struct gltf_node
-{
-  int camera = -1;
-  std::vector<int> children;
-  bool is_root = false;
-  gltf_node* parent = nullptr;
-  int mesh = -1;
-  std::shared_ptr<transformation> matrix;
-};
 
 struct buffer_view
 {
@@ -140,6 +141,8 @@ void parse_gltf(const std::string& filename, std::vector<std::shared_ptr<primiti
     }
   }
 
+  void initialize_tree(std::shared_ptr<gltf_node>& parent, simdjson::ondemand::document& doc);
+
   // ###############################################################################################
   // store which nodes are the root nodes of the scene
   // ###############################################################################################
@@ -148,7 +151,7 @@ void parse_gltf(const std::string& filename, std::vector<std::shared_ptr<primiti
 
   simdjson::ondemand::value document_scene = doc["scene"]; // might throw
   int selected_scene;
-  selected_scene = document_scene.get_int64();
+  selected_scene = document_scene.get_uint64();
   gltf_scene scene;
   simdjson::ondemand::array document_scenes = doc["scenes"];
   { // unnamed scope
@@ -160,7 +163,7 @@ void parse_gltf(const std::string& filename, std::vector<std::shared_ptr<primiti
         auto scene_obj = s.get_object();
         simdjson::ondemand::array scene_nodes = scene_obj["nodes"];
         for (auto node : scene_nodes)
-          scene.roots.push_back(node.get_int64());
+          scene.root_node->children_indices.push_back(node.get_uint64());
       }
       ++j;
     }
@@ -170,95 +173,7 @@ void parse_gltf(const std::string& filename, std::vector<std::shared_ptr<primiti
   // traverse scene tree
   // ###############################################################################################
 
-  // initialize root nodes of the scene
-  simdjson::ondemand::array document_nodes = doc["nodes"];
-  std::vector<gltf_node> scene_root_nodes;
-  for (int j : scene.roots)
-  {
-    int i = 0;
-    for (auto node : document_nodes)
-    {
-      if (i == j)
-      {
-        auto node_obj = node.get_object();
-        gltf_node current_node;
-        current_node.is_root = true;
-
-        for (auto property : node_obj)
-        {
-          if (property.key() == "camera")
-            current_node.camera = property.value().get_uint64();
-
-          if (property.key() == "mesh")
-            current_node.mesh = property.value().get_uint64();
-
-          if (property.key() == "children")
-          {
-            simdjson::ondemand::array children_iterator = property.value();
-            for (auto k : children_iterator)
-              current_node.children.emplace_back(k.get_uint64());
-          }
-          if (property.key() == "matrix")
-          {
-            mat4 mat;
-            simdjson::ondemand::array components = property.value();
-            unsigned short int s = 0;
-            for (auto k : components)
-            {
-              mat[s] = k.get_double();
-              ++s;
-            }
-            std::shared_ptr<transformation> mat_ptr{std::make_shared<transformation>(mat)};
-            current_node.matrix = mat_ptr;
-          }
-          if (property.key() == "rotation")
-          {
-            vec4 q;
-            simdjson::ondemand::array components = property.value();
-            unsigned short int s = 0;
-            for (auto k : components)
-            {
-              q[s] = k.get_double();
-              ++s;
-            }
-            std::shared_ptr<transformation> rot_ptr{std::make_shared<transformation>(rotation_matrix(q))};
-            current_node.matrix = rot_ptr;
-          }
-          if (property.key() == "scale")
-          {
-            vec3 scale;
-            simdjson::ondemand::array components = property.value();
-            unsigned short int s = 0;
-            for (auto k : components)
-            {
-              scale[s] = k.get_double();
-              ++s;
-            }
-            std::shared_ptr<transformation> scale_ptr{std::make_shared<transformation>(scale_matrix(scale))};
-            current_node.matrix = scale_ptr;
-          }
-          if (property.key() == "translation")
-          {
-            vec3 translation;
-            simdjson::ondemand::array components = property.value();
-            unsigned short int s = 0;
-            for (auto k : components)
-            {
-              translation[s] = k.get_double();
-              ++s;
-            }
-            std::shared_ptr<transformation> tr_ptr{std::make_shared<transformation>(translation_matrix(translation))};
-            current_node.matrix = tr_ptr;
-          }
-        }
-        scene_root_nodes.push_back(current_node);
-      }
-    }
-  }
-
-  // initialize the children of each root node
-  // TODO
-
+  initialize_tree(scene.root_node, doc);
 
   // ###############################################################################################
   // store information about buffers and buffer views
@@ -276,9 +191,9 @@ void parse_gltf(const std::string& filename, std::vector<std::shared_ptr<primiti
       {
         // ignoring "name", "extensions" and "extras"
         if (property.key() == "byteLength")
-          byte_length = uint64_t(property.value());
+          byte_length = property.value().get_uint64();
         if (property.key() == "uri")
-          uri = std::string_view(property.value());
+          uri = property.value().get_string();
       }
 
       gltf_buffer current;
@@ -317,13 +232,13 @@ void parse_gltf(const std::string& filename, std::vector<std::shared_ptr<primiti
       {
         // ignoring target, name, extensions and extras
         if (property.key() == "buffer")
-          current.buffer_index = uint64_t(property.value());
+          current.buffer_index = property.value().get_uint64();
         if (property.key() == "byteOffset")
-          current.byte_offset = uint64_t(property.value());
+          current.byte_offset = property.value().get_uint64();
         if (property.key() == "byteLength")
-          current.byte_length = uint64_t(property.value());
+          current.byte_length = property.value().get_uint64();
         if (property.key() == "byteStride")
-          current.byte_stride = uint64_t(property.value());
+          current.byte_stride = property.value().get_uint64();
       }
       views.push_back(current);
     }
@@ -342,15 +257,15 @@ void parse_gltf(const std::string& filename, std::vector<std::shared_ptr<primiti
         // ignoring name, extension and extra
         // currently ignoring also min, max and sparse
         if (property.key() == "bufferView")
-          current.buffer_view = uint64_t(property.value());
+          current.buffer_view = property.value().get_uint64();
         if (property.key() == "byteOffset")
-          current.byte_offset = uint64_t(property.value());
+          current.byte_offset = property.value().get_uint64();
         if (property.key() == "componentType")
-          current.component_type = uint64_t(property.value());
+          current.component_type = property.value().get_uint64();
         if (property.key() == "normalized")
-          current.is_normalized = bool(property.value());
+          current.is_normalized = property.value().get_bool();
         if (property.key() == "count")
-          current.count = uint64_t(property.value());
+          current.count = property.value().get_uint64();
         if (property.key() == "type")
           current.type = std::string(std::string_view(property.value()));
       }
@@ -361,7 +276,6 @@ void parse_gltf(const std::string& filename, std::vector<std::shared_ptr<primiti
   // ###############################################################################################
   // store meshes
   // ###############################################################################################
-  std::vector<std::shared_ptr<mesh>> meshes;
 
   { // unnamed scope
     simdjson::ondemand::array document_meshes = doc["meshes"];
@@ -385,30 +299,30 @@ void parse_gltf(const std::string& filename, std::vector<std::shared_ptr<primiti
             {
               // ignoring "JOINTS_0" and "WEIGHTS_0"
               if (attr.key() == "POSITION")
-                prim.attr_vertices = uint64_t(attr.value());
+                prim.attr_vertices = attr.value().get_uint64();
               if (attr.key() == "NORMAL")
-                prim.attr_normals = uint64_t(attr.value());
+                prim.attr_normals = attr.value().get_uint64();
               if (attr.key() == "TANGENT")
-                prim.attr_tangents = uint64_t(attr.value());
+                prim.attr_tangents = attr.value().get_uint64();
               if (attr.key() == "TEXCOORD_0")
-                prim.attr_texcoord0 = uint64_t(attr.value());
+                prim.attr_texcoord0 = attr.value().get_uint64();
               if (attr.key() == "TEXCOORD_1")
-                prim.attr_texcoord1 = uint64_t(attr.value());
+                prim.attr_texcoord1 = attr.value().get_uint64();
               if (attr.key() == "COLOR_0")
-                prim.attr_color0 = uint64_t(attr.value());
+                prim.attr_color0 = attr.value().get_uint64();
             }
           }
           if (property.key() == "indices")
           {
-            prim.indices = uint64_t(property.value());
+            prim.indices = property.value().get_uint64();
             // TODO if not defined, the mesh has to be created differently
             // (i.e. following GL's drawArrays() instead of drawElements())
           }
           if (property.key() == "material")
-            prim.material = uint64_t(property.value());
+            prim.material = property.value().get_uint64();
           if (property.key() == "mode")
           {
-            prim.mode = uint64_t(property.value());
+            prim.mode = property.value().get_uint64();
             // if anything other than 4, print error message "currently supporting only triangle meshes as primitives" and exit
           }
         }
@@ -513,8 +427,8 @@ void parse_gltf(const std::string& filename, std::vector<std::shared_ptr<primiti
           }
         }
 
-        std::shared_ptr<mesh> current_mesh = std::make_shared<mesh>(
-          n_vertices, n_triangles, vertex_indices, vertices, ptr_mat, normals, tangents);
+        std::shared_ptr<mesh> current_mesh{std::make_shared<mesh>(
+          n_vertices, n_triangles, vertex_indices, vertices, ptr_mat, normals, tangents)};
 
         primitives.reserve(primitives.size() + n_triangles);
 
@@ -523,4 +437,92 @@ void parse_gltf(const std::string& filename, std::vector<std::shared_ptr<primiti
       }
     }
   } // unnamed scope
+}
+
+void initialize_tree(std::shared_ptr<gltf_node>& parent, simdjson::ondemand::document& doc)
+{
+  for (int child_index : parent->children_indices)
+  {
+    simdjson::ondemand::array document_nodes = doc["nodes"];
+    int i = 0;
+    for (auto node_iterator : document_nodes)
+    {
+      if (i == child_index)
+      {
+        simdjson::ondemand::object node_obj = node_iterator.get_object();
+        std::shared_ptr<gltf_node> child_node{std::make_shared<gltf_node>()};
+        child_node->parent = parent;
+        for (auto property : node_obj)
+        {
+          if (property.key() == "camera")
+            child_node->camera = property.value().get_uint64();
+
+          if (property.key() == "mesh")
+            child_node->mesh = property.value().get_uint64();
+
+          if (property.key() == "children")
+          {
+            simdjson::ondemand::array children_iterator = property.value();
+            for (auto k : children_iterator)
+              child_node->children_indices.emplace_back(k.get_uint64());
+          }
+          if (property.key() == "matrix")
+          {
+            mat4 mat;
+            simdjson::ondemand::array components = property.value();
+            unsigned short int s = 0;
+            for (auto k : components)
+            {
+              mat[s] = k.get_double();
+              ++s;
+            }
+            std::shared_ptr<transformation> mat_ptr{std::make_shared<transformation>(mat)};
+            child_node->matrix = mat_ptr;
+          }
+          if (property.key() == "rotation")
+          {
+            vec4 q;
+            simdjson::ondemand::array components = property.value();
+            unsigned short int s = 0;
+            for (auto k : components)
+            {
+              q[s] = k.get_double();
+              ++s;
+            }
+            std::shared_ptr<transformation> rot_ptr{std::make_shared<transformation>(rotation_matrix(q))};
+            child_node->matrix = rot_ptr;
+          }
+          if (property.key() == "scale")
+          {
+            vec3 scale;
+            simdjson::ondemand::array components = property.value();
+            unsigned short int s = 0;
+            for (auto k : components)
+            {
+              scale[s] = k.get_double();
+              ++s;
+            }
+            std::shared_ptr<transformation> scale_ptr{std::make_shared<transformation>(scale_matrix(scale))};
+            child_node->matrix = scale_ptr;
+          }
+          if (property.key() == "translation")
+          {
+            vec3 translation;
+            simdjson::ondemand::array components = property.value();
+            unsigned short int s = 0;
+            for (auto k : components)
+            {
+              translation[s] = k.get_double();
+              ++s;
+            }
+            std::shared_ptr<transformation> tr_ptr{std::make_shared<transformation>(translation_matrix(translation))};
+            child_node->matrix = tr_ptr;
+          }
+        }
+        initialize_tree(child_node, doc);
+        parent->children.push_back(child_node);
+      }
+      ++i;
+    }
+  }
 }
