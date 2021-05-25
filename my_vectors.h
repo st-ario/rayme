@@ -98,7 +98,6 @@ class rigid_container
     constexpr ConstIterator cend()   const noexcept {return ConstIterator(&m_array[Size]); }
 };
 
-
 template<typename Number, unsigned short int Size>
 class my_container : public rigid_container<Number,Size>
 {
@@ -233,12 +232,11 @@ class color : public my_container<double,3>
     double& b();
 };
 
-// TODO change when they'll be actually used
+// TODO change when they'll be actually used (if needed)
 typedef my_container<float, 2> vec2;
 typedef my_container<float, 4> vec4;
 typedef my_container<float, 4> mat2;
 typedef my_container<float, 9> mat3;
-typedef my_container<float,16> mat4;
 
 // dot product of vectors
 template<typename Number, unsigned short int Size>
