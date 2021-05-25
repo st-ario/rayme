@@ -1,5 +1,4 @@
 #include "materials.h"
-#include "math.h"
 #include "bvh.h"
 
 std::optional<ray> lambertian::scatter(

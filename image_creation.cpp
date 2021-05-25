@@ -1,10 +1,5 @@
-#include <iostream>
-#include <fstream>
-
-#include "materials.h"
-#include "bvh.h"
-#include "render.h"
 #include "gltf_parser.h"
+#include "render.h"
 
 // y = up, x = right, right-handed
 int main()

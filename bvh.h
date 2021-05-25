@@ -1,11 +1,6 @@
 #pragma once
 #include "ray.h"
 
-#include <cmath>
-#include <vector>
-#include <memory>
-#include <optional>
-
 class material; // defined in materials.h
 
 struct hit_record

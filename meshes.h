@@ -1,8 +1,5 @@
 #pragma once
 
-#include <vector>
-#include "my_vectors.h"
-
 #include "bvh.h"
 
 class triangle;

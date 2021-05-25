@@ -1,9 +1,15 @@
 #pragma once
 
+#include <cmath>
 #include <limits>
 #include <vector>
+#include <memory>
+#include <string>
 #include <string_view>
 #include <cstring>
+#include <fstream>
+#include <iostream>
+#include <optional>
 
 // Constants
 

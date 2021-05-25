@@ -1,10 +1,9 @@
 #pragma once
 
-#include "ray.h"
-
-#include <optional>
+#include "my_vectors.h"
 
 struct hit_record;
+class ray;
 
 class material
 {

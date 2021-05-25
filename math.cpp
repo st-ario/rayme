@@ -1,6 +1,6 @@
-#include <random>
-
 #include "math.h"
+
+#include <random>
 
 float random_float()
 {

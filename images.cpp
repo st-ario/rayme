@@ -1,8 +1,6 @@
-#include <fstream>
-#include <cstdint>
-
 #include "images.h"
-#include "math.h"
+
+#include <cstdint>
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "extern/stb/stb_image_write.h"

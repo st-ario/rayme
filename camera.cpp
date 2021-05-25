@@ -1,6 +1,4 @@
 #include "camera.h"
-#include "math.h"
-#include <cmath>
 
 camera::camera( point origin
       , vec3 look_at

@@ -1,11 +1,6 @@
-#include <future>
-
 #include "render.h"
-#include "math.h"
-#include "my_vectors.h"
-#include "ray.h"
-#include "bvh.h"
-#include "materials.h"
+
+#include <future>
 
 // temporary solution, to use before properly dealing with lights
 static color ray_color(const ray& r, const element& world, int depth, float zfar)

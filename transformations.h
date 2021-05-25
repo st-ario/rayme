@@ -196,7 +196,7 @@ inline void transformation::apply_to(vec3& v)
   v[2] = M[2] * v[0] + M[6] * v[1] + M[10] * v[2] + M[14];
 }
 
-transformation rotation_matrix(const vec4& q)
+inline transformation rotation_matrix(const vec4& q)
 {
   return transformation{
     1.0f - 2.0f * q[1] * q[1] - 2.0f * q[2] * q[2],
