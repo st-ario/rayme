@@ -12,10 +12,7 @@ struct gltf_node
   std::vector<std::shared_ptr<gltf_node>> children;
   std::weak_ptr<gltf_node> parent;
   std::shared_ptr<mesh> m_mesh;
-  std::shared_ptr<transformation> matrix;
-  std::shared_ptr<transformation> translate{ std::make_shared<transformation>() };
-  std::shared_ptr<transformation> scale{ std::make_shared<transformation>() };
-  std::shared_ptr<transformation> rotate{ std::make_shared<transformation>() };
+  std::shared_ptr<transformation> transform;
 };
 
 struct gltf_scene { std::shared_ptr<gltf_node> root_node{std::make_shared<gltf_node>()}; };
@@ -133,15 +130,9 @@ void apply_pointwise_transformation(const transformation& M, mesh& mesh)
 
 void apply_mesh_transformations(gltf_node& node, mesh& mesh)
 {
-  if (node.matrix)
-    apply_pointwise_transformation(*(node.matrix), mesh);
-
   transformation id;
-  if (*(node.translate) != id || *(node.rotate) != id || *(node.scale) != id)
-  {
-    transformation total{*(node.translate) * *(node.rotate) * *(node.scale)};
-    apply_pointwise_transformation(total, mesh);
-  }
+  if (node.transform && *(node.transform) != id)
+    apply_pointwise_transformation(*(node.transform), mesh);
 
   if (auto p_p = node.parent.lock())
     apply_mesh_transformations(*p_p, mesh);
@@ -149,18 +140,171 @@ void apply_mesh_transformations(gltf_node& node, mesh& mesh)
 
 void apply_mesh_transformations(gltf_node& node)
 {
-  if (node.matrix)
-    apply_pointwise_transformation(*(node.matrix), *(node.m_mesh));
-
   transformation id;
-  if (*(node.translate) != id || *(node.rotate) != id || *(node.scale) != id)
-  {
-    transformation total{*(node.translate) * *(node.rotate) * *(node.scale)};
-    apply_pointwise_transformation(total, *(node.m_mesh));
-  }
+  if (node.transform && *(node.transform) != id)
+    apply_pointwise_transformation(*(node.transform), *(node.m_mesh));
 
   if (auto p_p = node.parent.lock())
     apply_mesh_transformations(*p_p, *(node.m_mesh));
+}
+
+gltf_scene get_scene(simdjson::ondemand::document& doc)
+{
+  gltf_scene scene;
+
+  uint64_t selected_scene;
+  auto error = doc["scene"].get(selected_scene);
+  if (error)
+  {
+      std::cerr << "ERROR: missing \"scene\" field\n";
+      std::exit(1);
+  }
+
+  simdjson::ondemand::array document_scenes;
+  error = doc["scenes"].get(document_scenes);
+  if (error)
+  {
+      std::cerr << "ERROR: invalid scenes\n";
+      std::exit(1);
+  }
+
+  int j = 0;
+  for (auto s : document_scenes)
+  {
+    if (j == selected_scene)
+    {
+      auto scene_obj = s.get_object();
+      simdjson::ondemand::array scene_nodes;
+      error = scene_obj["nodes"].get(scene_nodes);
+      if (error)
+      {
+        std::cerr << "ERROR: invalid nodes\n";
+        std::exit(1);
+      }
+      for (auto node : scene_nodes)
+        scene.root_node->children_indices.emplace_back(node.get_uint64());
+    }
+    ++j;
+  }
+
+  return scene;
+}
+
+std::vector<gltf_buffer> get_buffers(simdjson::ondemand::document& doc)
+{
+  std::vector<gltf_buffer> buffers;
+
+  simdjson::ondemand::array document_buffers;
+  auto error = doc["buffers"].get(document_buffers);
+  if (error)
+  {
+    std::cerr << "ERROR: invalid buffers\n";
+    std::exit(1);
+  }
+
+  for (auto document_buffer : document_buffers)
+  {
+    auto buffer_obj = document_buffer.get_object();
+    int byte_length;
+    std::string_view uri;
+    for (auto property : buffer_obj)
+    {
+      if (property.key() == "byteLength")
+        byte_length = property.value().get_uint64();
+      if (property.key() == "uri")
+        uri = property.value().get_string();
+    }
+
+    gltf_buffer current;
+    current.reserve(byte_length);
+
+    constexpr char signature[38] = "data:application/octet-stream;base64,";
+    if (uri.size() > 37 && uri.rfind(signature, 0) == 0)
+    {
+      current = base64::decode(&uri[37]);
+    } else {
+      std::ifstream file(std::string(uri), std::ios::binary);
+      if (!file.is_open())
+      {
+        std::cerr << "Unable to open " << uri << "\n";
+        std::exit(1);
+      }
+      current.insert(current.begin(),
+                     std::istreambuf_iterator<char>(file),
+                     std::istreambuf_iterator<char>());
+
+      file.close();
+    }
+    buffers.emplace_back(std::move(current));
+  }
+  return buffers;
+}
+
+std::vector<buffer_view> get_buffer_views(simdjson::ondemand::document& doc)
+{
+  std::vector<buffer_view> views;
+  simdjson::ondemand::array document_views;
+  auto error = doc["bufferViews"].get(document_views);
+  if (error)
+  {
+    std::cerr << "ERROR: invalid buffer views\n";
+    std::exit(1);
+  }
+  for (auto b : document_views)
+  {
+    auto b_view_obj = b.get_object();
+    buffer_view current;
+
+    for (auto property : b_view_obj)
+    {
+      if (property.key() == "buffer")
+        current.buffer_index = property.value().get_uint64();
+      if (property.key() == "byteOffset")
+        current.byte_offset = property.value().get_uint64();
+      if (property.key() == "byteLength")
+        current.byte_length = property.value().get_uint64();
+      if (property.key() == "byteStride")
+        current.byte_stride = property.value().get_uint64();
+    }
+    views.push_back(current);
+  }
+  return views;
+}
+
+std::vector<accessor> get_accessors(simdjson::ondemand::document& doc)
+{
+  std::vector<accessor> accessors;
+  simdjson::ondemand::array document_accessors;
+  auto error = doc["accessors"].get(document_accessors);
+  if (error)
+  {
+    std::cerr << "ERROR: invalid accessors\n";
+    std::exit(1);
+  }
+  for (auto a : document_accessors)
+  {
+    auto acc_obj = a.get_object();
+    accessor current;
+
+    for (auto property : acc_obj)
+    {
+      if (property.key() == "bufferView")
+        current.buffer_view = property.value().get_uint64();
+      if (property.key() == "byteOffset")
+        current.byte_offset = property.value().get_uint64();
+      if (property.key() == "componentType")
+        current.component_type = property.value().get_uint64();
+      if (property.key() == "normalized")
+        current.is_normalized = property.value().get_bool();
+      if (property.key() == "count")
+        current.count = property.value().get_uint64();
+      if (property.key() == "type")
+        current.type = std::string(std::string_view(property.value()));
+    }
+    accessors.push_back(current);
+  }
+
+  return accessors;
 }
 
 mesh store_mesh( int index
@@ -336,104 +480,169 @@ void initialize_tree( std::shared_ptr<gltf_node>& parent
                     , const std::shared_ptr<material>& ptr_mat
                     , std::vector<std::shared_ptr<primitive>>& primitives)
 {
+  simdjson::ondemand::array doc_nodes;
   for (int child_index : parent->children_indices)
   {
-    simdjson::ondemand::array document_nodes = doc["nodes"];
+    auto error = doc["nodes"].get(doc_nodes);
+    if (error)
+    {
+      std::cerr << "ERROR: invalid nodes\n";
+      std::exit(1);
+    }
     int i = 0;
-    for (auto node_iterator : document_nodes)
+    for (auto node_iterator : doc_nodes)
     {
       if (i == child_index)
       {
         simdjson::ondemand::object node_obj = node_iterator.get_object();
         std::shared_ptr<gltf_node> child_node{std::make_shared<gltf_node>()};
         child_node->parent = parent;
-        for (auto property : node_obj)
+
+        //get camera
+        // TODO change "camera" handling as soon as cameras are properly dealt with
+        uint64_t camera_n;
         {
-          if (property.key() == "camera")
-            child_node->camera = property.value().get_uint64();
+          error = node_obj["camera"].get(camera_n);
+          if (error)
+            camera_n = -1;
+        }
 
-          if (property.key() == "mesh")
-          {
-            child_node->m_mesh = std::make_shared<mesh>(store_mesh(property.value().get_uint64(), doc, buffers, views, accessors, ptr_mat));
-          }
+        // get total transformation matrix the node
+        // default = identity
+        std::shared_ptr<transformation> transform_ptr = std::make_shared<transformation>();
+        bool matrix_set = false;
 
-          if (property.key() == "children")
+        // get transformation matrix, if provided
+        {
+          simdjson::ondemand::array matrix_components;
+          error = node_obj["matrix"].get(matrix_components);
+          if (error)
           {
-            simdjson::ondemand::array children_iterator = property.value();
-            for (auto k : children_iterator)
-              child_node->children_indices.emplace_back(k.get_uint64());
-          }
-          if (property.key() == "matrix")
-          {
+            // no matrix transformation provided
+          } else {
             mat4 mat;
-            simdjson::ondemand::array components = property.value();
             unsigned short int s = 0;
-            for (auto k : components)
+            for (auto k : matrix_components)
             {
               mat[s] = k.get_double();
               ++s;
             }
-            std::shared_ptr<transformation> mat_ptr{std::make_shared<transformation>(mat)};
-            child_node->matrix = mat_ptr;
-          }
-          if (property.key() == "rotation")
-          {
-            vec4 q;
-            simdjson::ondemand::array components = property.value();
-            unsigned short int s = 0;
-            for (auto k : components)
-            {
-              q[s] = k.get_double();
-              ++s;
-            }
-            std::shared_ptr<transformation> rot_ptr{std::make_shared<transformation>(rotation_matrix(q))};
-            child_node->rotate = rot_ptr;
-          }
-          if (property.key() == "scale")
-          {
-            vec3 scale;
-            simdjson::ondemand::array components = property.value();
-            unsigned short int s = 0;
-            for (auto k : components)
-            {
-              scale[s] = k.get_double();
-              ++s;
-            }
-            std::shared_ptr<transformation> scale_ptr{std::make_shared<transformation>(scale_matrix(scale))};
-            child_node->scale = scale_ptr;
-          }
-          if (property.key() == "translation")
-          {
-            vec3 tr;
-            simdjson::ondemand::array components = property.value();
-            unsigned short int s = 0;
-            for (auto k : components)
-            {
-              tr[s] = k.get_double();
-              ++s;
-            }
-            std::shared_ptr<transformation> tr_ptr{std::make_shared<transformation>(translation_matrix(tr))};
-            child_node->translate = tr_ptr;
+            transform_ptr = std::make_shared<transformation>(mat);
+            matrix_set = true;
           }
         }
 
-        if (child_node->m_mesh)
+        // get TRS matrix, if TRS transformations are provided
+        // (by the glTF 2.0 standard, this can happen only if "matrix" is not set)
+        if (!matrix_set)
         {
-          apply_mesh_transformations(*child_node);
-          primitives.reserve(primitives.size() + child_node->m_mesh->n_triangles);
+          // get scale matrix
+          transformation tr_scale;
+          {
+            simdjson::ondemand::array scale_components;
+            error = node_obj["scale"].get(scale_components);
+            if (error)
+            {
+              // no scale transformation provided
+            } else {
+              vec3 scale;
+              unsigned short int s = 0;
+              for (auto k : scale_components)
+              {
+                scale[s] = k.get_double();
+                ++s;
+              }
+              tr_scale = scale_matrix(scale);
+            }
+          }
 
-          for (auto& tri : child_node->m_mesh->get_triangles())
-            primitives.emplace_back(std::move(tri));
+          // get rotation matrix
+          transformation tr_rotation;
+          {
+            simdjson::ondemand::array rot_components;
+            error = node_obj["rotation"].get(rot_components);
+            if (error)
+            {
+              // no rotation transformation provided
+            } else {
+              vec4 q;
+              unsigned short int s = 0;
+              for (auto k : rot_components)
+              {
+                q[s] = k.get_double();
+                ++s;
+              }
+              tr_rotation = rotation_matrix(q);
+            }
+          }
+
+          // get translation matrix
+          transformation tr_translation;
+          {
+            simdjson::ondemand::array tr_components;
+            error = node_obj["translation"].get(tr_components);
+            if (error)
+            {
+              // no translation transformation provided
+            } else {
+              vec3 tr;
+              unsigned short int s = 0;
+              for (auto k : tr_components)
+              {
+                tr[s] = k.get_double();
+                ++s;
+              }
+              tr_translation = translation_matrix(tr);
+            }
+          }
+
+          transformation id;
+          transformation total;
+          if (tr_translation != id || tr_rotation != id || tr_scale != id)
+          {
+            total = tr_translation * tr_rotation * tr_scale;
+          }
+          if (total != id)
+          {
+            transform_ptr = std::make_shared<transformation>(total);
+          }
         }
-        /*
-        if (child_node->camera)
+
+        child_node->transform = transform_ptr;
+
+        // process mesh
         {
-          apply_camera_transformations(child_node);
+          uint64_t mesh_index;
+          error = node_obj["mesh"].get(mesh_index);
+          if (error)
+          {
+            // not a mesh node
+          } else {
+            child_node->m_mesh = std::make_shared<mesh>(store_mesh(mesh_index,doc,buffers,views,accessors,ptr_mat));
+            apply_mesh_transformations(*child_node);
+            primitives.reserve(primitives.size() + child_node->m_mesh->n_triangles);
+
+            for (auto& tri : child_node->m_mesh->get_triangles())
+              primitives.emplace_back(std::move(tri));
+          }
         }
-        */
+
+        // get childred indices
+        {
+          simdjson::ondemand::array children_iterator;
+          error = node_obj["children"].get(children_iterator);
+          if (error)
+          {
+            // leaf node
+          } else {
+            for (auto k : children_iterator)
+              child_node->children_indices.emplace_back(k.get_uint64());
+
+            initialize_tree(child_node, doc, buffers, views, accessors, ptr_mat, primitives);
+          }
+        }
 
         parent->children.push_back(child_node);
-        initialize_tree(child_node, doc, buffers, views, accessors, ptr_mat, primitives);
       }
       ++i;
     }
@@ -447,11 +656,19 @@ void parse_gltf( const std::string& filename, std::vector<std::shared_ptr<primit
   auto gltf = simdjson::padded_string::load(filename);
   simdjson::ondemand::document doc = parser.iterate(gltf);
 
+  // check version
   {
-    auto version = std::string_view(doc["asset"]["version"]); // might throw
+    std::string_view version;
+    auto error = doc["asset"]["version"].get(version);
+    if (error)
+    {
+      std::cerr << "invalid glTF document\n";
+      std::exit(1);
+    }
     if (version != "2.0")
     {
-      // print error and exit
+      std::cerr << "unsupported glTF version\n";
+      std::exit(1);
     }
     if (version == "2.0")
     {
@@ -459,129 +676,10 @@ void parse_gltf( const std::string& filename, std::vector<std::shared_ptr<primit
     }
   }
 
-  // ###############################################################################################
-  // store which nodes are the root nodes of the scene
-  // ###############################################################################################
-
-  // TODO if the "scene" property is not defined, print out an error message and exit
-
-  simdjson::ondemand::value document_scene = doc["scene"]; // might throw
-  int selected_scene;
-  selected_scene = document_scene.get_uint64();
-  gltf_scene scene;
-  simdjson::ondemand::array document_scenes = doc["scenes"];
-  { // unnamed scope
-    int j = 0;
-    for (auto s : document_scenes)
-    {
-      if (j == selected_scene)
-      {
-        auto scene_obj = s.get_object();
-        simdjson::ondemand::array scene_nodes = scene_obj["nodes"];
-        for (auto node : scene_nodes)
-          scene.root_node->children_indices.emplace_back(node.get_uint64());
-      }
-      ++j;
-    }
-  } // unnamed scope
-
-  // ###############################################################################################
-  // store information about buffers and buffer views
-  // ###############################################################################################
-  std::vector<gltf_buffer> buffers;
-
-  { // unnamed scope
-    simdjson::ondemand::array document_buffers = doc["buffers"];
-    for (auto document_buffer : document_buffers)
-    {
-      auto buffer_obj = document_buffer.get_object();
-      int byte_length;
-      std::string_view uri;
-      for (auto property : buffer_obj)
-      {
-        // ignoring "name", "extensions" and "extras"
-        if (property.key() == "byteLength")
-          byte_length = property.value().get_uint64();
-        if (property.key() == "uri")
-          uri = property.value().get_string();
-      }
-
-      gltf_buffer current;
-      current.reserve(byte_length);
-
-      constexpr char signature[38] = "data:application/octet-stream;base64,";
-      if (uri.size() > 37 && uri.rfind(signature, 0) == 0)
-      {
-        current = base64::decode(&uri[37]);
-      } else {
-        std::ifstream file(std::string(uri), std::ios::binary);
-        if (!file.is_open())
-        {
-          std::cerr << "Unable to open " << uri << "\n";
-          return;
-        }
-        current.insert(current.begin(),
-                       std::istreambuf_iterator<char>(file),
-                       std::istreambuf_iterator<char>());
-
-        file.close();
-      }
-      buffers.emplace_back(std::move(current));
-    }
-  } // unnamed scope
-
-  std::vector<buffer_view> views;
-  { // unnamed scope
-    simdjson::ondemand::array buffer_views = doc["bufferViews"];
-    for (auto b : buffer_views)
-    {
-      auto b_view_obj = b.get_object();
-      buffer_view current;
-
-      for (auto property : b_view_obj)
-      {
-        // ignoring target, name, extensions and extras
-        if (property.key() == "buffer")
-          current.buffer_index = property.value().get_uint64();
-        if (property.key() == "byteOffset")
-          current.byte_offset = property.value().get_uint64();
-        if (property.key() == "byteLength")
-          current.byte_length = property.value().get_uint64();
-        if (property.key() == "byteStride")
-          current.byte_stride = property.value().get_uint64();
-      }
-      views.push_back(current);
-    }
-  } // unnamed scope
-
-  std::vector<accessor> accessors;
-  { // unnamed scope
-    simdjson::ondemand::array accs = doc["accessors"];
-    for (auto a : accs)
-    {
-      auto acc_obj = a.get_object();
-      accessor current;
-
-      for (auto property : acc_obj)
-      {
-        // ignoring name, extension and extra
-        // currently ignoring also min, max and sparse
-        if (property.key() == "bufferView")
-          current.buffer_view = property.value().get_uint64();
-        if (property.key() == "byteOffset")
-          current.byte_offset = property.value().get_uint64();
-        if (property.key() == "componentType")
-          current.component_type = property.value().get_uint64();
-        if (property.key() == "normalized")
-          current.is_normalized = property.value().get_bool();
-        if (property.key() == "count")
-          current.count = property.value().get_uint64();
-        if (property.key() == "type")
-          current.type = std::string(std::string_view(property.value()));
-      }
-      accessors.push_back(current);
-    }
-  } // unnamed scope
+  gltf_scene scene{get_scene(doc)};
+  std::vector<gltf_buffer> buffers{get_buffers(doc)};
+  std::vector<buffer_view> views{get_buffer_views(doc)};
+  std::vector<accessor> accessors{get_accessors(doc)};
 
   initialize_tree(scene.root_node, doc, buffers, views, accessors, ptr_mat, primitives);
 }
