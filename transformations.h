@@ -20,6 +20,8 @@ class mat4
     float& operator[](short unsigned int i);
     float operator[](short unsigned int i) const;
 
+    bool operator ==(const mat4& B) const;
+    bool operator !=(const mat4& B) const;
     mat4& operator*=(const mat4& B);
     friend mat4 operator*(const mat4& A, const mat4& B);
 
@@ -43,7 +45,7 @@ class transformation : public mat4
     transformation& operator*=(const transformation& B);
     // slight abuse of notation: apply affine transformation to vec3
     vec3 operator*(const vec3& v);
-    void apply_to(vec3& v);
+    void apply_to(vec3& v) const;
 
     friend transformation rotation_matrix(const vec4& unit_quaternion);
     friend transformation translation_matrix(const vec3& translation_vector);
@@ -94,55 +96,76 @@ inline float mat4::operator[](short unsigned int i) const
   return M[i];
 }
 
+inline bool mat4::operator ==(const mat4& B) const
+{
+  for (int i = 0; i < 16; ++i)
+  {
+    if (M[i] != B[i])
+      return false;
+  }
+
+  return true;
+}
+inline bool mat4::operator !=(const mat4& B) const { return !(*this == B); }
+
 inline mat4& mat4::operator*=(const mat4& B)
 {
-  M[0]  = M[0] * B[0]  + M[4] * B[1]  + M[8]  * B[2]  + M[12] * B[3];
-  M[1]  = M[1] * B[0]  + M[5] * B[1]  + M[9]  * B[2]  + M[13] * B[3];
-  M[2]  = M[2] * B[0]  + M[6] * B[1]  + M[10] * B[2]  + M[14] * B[3];
-  M[3]  = M[3] * B[0]  + M[7] * B[1]  + M[11] * B[2]  + M[15] * B[3];
-  M[4]  = M[0] * B[4]  + M[4] * B[5]  + M[8]  * B[6]  + M[12] * B[7];
-  M[5]  = M[1] * B[4]  + M[5] * B[5]  + M[9]  * B[6]  + M[13] * B[7];
-  M[6]  = M[2] * B[4]  + M[6] * B[5]  + M[10] * B[6]  + M[14] * B[7];
-  M[7]  = M[3] * B[4]  + M[7] * B[5]  + M[11] * B[6]  + M[15] * B[7];
-  M[8]  = M[0] * B[8]  + M[4] * B[9]  + M[8]  * B[10] + M[12] * B[11];
-  M[9]  = M[1] * B[8]  + M[5] * B[9]  + M[9]  * B[10] + M[13] * B[11];
-  M[10] = M[2] * B[8]  + M[6] * B[9]  + M[10] * B[10] + M[14] * B[11];
-  M[11] = M[3] * B[8]  + M[7] * B[9]  + M[11] * B[10] + M[15] * B[11];
-  M[12] = M[0] * B[12] + M[4] * B[13] + M[8]  * B[14] + M[12] * B[15];
-  M[13] = M[1] * B[12] + M[5] * B[13] + M[9]  * B[14] + M[13] * B[15];
-  M[14] = M[2] * B[12] + M[6] * B[13] + M[10] * B[14] + M[14] * B[15];
-  M[15] = M[3] * B[12] + M[7] * B[13] + M[11] * B[14] + M[15] * B[15];
+  float N[16];
+  for (int i = 0; i < 15; ++i)
+    N[i] = M[i];
+
+  M[0]  = N[0] * B[0]  + N[4] * B[1]  + N[8]  * B[2]  + N[12] * B[3];
+  M[1]  = N[1] * B[0]  + N[5] * B[1]  + N[9]  * B[2]  + N[13] * B[3];
+  M[2]  = N[2] * B[0]  + N[6] * B[1]  + N[10] * B[2]  + N[14] * B[3];
+  M[3]  = N[3] * B[0]  + N[7] * B[1]  + N[11] * B[2]  + N[15] * B[3];
+  M[4]  = N[0] * B[4]  + N[4] * B[5]  + N[8]  * B[6]  + N[12] * B[7];
+  M[5]  = N[1] * B[4]  + N[5] * B[5]  + N[9]  * B[6]  + N[13] * B[7];
+  M[6]  = N[2] * B[4]  + N[6] * B[5]  + N[10] * B[6]  + N[14] * B[7];
+  M[7]  = N[3] * B[4]  + N[7] * B[5]  + N[11] * B[6]  + N[15] * B[7];
+  M[8]  = N[0] * B[8]  + N[4] * B[9]  + N[8]  * B[10] + N[12] * B[11];
+  M[9]  = N[1] * B[8]  + N[5] * B[9]  + N[9]  * B[10] + N[13] * B[11];
+  M[10] = N[2] * B[8]  + N[6] * B[9]  + N[10] * B[10] + N[14] * B[11];
+  M[11] = N[3] * B[8]  + N[7] * B[9]  + N[11] * B[10] + N[15] * B[11];
+  M[12] = N[0] * B[12] + N[4] * B[13] + N[8]  * B[14] + N[12] * B[15];
+  M[13] = N[1] * B[12] + N[5] * B[13] + N[9]  * B[14] + N[13] * B[15];
+  M[14] = N[2] * B[12] + N[6] * B[13] + N[10] * B[14] + N[14] * B[15];
+  M[15] = N[3] * B[12] + N[7] * B[13] + N[11] * B[14] + N[15] * B[15];
 
   return *this;
 }
 
 inline transformation& transformation::operator*=(const transformation& B)
 {
-  M[0]  = M[0] * B[0]  + M[4] * B[1]  + M[8]  * B[2];
-  M[1]  = M[1] * B[0]  + M[5] * B[1]  + M[9]  * B[2];
-  M[2]  = M[2] * B[0]  + M[6] * B[1]  + M[10] * B[2];
+  float N[16];
+  for (int i = 0; i < 15; ++i)
+    N[i] = M[i];
 
-  M[4]  = M[0] * B[4]  + M[4] * B[5]  + M[8]  * B[6];
-  M[5]  = M[1] * B[4]  + M[5] * B[5]  + M[9]  * B[6];
-  M[6]  = M[2] * B[4]  + M[6] * B[5]  + M[10] * B[6];
+  M[0]  = N[0] * B[0]  + N[4] * B[1]  + N[8]  * B[2];
+  M[1]  = N[1] * B[0]  + N[5] * B[1]  + N[9]  * B[2];
+  M[2]  = N[2] * B[0]  + N[6] * B[1]  + N[10] * B[2];
 
-  M[8]  = M[0] * B[8]  + M[4] * B[9]  + M[8]  * B[10];
-  M[9]  = M[1] * B[8]  + M[5] * B[9]  + M[9]  * B[10];
-  M[10] = M[2] * B[8]  + M[6] * B[9]  + M[10] * B[10];
+  M[4]  = N[0] * B[4]  + N[4] * B[5]  + N[8]  * B[6];
+  M[5]  = N[1] * B[4]  + N[5] * B[5]  + N[9]  * B[6];
+  M[6]  = N[2] * B[4]  + N[6] * B[5]  + N[10] * B[6];
 
-  M[12] = M[0] * B[12] + M[4] * B[13] + M[8]  * B[14] + M[12];
-  M[13] = M[1] * B[12] + M[5] * B[13] + M[9]  * B[14] + M[13];
-  M[14] = M[2] * B[12] + M[6] * B[13] + M[10] * B[14] + M[14];
+  M[8]  = N[0] * B[8]  + N[4] * B[9]  + N[8]  * B[10];
+  M[9]  = N[1] * B[8]  + N[5] * B[9]  + N[9]  * B[10];
+  M[10] = N[2] * B[8]  + N[6] * B[9]  + N[10] * B[10];
+
+  M[12] = N[0] * B[12] + N[4] * B[13] + N[8]  * B[14] + N[12];
+  M[13] = N[1] * B[12] + N[5] * B[13] + N[9]  * B[14] + N[13];
+  M[14] = N[2] * B[12] + N[6] * B[13] + N[10] * B[14] + N[14];
 
   return *this;
 }
 
 inline void mat4::apply_to(vec4& v) const
 {
-  v[0] = M[0] * v[0] + M[4] * v[1] + M[8]  * v[2] + M[12] * v[3];
-  v[1] = M[1] * v[0] + M[5] * v[1] + M[9]  * v[2] + M[13] * v[3];
-  v[2] = M[2] * v[0] + M[6] * v[1] + M[10] * v[2] + M[14] * v[3];
-  v[3] = M[3] * v[0] + M[7] * v[1] + M[11] * v[2] + M[15] * v[3];
+  vec4 w{v};
+  v[0] = M[0] * w[0] + M[4] * w[1] + M[8]  * w[2] + M[12] * w[3];
+  v[1] = M[1] * w[0] + M[5] * w[1] + M[9]  * w[2] + M[13] * w[3];
+  v[2] = M[2] * w[0] + M[6] * w[1] + M[10] * w[2] + M[14] * w[3];
+  v[3] = M[3] * w[0] + M[7] * w[1] + M[11] * w[2] + M[15] * w[3];
 }
 
 inline mat4 operator*(const mat4& A, const mat4& B)
@@ -189,32 +212,35 @@ inline vec3 transformation::operator*(const vec3& v)
   return res;
 }
 
-inline void transformation::apply_to(vec3& v)
+inline void transformation::apply_to(vec3& v) const
 {
-  v[0] = M[0] * v[0] + M[4] * v[1] + M[8]  * v[2] + M[12];
-  v[1] = M[1] * v[0] + M[5] * v[1] + M[9]  * v[2] + M[13];
-  v[2] = M[2] * v[0] + M[6] * v[1] + M[10] * v[2] + M[14];
+  point w{v};
+  v[0] = M[0] * w[0] + M[4] * w[1] + M[8]  * w[2] + M[12];
+  v[1] = M[1] * w[0] + M[5] * w[1] + M[9]  * w[2] + M[13];
+  v[2] = M[2] * w[0] + M[6] * w[1] + M[10] * w[2] + M[14];
 }
 
 inline transformation rotation_matrix(const vec4& q)
 {
   return transformation{
-    1.0f - 2.0f * q[1] * q[1] - 2.0f * q[2] * q[2],
-    2.0f * q[0] * q[1] + 2.0f * q[2] * q[3],
-    2.0f * q[0] * q[2] - 2.0f * q[1] * q[3],
-    2.0f * q[0] * q[1] - 2.0f * q[2] * q[3],
-    1.0f - 2.0f * q[0] * q[0] - 2.0f * q[2] * q[2],
-    2.0f * q[1] * q[2] + 2.0f * q[0] * q[3],
-    2.0f * q[0] * q[2] + 2.0f * q[1] * q[3],
-    2.0f * q[1] * q[2] - 2.0f * q[0] * q[3],
-    1.0f - 2.0f * q[0] * q[0] - 2.0f * q[1] * q[1],
+    1.0f - 2.0f * (q[1] * q[1] + q[2] * q[2]),
+    2.0f * (q[0] * q[1] + q[2] * q[3]),
+    2.0f * (q[0] * q[2] - q[1] * q[3]),
+    2.0f * (q[0] * q[1] - q[2] * q[3]),
+    1.0f - 2.0f * (q[0] * q[0] + q[2] * q[2]),
+    2.0f * (q[1] * q[2] + q[0] * q[3]),
+    2.0f * (q[0] * q[2] + q[1] * q[3]),
+    2.0f * (q[1] * q[2] - q[0] * q[3]),
+    1.0f - 2.0f * (q[0] * q[0] + q[1] * q[1]),
     0.0f, 0.0f, 0.0f
   };
 }
 
 inline transformation translation_matrix(const vec3& translation_vector)
 {
-  return transformation{ 0.0f,0.0f,0.0f,0.0f,0.0f,0.0f,0.0f,0.0f,0.0f
+  return transformation{ 1.0f,0.0f,0.0f
+                       , 0.0f,1.0f,0.0f
+                       , 0.0f,0.0f,1.0f
                        , translation_vector.x()
                        , translation_vector.y()
                        , translation_vector.z()};

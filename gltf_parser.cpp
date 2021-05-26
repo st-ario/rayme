@@ -11,8 +11,11 @@ struct gltf_node
   std::vector<int> children_indices;
   std::vector<std::shared_ptr<gltf_node>> children;
   std::weak_ptr<gltf_node> parent;
-  int mesh = -1;
+  std::shared_ptr<mesh> m_mesh;
   std::shared_ptr<transformation> matrix;
+  std::shared_ptr<transformation> translate{ std::make_shared<transformation>() };
+  std::shared_ptr<transformation> scale{ std::make_shared<transformation>() };
+  std::shared_ptr<transformation> rotate{ std::make_shared<transformation>() };
 };
 
 struct gltf_scene { std::shared_ptr<gltf_node> root_node{std::make_shared<gltf_node>()}; };
@@ -117,8 +120,326 @@ int element_size(const accessor& acc)
   return component_size(acc) * n_components(acc);
 }
 
+void apply_pointwise_transformation(const transformation& M, mesh& mesh)
+{
+  for (point& p : mesh.vertices)
+    M.apply_to(p);
+
+  for (normed_vec3& n : mesh.normals); // TODO
+  for (vec4& v : mesh.tangents); // TODO
+}
+
+// TODO can make it faster by multiplying all the matrices first, then acting on the mesh
+
+void apply_mesh_transformations(gltf_node& node, mesh& mesh)
+{
+  if (node.matrix)
+    apply_pointwise_transformation(*(node.matrix), mesh);
+
+  transformation id;
+  if (*(node.translate) != id || *(node.rotate) != id || *(node.scale) != id)
+  {
+    transformation total{*(node.translate) * *(node.rotate) * *(node.scale)};
+    apply_pointwise_transformation(total, mesh);
+  }
+
+  if (auto p_p = node.parent.lock())
+    apply_mesh_transformations(*p_p, mesh);
+}
+
+void apply_mesh_transformations(gltf_node& node)
+{
+  if (node.matrix)
+    apply_pointwise_transformation(*(node.matrix), *(node.m_mesh));
+
+  transformation id;
+  if (*(node.translate) != id || *(node.rotate) != id || *(node.scale) != id)
+  {
+    transformation total{*(node.translate) * *(node.rotate) * *(node.scale)};
+    apply_pointwise_transformation(total, *(node.m_mesh));
+  }
+
+  if (auto p_p = node.parent.lock())
+    apply_mesh_transformations(*p_p, *(node.m_mesh));
+}
+
+mesh store_mesh( int index
+               , simdjson::ondemand::document& doc
+               , const std::vector<gltf_buffer>& buffers
+               , const std::vector<buffer_view>& views
+               , const std::vector<accessor>& accessors
+               , const std::shared_ptr<material>& ptr_mat)
+{
+    simdjson::ondemand::array document_meshes = doc["meshes"];
+    int j = 0;
+    for (auto mesh_iterator : document_meshes)
+    {
+      if (j != index)
+        break;
+
+      auto json_mesh = mesh_iterator.get_object();
+      simdjson::ondemand::array mesh_primitives = json_mesh["primitives"];
+      for (auto primitive_iterator : mesh_primitives)
+      {
+        gltf_primitive prim;
+
+        auto json_primitive = primitive_iterator.get_object();
+        for (auto property : json_primitive)
+        {
+          if (property.key() == "attributes")
+          {
+            simdjson::ondemand::object attr_dict = property.value();
+            for (auto attr : attr_dict)
+            {
+              if (attr.key() == "POSITION")
+                prim.attr_vertices = attr.value().get_uint64();
+              if (attr.key() == "NORMAL")
+                prim.attr_normals = attr.value().get_uint64();
+              if (attr.key() == "TANGENT")
+                prim.attr_tangents = attr.value().get_uint64();
+              if (attr.key() == "TEXCOORD_0")
+                prim.attr_texcoord0 = attr.value().get_uint64();
+              if (attr.key() == "TEXCOORD_1")
+                prim.attr_texcoord1 = attr.value().get_uint64();
+              if (attr.key() == "COLOR_0")
+                prim.attr_color0 = attr.value().get_uint64();
+            }
+          }
+          if (property.key() == "indices")
+          {
+            prim.indices = property.value().get_uint64();
+            // TODO if not defined, the mesh has to be created differently
+            // (i.e. following GL's drawArrays() instead of drawElements())
+          }
+          if (property.key() == "material")
+            prim.material = property.value().get_uint64();
+          if (property.key() == "mode")
+          {
+            prim.mode = property.value().get_uint64();
+            // if anything other than 4, print error message "currently supporting only triangle meshes as primitives" and exit
+          }
+        }
+        // ######## CREATE MESH OBJECT
+        std::vector<point> vertices;
+        int n_vertices{0};
+        { // unnamed scope
+          const accessor& acc{accessors[prim.attr_vertices]};
+          n_vertices = acc.count;
+          int offset = views[acc.buffer_view].byte_offset
+                     + acc.byte_offset;
+          int s_component = 4;
+          int s_element = 12;
+          int length = s_element * accessors[prim.attr_vertices].count;
+
+          const gltf_buffer& data{buffers[views[acc.buffer_view].buffer_index]};
+
+          for (int i = offset; i < offset + length; i+=s_element)
+          {
+            point p;
+            float f;
+            std::memcpy(&f, &data[i], s_component);
+            p.x() = f;
+            std::memcpy(&f, &data[i+s_component], s_component);
+            p.y() = f;
+            std::memcpy(&f, &data[i+2*s_component], s_component);
+            p.z() = f;
+            vertices.push_back(p);
+          }
+        } // unnamed scope
+
+        std::vector<int> vertex_indices;
+        int n_triangles{0};
+        { // unnamed scope
+          const accessor& acc{accessors[prim.indices]};
+          n_triangles = acc.count / 3;
+
+          int offset = views[acc.buffer_view].byte_offset
+                     + acc.byte_offset;
+          int s_component = component_size(acc);
+          int length = s_component * acc.count;
+          const gltf_buffer& data{buffers[views[acc.buffer_view].buffer_index]};
+
+          for (int i = offset; i < offset + length ; i+=s_component)
+          {
+            uint16_t current_index;
+            std::memcpy(&current_index, &data[i], s_component);
+            vertex_indices.push_back(current_index);
+          }
+        } // unnamed scope
+
+        std::vector<normed_vec3> normals;
+        if (prim.attr_normals != -1)
+        {
+          const accessor& acc{accessors[prim.attr_normals]};
+          int offset = views[acc.buffer_view].byte_offset
+                     + acc.byte_offset;
+          int s_component = 4;
+          int s_element = 12;
+          int length = s_element * accessors[prim.attr_normals].count;
+          const gltf_buffer& data{buffers[views[acc.buffer_view].buffer_index]};
+
+          for (int i = offset; i < offset + length; i+=s_element)
+          {
+            vec3 v;
+            float f;
+            std::memcpy(&f, &data[i], s_component);
+            v.x() = f;
+            std::memcpy(&f, &data[i+s_component], s_component);
+            v.y() = f;
+            std::memcpy(&f, &data[i+2*s_component], s_component);
+            v.z() = f;
+            normals.emplace_back(normed_vec3(v));
+          }
+        }
+
+        std::vector<vec4> tangents;
+        if (prim.attr_tangents != -1)
+        {
+          const accessor& acc{accessors[prim.attr_tangents]};
+          int offset = views[acc.buffer_view].byte_offset
+                     + acc.byte_offset;
+          int s_component = 4;
+          int s_element = 16;
+          int length = s_element * accessors[prim.attr_tangents].count;
+          const gltf_buffer& data{buffers[views[acc.buffer_view].buffer_index]};
+
+          for (int i = offset; i < offset + length; i+=s_element)
+          {
+            vec4 v;
+            float f;
+            std::memcpy(&f, &data[i], s_component);
+            v[0] = f;
+            std::memcpy(&f, &data[i+s_component], s_component);
+            v[1] = f;
+            std::memcpy(&f, &data[i+2*s_component], s_component);
+            v[2] = f;
+            std::memcpy(&f, &data[i+2*s_component], s_component);
+            v[3] = f;
+
+            tangents.push_back(v);
+          }
+        }
+
+        return mesh{n_vertices, n_triangles, vertex_indices, vertices, ptr_mat, normals, tangents};
+      }
+      ++j;
+    }
+}
+
 // the ptr_mat argument is a temporary hack, to pass to all meshes the same standard material for
 // rendering, to be removed as soon as materials are properly dealt with
+void initialize_tree( std::shared_ptr<gltf_node>& parent
+                    , simdjson::ondemand::document& doc
+                    , const std::vector<gltf_buffer>& buffers
+                    , const std::vector<buffer_view>& views
+                    , const std::vector<accessor>& accessors
+                    , const std::shared_ptr<material>& ptr_mat
+                    , std::vector<std::shared_ptr<primitive>>& primitives)
+{
+  for (int child_index : parent->children_indices)
+  {
+    simdjson::ondemand::array document_nodes = doc["nodes"];
+    int i = 0;
+    for (auto node_iterator : document_nodes)
+    {
+      if (i == child_index)
+      {
+        simdjson::ondemand::object node_obj = node_iterator.get_object();
+        std::shared_ptr<gltf_node> child_node{std::make_shared<gltf_node>()};
+        child_node->parent = parent;
+        for (auto property : node_obj)
+        {
+          if (property.key() == "camera")
+            child_node->camera = property.value().get_uint64();
+
+          if (property.key() == "mesh")
+          {
+            child_node->m_mesh = std::make_shared<mesh>(store_mesh(property.value().get_uint64(), doc, buffers, views, accessors, ptr_mat));
+          }
+
+          if (property.key() == "children")
+          {
+            simdjson::ondemand::array children_iterator = property.value();
+            for (auto k : children_iterator)
+              child_node->children_indices.emplace_back(k.get_uint64());
+          }
+          if (property.key() == "matrix")
+          {
+            mat4 mat;
+            simdjson::ondemand::array components = property.value();
+            unsigned short int s = 0;
+            for (auto k : components)
+            {
+              mat[s] = k.get_double();
+              ++s;
+            }
+            std::shared_ptr<transformation> mat_ptr{std::make_shared<transformation>(mat)};
+            child_node->matrix = mat_ptr;
+          }
+          if (property.key() == "rotation")
+          {
+            vec4 q;
+            simdjson::ondemand::array components = property.value();
+            unsigned short int s = 0;
+            for (auto k : components)
+            {
+              q[s] = k.get_double();
+              ++s;
+            }
+            std::shared_ptr<transformation> rot_ptr{std::make_shared<transformation>(rotation_matrix(q))};
+            child_node->rotate = rot_ptr;
+          }
+          if (property.key() == "scale")
+          {
+            vec3 scale;
+            simdjson::ondemand::array components = property.value();
+            unsigned short int s = 0;
+            for (auto k : components)
+            {
+              scale[s] = k.get_double();
+              ++s;
+            }
+            std::shared_ptr<transformation> scale_ptr{std::make_shared<transformation>(scale_matrix(scale))};
+            child_node->scale = scale_ptr;
+          }
+          if (property.key() == "translation")
+          {
+            vec3 tr;
+            simdjson::ondemand::array components = property.value();
+            unsigned short int s = 0;
+            for (auto k : components)
+            {
+              tr[s] = k.get_double();
+              ++s;
+            }
+            std::shared_ptr<transformation> tr_ptr{std::make_shared<transformation>(translation_matrix(tr))};
+            child_node->translate = tr_ptr;
+          }
+        }
+
+        if (child_node->m_mesh)
+        {
+          apply_mesh_transformations(*child_node);
+          primitives.reserve(primitives.size() + child_node->m_mesh->n_triangles);
+
+          for (auto& tri : child_node->m_mesh->get_triangles())
+            primitives.emplace_back(std::move(tri));
+        }
+        /*
+        if (child_node->camera)
+        {
+          apply_camera_transformations(child_node);
+        }
+        */
+
+        parent->children.push_back(child_node);
+        initialize_tree(child_node, doc, buffers, views, accessors, ptr_mat, primitives);
+      }
+      ++i;
+    }
+  }
+}
+
 void parse_gltf( const std::string& filename, std::vector<std::shared_ptr<primitive>>& primitives
                , const std::shared_ptr<material>& ptr_mat)
 {
@@ -137,8 +458,6 @@ void parse_gltf( const std::string& filename, std::vector<std::shared_ptr<primit
       std::cout << "glTF 2.0 file detected\n";
     }
   }
-
-  void initialize_tree(std::shared_ptr<gltf_node>& parent, simdjson::ondemand::document& doc);
 
   // ###############################################################################################
   // store which nodes are the root nodes of the scene
@@ -160,17 +479,11 @@ void parse_gltf( const std::string& filename, std::vector<std::shared_ptr<primit
         auto scene_obj = s.get_object();
         simdjson::ondemand::array scene_nodes = scene_obj["nodes"];
         for (auto node : scene_nodes)
-          scene.root_node->children_indices.push_back(node.get_uint64());
+          scene.root_node->children_indices.emplace_back(node.get_uint64());
       }
       ++j;
     }
   } // unnamed scope
-
-  // ###############################################################################################
-  // traverse scene tree
-  // ###############################################################################################
-
-  initialize_tree(scene.root_node, doc);
 
   // ###############################################################################################
   // store information about buffers and buffer views
@@ -270,256 +583,5 @@ void parse_gltf( const std::string& filename, std::vector<std::shared_ptr<primit
     }
   } // unnamed scope
 
-  // ###############################################################################################
-  // store meshes
-  // ###############################################################################################
-
-  { // unnamed scope
-    simdjson::ondemand::array document_meshes = doc["meshes"];
-    for (auto mesh_iterator : document_meshes)
-    {
-      auto json_mesh = mesh_iterator.get_object();
-      // ignoring "weights", "name", "extensions" and "extras"
-      simdjson::ondemand::array mesh_primitives = json_mesh["primitives"];
-      for (auto primitive_iterator : mesh_primitives)
-      {
-        gltf_primitive prim;
-
-        auto json_primitive = primitive_iterator.get_object();
-        for (auto property : json_primitive)
-        {
-          // ignoring "targets", "extensions" and "extras"
-          if (property.key() == "attributes")
-          {
-            simdjson::ondemand::object attr_dict = property.value();
-            for (auto attr : attr_dict)
-            {
-              // ignoring "JOINTS_0" and "WEIGHTS_0"
-              if (attr.key() == "POSITION")
-                prim.attr_vertices = attr.value().get_uint64();
-              if (attr.key() == "NORMAL")
-                prim.attr_normals = attr.value().get_uint64();
-              if (attr.key() == "TANGENT")
-                prim.attr_tangents = attr.value().get_uint64();
-              if (attr.key() == "TEXCOORD_0")
-                prim.attr_texcoord0 = attr.value().get_uint64();
-              if (attr.key() == "TEXCOORD_1")
-                prim.attr_texcoord1 = attr.value().get_uint64();
-              if (attr.key() == "COLOR_0")
-                prim.attr_color0 = attr.value().get_uint64();
-            }
-          }
-          if (property.key() == "indices")
-          {
-            prim.indices = property.value().get_uint64();
-            // TODO if not defined, the mesh has to be created differently
-            // (i.e. following GL's drawArrays() instead of drawElements())
-          }
-          if (property.key() == "material")
-            prim.material = property.value().get_uint64();
-          if (property.key() == "mode")
-          {
-            prim.mode = property.value().get_uint64();
-            // if anything other than 4, print error message "currently supporting only triangle meshes as primitives" and exit
-          }
-        }
-        // ######## CREATE MESH OBJECT
-        std::vector<point> vertices;
-        int n_vertices{0};
-        { // unnamed scope
-          accessor& acc{accessors[prim.attr_vertices]};
-          n_vertices = acc.count;
-          int offset = views[acc.buffer_view].byte_offset
-                     + acc.byte_offset;
-          int s_component = 4;
-          int s_element = 12;
-          int length = s_element * accessors[prim.attr_vertices].count;
-
-          gltf_buffer& data{buffers[views[acc.buffer_view].buffer_index]};
-
-          for (int i = offset; i < offset + length; i+=s_element)
-          {
-            point p;
-            float f;
-            std::memcpy(&f, &data[i], s_component);
-            p.x() = f;
-            std::memcpy(&f, &data[i+s_component], s_component);
-            p.y() = f;
-            std::memcpy(&f, &data[i+2*s_component], s_component);
-            p.z() = f;
-            vertices.push_back(p);
-          }
-        } // unnamed scope
-
-        std::vector<int> vertex_indices;
-        int n_triangles{0};
-        { // unnamed scope
-          accessor& acc{accessors[prim.indices]};
-          n_triangles = acc.count / 3;
-
-          int offset = views[acc.buffer_view].byte_offset
-                     + acc.byte_offset;
-          int s_component = component_size(acc);
-          int length = s_component * acc.count;
-          gltf_buffer& data{buffers[views[acc.buffer_view].buffer_index]};
-
-          for (int i = offset; i < offset + length ; i+=s_component)
-          {
-            uint16_t current_index;
-            std::memcpy(&current_index, &data[i], s_component);
-            vertex_indices.push_back(current_index);
-          }
-        } // unnamed scope
-
-        std::vector<normed_vec3> normals;
-        if (prim.attr_normals != -1)
-        {
-          accessor& acc{accessors[prim.attr_normals]};
-          int offset = views[acc.buffer_view].byte_offset
-                     + acc.byte_offset;
-          int s_component = 4;
-          int s_element = 12;
-          int length = s_element * accessors[prim.attr_normals].count;
-          gltf_buffer& data{buffers[views[acc.buffer_view].buffer_index]};
-
-          for (int i = offset; i < offset + length; i+=s_element)
-          {
-            vec3 v;
-            float f;
-            std::memcpy(&f, &data[i], s_component);
-            v.x() = f;
-            std::memcpy(&f, &data[i+s_component], s_component);
-            v.y() = f;
-            std::memcpy(&f, &data[i+2*s_component], s_component);
-            v.z() = f;
-            normals.emplace_back(normed_vec3(v));
-          }
-        }
-
-        std::vector<vec4> tangents;
-        if (prim.attr_tangents != -1)
-        {
-          accessor& acc{accessors[prim.attr_tangents]};
-          int offset = views[acc.buffer_view].byte_offset
-                     + acc.byte_offset;
-          int s_component = 4;
-          int s_element = 16;
-          int length = s_element * accessors[prim.attr_tangents].count;
-          gltf_buffer& data{buffers[views[acc.buffer_view].buffer_index]};
-
-          for (int i = offset; i < offset + length; i+=s_element)
-          {
-            vec4 v;
-            float f;
-            std::memcpy(&f, &data[i], s_component);
-            v[0] = f;
-            std::memcpy(&f, &data[i+s_component], s_component);
-            v[1] = f;
-            std::memcpy(&f, &data[i+2*s_component], s_component);
-            v[2] = f;
-            std::memcpy(&f, &data[i+2*s_component], s_component);
-            v[3] = f;
-
-            tangents.push_back(v);
-          }
-        }
-
-        std::shared_ptr<mesh> current_mesh{std::make_shared<mesh>(
-          n_vertices, n_triangles, vertex_indices, vertices, ptr_mat, normals, tangents)};
-
-        primitives.reserve(primitives.size() + n_triangles);
-
-        for (auto& tri : current_mesh->get_triangles())
-          primitives.emplace_back(std::move(tri));
-      }
-    }
-  } // unnamed scope
-}
-
-void initialize_tree(std::shared_ptr<gltf_node>& parent, simdjson::ondemand::document& doc)
-{
-  for (int child_index : parent->children_indices)
-  {
-    simdjson::ondemand::array document_nodes = doc["nodes"];
-    int i = 0;
-    for (auto node_iterator : document_nodes)
-    {
-      if (i == child_index)
-      {
-        simdjson::ondemand::object node_obj = node_iterator.get_object();
-        std::shared_ptr<gltf_node> child_node{std::make_shared<gltf_node>()};
-        child_node->parent = parent;
-        for (auto property : node_obj)
-        {
-          if (property.key() == "camera")
-            child_node->camera = property.value().get_uint64();
-
-          if (property.key() == "mesh")
-            child_node->mesh = property.value().get_uint64();
-
-          if (property.key() == "children")
-          {
-            simdjson::ondemand::array children_iterator = property.value();
-            for (auto k : children_iterator)
-              child_node->children_indices.emplace_back(k.get_uint64());
-          }
-          if (property.key() == "matrix")
-          {
-            mat4 mat;
-            simdjson::ondemand::array components = property.value();
-            unsigned short int s = 0;
-            for (auto k : components)
-            {
-              mat[s] = k.get_double();
-              ++s;
-            }
-            std::shared_ptr<transformation> mat_ptr{std::make_shared<transformation>(mat)};
-            child_node->matrix = mat_ptr;
-          }
-          if (property.key() == "rotation")
-          {
-            vec4 q;
-            simdjson::ondemand::array components = property.value();
-            unsigned short int s = 0;
-            for (auto k : components)
-            {
-              q[s] = k.get_double();
-              ++s;
-            }
-            std::shared_ptr<transformation> rot_ptr{std::make_shared<transformation>(rotation_matrix(q))};
-            child_node->matrix = rot_ptr;
-          }
-          if (property.key() == "scale")
-          {
-            vec3 scale;
-            simdjson::ondemand::array components = property.value();
-            unsigned short int s = 0;
-            for (auto k : components)
-            {
-              scale[s] = k.get_double();
-              ++s;
-            }
-            std::shared_ptr<transformation> scale_ptr{std::make_shared<transformation>(scale_matrix(scale))};
-            child_node->matrix = scale_ptr;
-          }
-          if (property.key() == "translation")
-          {
-            vec3 translation;
-            simdjson::ondemand::array components = property.value();
-            unsigned short int s = 0;
-            for (auto k : components)
-            {
-              translation[s] = k.get_double();
-              ++s;
-            }
-            std::shared_ptr<transformation> tr_ptr{std::make_shared<transformation>(translation_matrix(translation))};
-            child_node->matrix = tr_ptr;
-          }
-        }
-        initialize_tree(child_node, doc);
-        parent->children.push_back(child_node);
-      }
-      ++i;
-    }
-  }
+  initialize_tree(scene.root_node, doc, buffers, views, accessors, ptr_mat, primitives);
 }
