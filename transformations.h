@@ -44,7 +44,7 @@ class transformation : public mat4
 
     transformation& operator*=(const transformation& B);
     // slight abuse of notation: apply affine transformation to vec3
-    vec3 operator*(const vec3& v);
+    vec3 operator*(const vec3& v) const;
     void apply_to(vec3& v) const;
 
     friend transformation rotation_matrix(const vec4& unit_quaternion);
@@ -204,7 +204,7 @@ inline transformation::transformation(const mat4& matrix)
     M[i] = matrix[i];
 }
 
-inline vec3 transformation::operator*(const vec3& v)
+inline vec3 transformation::operator*(const vec3& v) const
 {
   vec3 res{v};
   this->apply_to(res);

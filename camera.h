@@ -2,6 +2,8 @@
 
 #include "ray.h"
 
+class transformation;
+
 class camera
 {
   private:
@@ -13,20 +15,28 @@ class camera
     normed_vec3 rel_y;
     float viewport_width;
     float viewport_height;
-    float z_near;
-    float z_far;
+    float znear;
+    float zfar;
 
   public:
-    camera( point orig
+    camera( point origin
           , vec3 look_at
           , float vertical_fov_in_deg
-          , float image_ratio
+          , float aspect_ratio
           , vec3 absolute_y
           , float znear = 0.1f
           , float zfar = infinity
           );
 
+    camera( float yfov_in_radians
+          , float znear);
+
     ray get_ray(float horiz_factor, float vert_factor) const;
 
     float get_zfar() const;
+    float get_aspect_ratio() const;
+    void set_zfar(float far);
+    void set_aspect_ratio(float ratio);
+
+    void transform_by(const transformation& transform);
 };

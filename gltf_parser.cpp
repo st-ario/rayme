@@ -1,5 +1,6 @@
 #include "gltf_parser.h"
 #include "meshes.h"
+#include "camera.h"
 #include "extern/simdjson/singleheader/simdjson.h"
 
 union  gltf_numeric { int i; float f; };
@@ -7,12 +8,30 @@ using  gltf_buffer = std::vector<unsigned char>;
 
 struct gltf_node
 {
-  int camera = -1;
   std::vector<int> children_indices;
   std::vector<std::shared_ptr<gltf_node>> children;
   std::weak_ptr<gltf_node> parent;
   std::shared_ptr<mesh> m_mesh;
+  std::shared_ptr<camera> cam;
   std::shared_ptr<transformation> transform;
+};
+
+struct raw_gltf_node
+{
+  bool has_camera = false;
+  bool has_mesh = false;
+  bool has_children = false;
+  bool has_matrix = false;
+  bool has_rotation = false;
+  bool has_scale = false;
+  bool has_translation = false;
+  int camera;
+  int mesh;
+  mat4 matrix;
+  vec4 rotation;
+  vec3 scale;
+  vec3 translation;
+  std::vector<int> children;
 };
 
 struct gltf_scene { std::shared_ptr<gltf_node> root_node{std::make_shared<gltf_node>()}; };
@@ -30,7 +49,6 @@ struct gltf_primitive
   int mode = 4;
 };
 
-struct gltf_camera {};
 struct gltf_material {};
 struct glft_texture {};
 struct gltf_image {};
@@ -148,163 +166,24 @@ void apply_mesh_transformations(gltf_node& node)
     apply_mesh_transformations(*p_p, *(node.m_mesh));
 }
 
-gltf_scene get_scene(simdjson::ondemand::document& doc)
+void apply_camera_transformations(gltf_node& node, camera& camera)
 {
-  gltf_scene scene;
+  transformation id;
+  if (node.transform && *(node.transform) != id)
+    camera.transform_by(*(node.transform));
 
-  uint64_t selected_scene;
-  auto error = doc["scene"].get(selected_scene);
-  if (error)
-  {
-      std::cerr << "ERROR: missing \"scene\" field\n";
-      std::exit(1);
-  }
-
-  simdjson::ondemand::array document_scenes;
-  error = doc["scenes"].get(document_scenes);
-  if (error)
-  {
-      std::cerr << "ERROR: invalid scenes\n";
-      std::exit(1);
-  }
-
-  int j = 0;
-  for (auto s : document_scenes)
-  {
-    if (j == selected_scene)
-    {
-      auto scene_obj = s.get_object();
-      simdjson::ondemand::array scene_nodes;
-      error = scene_obj["nodes"].get(scene_nodes);
-      if (error)
-      {
-        std::cerr << "ERROR: invalid nodes\n";
-        std::exit(1);
-      }
-      for (auto node : scene_nodes)
-        scene.root_node->children_indices.emplace_back(node.get_uint64());
-    }
-    ++j;
-  }
-
-  return scene;
+  if (auto p_p = node.parent.lock())
+    apply_camera_transformations(*p_p, camera);
 }
 
-std::vector<gltf_buffer> get_buffers(simdjson::ondemand::document& doc)
+void apply_camera_transformations(gltf_node& node)
 {
-  std::vector<gltf_buffer> buffers;
+  transformation id;
+  if (node.transform && *(node.transform) != id)
+    node.cam->transform_by(*(node.transform));
 
-  simdjson::ondemand::array document_buffers;
-  auto error = doc["buffers"].get(document_buffers);
-  if (error)
-  {
-    std::cerr << "ERROR: invalid buffers\n";
-    std::exit(1);
-  }
-
-  for (auto document_buffer : document_buffers)
-  {
-    auto buffer_obj = document_buffer.get_object();
-    int byte_length;
-    std::string_view uri;
-    for (auto property : buffer_obj)
-    {
-      if (property.key() == "byteLength")
-        byte_length = property.value().get_uint64();
-      if (property.key() == "uri")
-        uri = property.value().get_string();
-    }
-
-    gltf_buffer current;
-    current.reserve(byte_length);
-
-    constexpr char signature[38] = "data:application/octet-stream;base64,";
-    if (uri.size() > 37 && uri.rfind(signature, 0) == 0)
-    {
-      current = base64::decode(&uri[37]);
-    } else {
-      std::ifstream file(std::string(uri), std::ios::binary);
-      if (!file.is_open())
-      {
-        std::cerr << "Unable to open " << uri << "\n";
-        std::exit(1);
-      }
-      current.insert(current.begin(),
-                     std::istreambuf_iterator<char>(file),
-                     std::istreambuf_iterator<char>());
-
-      file.close();
-    }
-    buffers.emplace_back(std::move(current));
-  }
-  return buffers;
-}
-
-std::vector<buffer_view> get_buffer_views(simdjson::ondemand::document& doc)
-{
-  std::vector<buffer_view> views;
-  simdjson::ondemand::array document_views;
-  auto error = doc["bufferViews"].get(document_views);
-  if (error)
-  {
-    std::cerr << "ERROR: invalid buffer views\n";
-    std::exit(1);
-  }
-  for (auto b : document_views)
-  {
-    auto b_view_obj = b.get_object();
-    buffer_view current;
-
-    for (auto property : b_view_obj)
-    {
-      if (property.key() == "buffer")
-        current.buffer_index = property.value().get_uint64();
-      if (property.key() == "byteOffset")
-        current.byte_offset = property.value().get_uint64();
-      if (property.key() == "byteLength")
-        current.byte_length = property.value().get_uint64();
-      if (property.key() == "byteStride")
-        current.byte_stride = property.value().get_uint64();
-    }
-    views.push_back(current);
-  }
-  return views;
-}
-
-std::vector<accessor> get_accessors(simdjson::ondemand::document& doc)
-{
-  std::vector<accessor> accessors;
-  simdjson::ondemand::array document_accessors;
-  auto error = doc["accessors"].get(document_accessors);
-  if (error)
-  {
-    std::cerr << "ERROR: invalid accessors\n";
-    std::exit(1);
-  }
-  for (auto a : document_accessors)
-  {
-    auto acc_obj = a.get_object();
-    accessor current;
-
-    for (auto property : acc_obj)
-    {
-      if (property.key() == "bufferView")
-        current.buffer_view = property.value().get_uint64();
-      if (property.key() == "byteOffset")
-        current.byte_offset = property.value().get_uint64();
-      if (property.key() == "componentType")
-        current.component_type = property.value().get_uint64();
-      if (property.key() == "normalized")
-        current.is_normalized = property.value().get_bool();
-      if (property.key() == "count")
-        current.count = property.value().get_uint64();
-      if (property.key() == "type")
-        current.type = std::string(std::string_view(property.value()));
-    }
-    accessors.push_back(current);
-  }
-
-  return accessors;
+  if (auto p_p = node.parent.lock())
+    apply_camera_transformations(*p_p, *(node.cam));
 }
 
 mesh store_mesh( int index
@@ -319,8 +198,10 @@ mesh store_mesh( int index
     for (auto mesh_iterator : document_meshes)
     {
       if (j != index)
+      {
+        ++j;
         break;
-
+      }
       auto json_mesh = mesh_iterator.get_object();
       simdjson::ondemand::array mesh_primitives = json_mesh["primitives"];
       for (auto primitive_iterator : mesh_primitives)
@@ -468,188 +349,153 @@ mesh store_mesh( int index
       }
       ++j;
     }
+  std::cerr << "ERROR: unable to find mesh\n";
+  std::exit(1);
+}
+
+camera store_camera(int camera_index, simdjson::ondemand::document& doc)
+{
+  simdjson::ondemand::array doc_cameras;
+  auto error = doc["cameras"].get(doc_cameras);
+  if (error)
+  {
+    std::cerr << "ERROR: invalid cameras\n";
+    std::exit(1);
+  }
+  int i = 0;
+  for (auto doc_camera : doc_cameras)
+  {
+    if (i == camera_index)
+    {
+      simdjson::ondemand::object cam_obj = doc_camera.get_object();
+      // type is a required field
+      if (cam_obj["type"].get_string() == std::string_view("orthographic"))
+      {
+        std::cerr << "ERROR: orthographic camera detected, ";
+        std::cerr << "currently only perspective cameras are supported\n";
+        std::exit(2);
+      } else if (cam_obj["type"].get_string() != std::string_view("perspective")) {
+        std::cerr << "ERROR: invalid camera\n";
+        std::exit(1);
+      }
+      simdjson::ondemand::object persp_obj = cam_obj["perspective"].get_object();
+      float yfov = persp_obj["yfov"].get_double();
+      float znear = persp_obj["znear"].get_double();
+      camera cam{yfov,znear};
+      double aspect_ratio{-1};
+      error = persp_obj["aspectRatio"].get(aspect_ratio);
+      if (!error)
+        cam.set_aspect_ratio(aspect_ratio);
+      double zfar{-1};
+      error = persp_obj["zfar"].get(zfar);
+      if (!error)
+        cam.set_zfar(zfar);
+
+      return cam;
+    }
+    ++i;
+  }
+  std::cerr << "ERROR: unable to find camera\n";
+  std::exit(1);
 }
 
 // the ptr_mat argument is a temporary hack, to pass to all meshes the same standard material for
 // rendering, to be removed as soon as materials are properly dealt with
 void initialize_tree( std::shared_ptr<gltf_node>& parent
                     , simdjson::ondemand::document& doc
+                    , const std::vector<raw_gltf_node>& raw_nodes
                     , const std::vector<gltf_buffer>& buffers
                     , const std::vector<buffer_view>& views
                     , const std::vector<accessor>& accessors
                     , const std::shared_ptr<material>& ptr_mat
-                    , std::vector<std::shared_ptr<primitive>>& primitives)
+                    , std::vector<std::shared_ptr<primitive>>& primitives
+                    , std::shared_ptr<camera>& cam)
 {
-  simdjson::ondemand::array doc_nodes;
   for (int child_index : parent->children_indices)
   {
-    auto error = doc["nodes"].get(doc_nodes);
-    if (error)
+    auto current_raw_node = raw_nodes[child_index];
+
+    std::shared_ptr<gltf_node> child_node{std::make_shared<gltf_node>()};
+    child_node->parent = parent;
+
+    // get total transformation matrix the node
+    // default = identity
+    std::shared_ptr<transformation> transform_ptr = std::make_shared<transformation>();
+    bool matrix_set = false;
+
+    // get transformation matrix, if provided
+    if (current_raw_node.has_matrix)
     {
-      std::cerr << "ERROR: invalid nodes\n";
-      std::exit(1);
+      transform_ptr = std::make_shared<transformation>(current_raw_node.matrix);
+      matrix_set = true;
     }
-    int i = 0;
-    for (auto node_iterator : doc_nodes)
+
+    // get TRS matrix, if TRS transformations are provided
+    // (by the glTF 2.0 standard, this can happen only if "matrix" is not set)
+    if (!matrix_set)
     {
-      if (i == child_index)
+      // get scale matrix
+      transformation tr_scale;
+      if (current_raw_node.has_scale)
+        tr_scale = scale_matrix(current_raw_node.scale);
+
+      // get rotation matrix
+      transformation tr_rotation;
+      if (current_raw_node.has_rotation)
+        tr_rotation = rotation_matrix(current_raw_node.rotation);
+
+      // get translation matrix
+      transformation tr_translation;
+      if (current_raw_node.has_translation)
+        tr_translation = translation_matrix(current_raw_node.translation);
+
+      transformation id;
+      transformation total;
+      if (tr_translation != id || tr_rotation != id || tr_scale != id)
       {
-        simdjson::ondemand::object node_obj = node_iterator.get_object();
-        std::shared_ptr<gltf_node> child_node{std::make_shared<gltf_node>()};
-        child_node->parent = parent;
-
-        //get camera
-        // TODO change "camera" handling as soon as cameras are properly dealt with
-        uint64_t camera_n;
-        {
-          error = node_obj["camera"].get(camera_n);
-          if (error)
-            camera_n = -1;
-        }
-
-        // get total transformation matrix the node
-        // default = identity
-        std::shared_ptr<transformation> transform_ptr = std::make_shared<transformation>();
-        bool matrix_set = false;
-
-        // get transformation matrix, if provided
-        {
-          simdjson::ondemand::array matrix_components;
-          error = node_obj["matrix"].get(matrix_components);
-          if (error)
-          {
-            // no matrix transformation provided
-          } else {
-            mat4 mat;
-            unsigned short int s = 0;
-            for (auto k : matrix_components)
-            {
-              mat[s] = k.get_double();
-              ++s;
-            }
-            transform_ptr = std::make_shared<transformation>(mat);
-            matrix_set = true;
-          }
-        }
-
-        // get TRS matrix, if TRS transformations are provided
-        // (by the glTF 2.0 standard, this can happen only if "matrix" is not set)
-        if (!matrix_set)
-        {
-          // get scale matrix
-          transformation tr_scale;
-          {
-            simdjson::ondemand::array scale_components;
-            error = node_obj["scale"].get(scale_components);
-            if (error)
-            {
-              // no scale transformation provided
-            } else {
-              vec3 scale;
-              unsigned short int s = 0;
-              for (auto k : scale_components)
-              {
-                scale[s] = k.get_double();
-                ++s;
-              }
-              tr_scale = scale_matrix(scale);
-            }
-          }
-
-          // get rotation matrix
-          transformation tr_rotation;
-          {
-            simdjson::ondemand::array rot_components;
-            error = node_obj["rotation"].get(rot_components);
-            if (error)
-            {
-              // no rotation transformation provided
-            } else {
-              vec4 q;
-              unsigned short int s = 0;
-              for (auto k : rot_components)
-              {
-                q[s] = k.get_double();
-                ++s;
-              }
-              tr_rotation = rotation_matrix(q);
-            }
-          }
-
-          // get translation matrix
-          transformation tr_translation;
-          {
-            simdjson::ondemand::array tr_components;
-            error = node_obj["translation"].get(tr_components);
-            if (error)
-            {
-              // no translation transformation provided
-            } else {
-              vec3 tr;
-              unsigned short int s = 0;
-              for (auto k : tr_components)
-              {
-                tr[s] = k.get_double();
-                ++s;
-              }
-              tr_translation = translation_matrix(tr);
-            }
-          }
-
-          transformation id;
-          transformation total;
-          if (tr_translation != id || tr_rotation != id || tr_scale != id)
-          {
-            total = tr_translation * tr_rotation * tr_scale;
-          }
-          if (total != id)
-          {
-            transform_ptr = std::make_shared<transformation>(total);
-          }
-        }
-
-        child_node->transform = transform_ptr;
-
-        // process mesh
-        {
-          uint64_t mesh_index;
-          error = node_obj["mesh"].get(mesh_index);
-          if (error)
-          {
-            // not a mesh node
-          } else {
-            child_node->m_mesh = std::make_shared<mesh>(store_mesh(mesh_index,doc,buffers,views,accessors,ptr_mat));
-            apply_mesh_transformations(*child_node);
-            primitives.reserve(primitives.size() + child_node->m_mesh->n_triangles);
-
-            for (auto& tri : child_node->m_mesh->get_triangles())
-              primitives.emplace_back(std::move(tri));
-          }
-        }
-
-        // get childred indices
-        {
-          simdjson::ondemand::array children_iterator;
-          error = node_obj["children"].get(children_iterator);
-          if (error)
-          {
-            // leaf node
-          } else {
-            for (auto k : children_iterator)
-              child_node->children_indices.emplace_back(k.get_uint64());
-
-            initialize_tree(child_node, doc, buffers, views, accessors, ptr_mat, primitives);
-          }
-        }
-
-        parent->children.push_back(child_node);
+        total = tr_translation * tr_rotation * tr_scale;
       }
-      ++i;
+      if (total != id)
+      {
+        transform_ptr = std::make_shared<transformation>(total);
+      }
     }
+
+    child_node->transform = transform_ptr;
+
+    // get childred indices
+    if (current_raw_node.has_children)
+    {
+      child_node->children_indices = current_raw_node.children;
+      initialize_tree(child_node,doc, raw_nodes, buffers, views, accessors, ptr_mat, primitives, cam);
+    }
+
+    // process mesh
+    if (current_raw_node.has_mesh)
+    {
+      child_node->m_mesh = std::make_shared<mesh>(store_mesh(current_raw_node.mesh,doc,buffers,views,accessors,ptr_mat));
+      apply_mesh_transformations(*child_node);
+      primitives.reserve(primitives.size() + child_node->m_mesh->n_triangles);
+
+      for (auto& tri : child_node->m_mesh->get_triangles())
+        primitives.emplace_back(std::move(tri));
+    }
+
+    // process camera
+    if (current_raw_node.has_camera)
+    {
+      child_node->cam = std::make_shared<camera>(store_camera(current_raw_node.camera,doc));
+      apply_camera_transformations(*child_node);
+      cam = child_node->cam;
+    }
+
+    parent->children.push_back(child_node);
   }
 }
 
-void parse_gltf( const std::string& filename, std::vector<std::shared_ptr<primitive>>& primitives
+void parse_gltf( const std::string& filename
+               , std::vector<std::shared_ptr<primitive>>& primitives
+               , std::shared_ptr<camera>& cam
                , const std::shared_ptr<material>& ptr_mat)
 {
   simdjson::ondemand::parser parser;
@@ -676,10 +522,259 @@ void parse_gltf( const std::string& filename, std::vector<std::shared_ptr<primit
     }
   }
 
-  gltf_scene scene{get_scene(doc)};
-  std::vector<gltf_buffer> buffers{get_buffers(doc)};
-  std::vector<buffer_view> views{get_buffer_views(doc)};
-  std::vector<accessor> accessors{get_accessors(doc)};
+  // get root nodes of the scene
+  gltf_scene scene;
+  { // unnamed scope
+    uint64_t selected_scene;
+    auto error = doc["scene"].get(selected_scene);
+    if (error)
+    {
+        std::cerr << "ERROR: missing \"scene\" field\n";
+        std::exit(1);
+    }
 
-  initialize_tree(scene.root_node, doc, buffers, views, accessors, ptr_mat, primitives);
+    simdjson::ondemand::array document_scenes;
+    error = doc["scenes"].get(document_scenes);
+    if (error)
+    {
+        std::cerr << "ERROR: invalid scenes\n";
+        std::exit(1);
+    }
+
+    int j = 0;
+    for (auto s : document_scenes)
+    {
+      if (j == selected_scene)
+      {
+        auto scene_obj = s.get_object();
+        simdjson::ondemand::array scene_nodes;
+        error = scene_obj["nodes"].get(scene_nodes);
+        if (error)
+        {
+          std::cerr << "ERROR: invalid nodes\n";
+          std::exit(1);
+        }
+        for (auto node : scene_nodes)
+          scene.root_node->children_indices.emplace_back(node.get_uint64());
+      }
+      ++j;
+    }
+  } // unnamed scope
+
+  // store buffers
+  std::vector<gltf_buffer> buffers;
+  { // unnamed scope
+    simdjson::ondemand::array document_buffers;
+    auto error = doc["buffers"].get(document_buffers);
+    if (error)
+    {
+      std::cerr << "ERROR: invalid buffers\n";
+      std::exit(1);
+    }
+
+    for (auto document_buffer : document_buffers)
+    {
+      auto buffer_obj = document_buffer.get_object();
+      int byte_length;
+      std::string_view uri;
+      for (auto property : buffer_obj)
+      {
+        if (property.key() == "byteLength")
+          byte_length = property.value().get_uint64();
+        if (property.key() == "uri")
+          uri = property.value().get_string();
+      }
+
+      gltf_buffer current;
+      current.reserve(byte_length);
+
+      constexpr char signature[38] = "data:application/octet-stream;base64,";
+      if (uri.size() > 37 && uri.rfind(signature, 0) == 0)
+      {
+        current = base64::decode(&uri[37]);
+      } else {
+        std::ifstream file(std::string(uri), std::ios::binary);
+        if (!file.is_open())
+        {
+          std::cerr << "Unable to open " << uri << "\n";
+          std::exit(1);
+        }
+        current.insert(current.begin(),
+                       std::istreambuf_iterator<char>(file),
+                       std::istreambuf_iterator<char>());
+
+        file.close();
+      }
+      buffers.emplace_back(std::move(current));
+    }
+  } // unnamed scope
+
+  // store buffer views
+  std::vector<buffer_view> views;
+  { // unnamed scope
+    simdjson::ondemand::array document_views;
+    auto error = doc["bufferViews"].get(document_views);
+    if (error)
+    {
+      std::cerr << "ERROR: invalid buffer views\n";
+      std::exit(1);
+    }
+    for (auto b : document_views)
+    {
+      auto b_view_obj = b.get_object();
+      buffer_view current;
+
+      for (auto property : b_view_obj)
+      {
+        if (property.key() == "buffer")
+          current.buffer_index = property.value().get_uint64();
+        if (property.key() == "byteOffset")
+          current.byte_offset = property.value().get_uint64();
+        if (property.key() == "byteLength")
+          current.byte_length = property.value().get_uint64();
+        if (property.key() == "byteStride")
+          current.byte_stride = property.value().get_uint64();
+      }
+      views.push_back(current);
+    }
+  } // unnamed scope
+
+  // store accessors
+  std::vector<accessor> accessors;
+  { // unnamed scope
+    simdjson::ondemand::array document_accessors;
+    auto error = doc["accessors"].get(document_accessors);
+    if (error)
+    {
+      std::cerr << "ERROR: invalid accessors\n";
+      std::exit(1);
+    }
+    for (auto a : document_accessors)
+    {
+      auto acc_obj = a.get_object();
+      accessor current;
+
+      for (auto property : acc_obj)
+      {
+        if (property.key() == "bufferView")
+          current.buffer_view = property.value().get_uint64();
+        if (property.key() == "byteOffset")
+          current.byte_offset = property.value().get_uint64();
+        if (property.key() == "componentType")
+          current.component_type = property.value().get_uint64();
+        if (property.key() == "normalized")
+          current.is_normalized = property.value().get_bool();
+        if (property.key() == "count")
+          current.count = property.value().get_uint64();
+        if (property.key() == "type")
+          current.type = std::string(std::string_view(property.value()));
+      }
+      accessors.push_back(current);
+    }
+  } // unnamed scope
+
+  // store local representation of nodes, for recursive traversal
+  std::vector<raw_gltf_node> raw_nodes;
+  { // unnamed scope
+    simdjson::ondemand::array doc_nodes;
+    auto error = doc["nodes"].get(doc_nodes);
+    if (error)
+    {
+      std::cerr << "ERROR: invalid nodes\n";
+      std::exit(1);
+    }
+    for (auto node_iterator : doc_nodes)
+    {
+      auto node_obj = node_iterator.get_object();
+      raw_gltf_node current_node;
+      { // camera
+        uint64_t camera;
+        error = node_obj["camera"].get(camera);
+        if (!error)
+        {
+          current_node.has_camera = true;
+          current_node.camera = camera;
+        }
+      }
+      { // mesh
+        uint64_t mesh;
+        error = node_obj["mesh"].get(mesh);
+        if (!error)
+        {
+          current_node.has_mesh = true;
+          current_node.mesh = mesh;
+        }
+      }
+      { // children
+        simdjson::ondemand::array children;
+        error = node_obj["children"].get(children);
+        if (!error)
+        {
+          current_node.has_children = true;
+          for (uint64_t k : children)
+            current_node.children.push_back(k);
+        }
+      }
+      { // matrix
+        simdjson::ondemand::array matrix;
+        error = node_obj["matrix"].get(matrix);
+        if (!error)
+        {
+          current_node.has_matrix = true;
+          int i = 0;
+          for (double k : matrix)
+          {
+            current_node.matrix[i] = k;
+            ++i;
+          }
+        }
+      }
+      { // rotation
+        simdjson::ondemand::array rotation;
+        error = node_obj["rotation"].get(rotation);
+        if (!error)
+        {
+          current_node.has_rotation = true;
+          int i = 0;
+          for (double k : rotation)
+          {
+            current_node.rotation[i] = k;
+            ++i;
+          }
+        }
+      }
+      { // scale
+        simdjson::ondemand::array scale;
+        error = node_obj["scale"].get(scale);
+        if (!error)
+        {
+          current_node.has_scale = true;
+          int i = 0;
+          for (double k : scale)
+          {
+            current_node.scale[i] = k;
+            ++i;
+          }
+        }
+      }
+      { // translation
+        simdjson::ondemand::array translation;
+        error = node_obj["translation"].get(translation);
+        if (!error)
+        {
+          current_node.has_translation = true;
+          int i = 0;
+          for (double k : translation)
+          {
+            current_node.translation[i] = k;
+            ++i;
+          }
+        }
+      }
+      raw_nodes.push_back(current_node);
+    }
+  } // unnamed scope
+
+  // recursively process the scene tree
+  initialize_tree(scene.root_node, doc, raw_nodes, buffers, views, accessors, ptr_mat, primitives, cam);
 }
