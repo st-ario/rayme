@@ -23,17 +23,12 @@ camera::camera( point origin
   viewport_height = h * 2.0f;
   viewport_width = aspect_ratio * viewport_height;
 
-  point viewport_center = origin - rel_z.to_vec3();
-
-  upper_left_corner = viewport_center
-                    - (viewport_width/2.0f)  * rel_x.to_vec3()
-                    + (viewport_height/2.0f) * rel_y.to_vec3();
+  rel_upper_left_corner = point{-(viewport_width/2.0f), viewport_height/2.0f, -1.0f};
 }
 
 camera::camera( float yfov_in_radians ,float znear)
   : origin{0.0f, 0.0f, 0.0f}
   , aspect_ratio{16.0f / 9.0f}
-  , upper_left_corner{}
   , rel_z{vec3{0.0f, 0.0f, 1.0f}}
   , rel_x{vec3{1.0f, 0.0f, 0.0f}}
   , rel_y{vec3{0.0f, 1.0f, 0.0f}}
@@ -47,17 +42,15 @@ camera::camera( float yfov_in_radians ,float znear)
   viewport_height = h * 2.0f;
   viewport_width = aspect_ratio * viewport_height;
 
-  upper_left_corner = point{-(viewport_width/2.0f), viewport_height/2.0f, -1.0f};
+  rel_upper_left_corner = point{-(viewport_width/2.0f), viewport_height/2.0f, -1.0f};
 }
 
 
 ray camera::get_ray(float horiz_factor, float vert_factor) const
 {
-  vec3 nonunital_direction = upper_left_corner
-                          + (horiz_factor * viewport_width)  * rel_x.to_vec3()
-                          - (vert_factor  * viewport_height) * rel_y.to_vec3()
-                          - origin;
-  //return ray(origin, unit(nonunital_direction));
+  vec3 nonunital_direction = rel_upper_left_corner - origin
+                             + (horiz_factor * viewport_width)  * rel_x.to_vec3()
+                             - (vert_factor  * viewport_height) * rel_y.to_vec3();
   point offset_origin = origin + znear * unit(nonunital_direction).to_vec3();
   return ray(offset_origin, unit(nonunital_direction));
 }
@@ -67,15 +60,18 @@ float camera::get_aspect_ratio() const { return aspect_ratio; }
 void camera::set_zfar(float far) { zfar = far; }
 void camera::set_aspect_ratio(float ratio) { aspect_ratio = ratio; }
 
-void camera::transform_by(const transformation& transform)
+void camera::absolute_transform_by(const transformation& transform)
 {
   transform.apply_to(origin);
-  transform.apply_to(upper_left_corner);
+  transform_rel_origin_by(transform);
+}
 
-  vec3 new_x{transform * rel_x.to_vec3()};
-  vec3 new_y{transform * rel_y.to_vec3()};
+void camera::transform_rel_origin_by(const transformation& transform)
+{
   vec3 new_z{transform * rel_z.to_vec3()};
-  rel_x = unit(new_x);
-  rel_y = unit(new_y);
   rel_z = unit(new_z);
+  normed_vec3 absolute_y{point{0.0f,1.0f,0.0f}};
+  if (rel_z.to_vec3() == absolute_y.to_vec3()) { /* TODO */ };
+  rel_x = normed_vec3{cross(absolute_y,rel_z)};
+  rel_y = normed_vec3{cross(rel_z,rel_x)};
 }
