@@ -382,11 +382,11 @@ mesh store_mesh( int index
             point p;
             float f;
             std::memcpy(&f, &data[i], s_component);
-            p.x() = f;
+            p.x = f;
             std::memcpy(&f, &data[i+s_component], s_component);
-            p.y() = f;
+            p.y = f;
             std::memcpy(&f, &data[i+2*s_component], s_component);
-            p.z() = f;
+            p.z = f;
             vertices.push_back(p);
           }
         } // unnamed scope
@@ -427,11 +427,11 @@ mesh store_mesh( int index
             vec3 v;
             float f;
             std::memcpy(&f, &data[i], s_component);
-            v.x() = f;
+            v.x = f;
             std::memcpy(&f, &data[i+s_component], s_component);
-            v.y() = f;
+            v.y = f;
             std::memcpy(&f, &data[i+2*s_component], s_component);
-            v.z() = f;
+            v.z = f;
             normals.emplace_back(normed_vec3(v));
           }
         }

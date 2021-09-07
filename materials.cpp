@@ -8,8 +8,8 @@ std::optional<ray> lambertian::scatter(
   ) const
 {
   attenuation = albedo;
-  vec3 nonunital_scatter_direction = rec.normal.to_vec3() + normed_vec3::random_unit().to_vec3();
-  if (nonunital_scatter_direction.near_zero())
+  vec3 nonunital_scatter_direction = static_cast<vec3>(rec.normal) + static_cast<vec3>(normed_vec3::random_unit());
+  if(near_zero(nonunital_scatter_direction))
   {
     return ray(r.at(rec.t), rec.normal);
   } else {
@@ -26,10 +26,10 @@ std::optional<ray> metal::scatter(
  ) const
 {
   attenuation = albedo;
-  vec3 reflected = reflect(r.direction, rec.normal).to_vec3();
-  normed_vec3 scattered_direction = unit(reflected + roughness*vec3::random_in_unit_sphere());
+  vec3 reflected = static_cast<vec3>(reflect(r.direction, rec.normal));
+  normed_vec3 scattered_direction = unit(reflected + roughness*random_vec3_in_unit_sphere());
   ray scattered = ray(r.at(rec.t), scattered_direction);
-  if (dot(scattered.direction, rec.normal) > 0)
+  if (glm::dot(static_cast<vec3>(scattered.direction), static_cast<vec3>(rec.normal)) > 0)
     return scattered;
   return std::nullopt;
 }
@@ -43,7 +43,7 @@ std::optional<ray> dielectric::scatter(
   attenuation = color(1.0, 1.0, 1.0);
 
   float refraction_ratio = rec.front_face ? (1.0f / refraction_index) : refraction_index;
-  float cos_incindence_angle = std::fmin(1.0f, dot(r.direction, rec.normal));
+  float cos_incindence_angle = std::fmin(1.0f, glm::dot(static_cast<vec3>(r.direction), static_cast<vec3>(rec.normal)));
   float sin_incindence_angle = std::sqrt(1.0f - cos_incindence_angle * cos_incindence_angle);
   float sin_refracted_angle = refraction_ratio * sin_incindence_angle;
   // float cos_refracted_angle = std::sqrt(1.0f - sin_refracted_angle * sin_refracted_angle);

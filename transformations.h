@@ -1,6 +1,8 @@
 #pragma once
 
-#include "my_vectors.h"
+#include "math.h"
+
+using vec4 = glm::vec4;
 
 // #################################################################################################
 // declarations
@@ -241,16 +243,16 @@ inline transformation translation_matrix(const vec3& translation_vector)
   return transformation{ 1.0f,0.0f,0.0f
                        , 0.0f,1.0f,0.0f
                        , 0.0f,0.0f,1.0f
-                       , translation_vector.x()
-                       , translation_vector.y()
-                       , translation_vector.z()};
+                       , translation_vector.x
+                       , translation_vector.y
+                       , translation_vector.z};
 }
 
 inline transformation scale_matrix(const vec3& scale_vector)
 {
-  return transformation{ scale_vector.x(),0.0f,0.0f
-                       , 0.0f, scale_vector.y(),0.0f
-                       , 0.0f,0.0f, scale_vector.z()
+  return transformation{ scale_vector.x,0.0f,0.0f
+                       , 0.0f, scale_vector.y,0.0f
+                       , 0.0f,0.0f, scale_vector.z
                        , 0.0f,0.0f,0.0f};
 }
 

@@ -15,7 +15,6 @@ add_executable(${PROJECT_NAME}
   materials.cpp
   math.cpp
   meshes.cpp
-  my_vectors.cpp
   render.cpp
   extern/simdjson/singleheader/simdjson.cpp
   )
@@ -61,7 +60,7 @@ add_library(stb extern/stb/stb_image_write.h)
 set_target_properties(stb PROPERTIES LINKER_LANGUAGE CXX)
 add_library(simdjson extern/simdjson/singleheader/simdjson.h)
 set_target_properties(simdjson PROPERTIES LINKER_LANGUAGE CXX)
-add_library(glm extern/glm/glm.hpp)
+add_library(glm extern/glm/glm/glm.hpp)
 set_target_properties(glm PROPERTIES LINKER_LANGUAGE CXX)
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)

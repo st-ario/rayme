@@ -1,9 +1,10 @@
 #pragma once
 
-#include "my_vectors.h"
+#include "math.h"
 
 struct hit_record;
 class ray;
+class normed_vec3;
 
 class material
 {

@@ -20,7 +20,7 @@ static color ray_color(const ray& r, const element& world, int depth, float zfar
   }
 
   // else: gradient background, depending only on the y coordinate;
-  double t = 0.5 * (1 + (r.direction.y()));
+  double t = 0.5 * (1 + (r.direction.y));
   return ((1.0 - t) * color(1.0, 1.0, 1.0) + t * color(0.5, 0.7, 1.0));
 }
 

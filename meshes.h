@@ -2,6 +2,8 @@
 
 #include "bvh.h"
 
+using vec4 = glm::vec4;
+
 class triangle;
 
 class mesh : public std::enable_shared_from_this<mesh>
