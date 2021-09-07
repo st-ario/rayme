@@ -56,12 +56,12 @@ std::shared_ptr<element> bvh_tree::recursive_build(std::vector<std::shared_ptr<p
       float min_coord{infinity};
       float max_coord{-infinity};
 
-      for (size_t i = begin+1; i < end; ++i)
+      for (size_t j = begin+1; j < end; ++j)
       {
-        if (leaves[i]->centroid[i] < min_coord)
-          min_coord = leaves[i]->centroid[i];
-        if (leaves[i]->centroid[i] > max_coord)
-          max_coord = leaves[i]->centroid[i];
+        if (leaves[j]->centroid[i] < min_coord)
+          min_coord = leaves[j]->centroid[i];
+        if (leaves[j]->centroid[i] > max_coord)
+          max_coord = leaves[j]->centroid[i];
       }
 
       float current_span = fabs(max_coord - min_coord);
