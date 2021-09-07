@@ -141,7 +141,7 @@ normed_vec3 refract(const normed_vec3& incident, const normed_vec3& normal, floa
   vec3 i = static_cast<vec3>(incident);
   vec3 n = static_cast<vec3>(normal);
 
-  float cos_incidence_angle = glm::dot(-static_cast<vec3>(incident), static_cast<vec3>(normal));
+  float cos_incidence_angle = glm::dot(-i,n);
   vec3 refracted_perp = refractive_indices_ratio * (i + cos_incidence_angle * n);
   vec3 refracted_parallel = - std::sqrt(1.0f - glm::length2(refracted_perp)) * n;
   return unit(refracted_perp + refracted_parallel);

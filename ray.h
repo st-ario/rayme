@@ -25,7 +25,7 @@ inline point ray::offset_ray_origin(const point &p, const vec3 &pError,
     float d = glm::dot(abs(static_cast<vec3>(n)), pError);
     vec3 offset = d * static_cast<vec3>(n);
 
-    if (glm::dot(w, n) < 0)
+    if (glm::dot(w, static_cast<vec3>(n)) < 0)
       offset = - offset;
 
     point po = p + offset;

@@ -11,7 +11,8 @@
 #include <iostream>
 #include <optional>
 
-#include "extern/glm/glm/glm.hpp"
+#include "extern/glm/glm/vec3.hpp"
+#include "extern/glm/glm/geometric.hpp"
 
 // Constants
 
@@ -244,7 +245,7 @@ inline float min_component(const vec3& v)
 
 inline vec3 abs(const vec3& v)
 {
-  return vec3(std::abs(v[0]), std::abs(v[1]), std::abs(v[2]));
+  return vec3(std::fabs(v[0]), std::fabs(v[1]), std::fabs(v[2]));
 }
 
 inline vec3 permute(const vec3& v, int x, int y, int z)

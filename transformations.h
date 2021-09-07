@@ -1,6 +1,7 @@
 #pragma once
 
 #include "math.h"
+#include "extern/glm/glm/vec4.hpp"
 
 using vec4 = glm::vec4;
 
