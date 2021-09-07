@@ -111,9 +111,9 @@ class normed_vec3 : public vec3
     explicit normed_vec3(const vec3& w);
 
     // coordinates can only be returned as const, to preserve the invariant
-    const float x = vec3::x;
-    const float y = vec3::y;
-    const float z = vec3::z;
+    float x() const { return vec3::x; }
+    float y() const { return vec3::y; }
+    float z() const { return vec3::z; }
 
     normed_vec3& operator-();
     normed_vec3 operator-() const;

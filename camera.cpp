@@ -34,7 +34,8 @@ ray camera::get_ray(float horiz_factor, float vert_factor) const
                           - origin;
   //return ray(origin, unit(nonunital_direction));
   point offset_origin = origin + z_near * static_cast<vec3>(unit(nonunital_direction));
-  return ray(offset_origin, unit(nonunital_direction));
+  normed_vec3 dir{unit(nonunital_direction)};
+  return ray(offset_origin, dir);
 }
 
 float camera::get_zfar() const { return z_far; }

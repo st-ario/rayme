@@ -86,9 +86,9 @@ hit_check triangle::hit(const ray& r, float t_max) const
 
   // shear to align ray direction with the Y axis
   // TODO memoize these values in the ray class
-  float Sx = - d.x / d.z;
-  float Sy = - d.y / d.z;
-  float Sz =   1.0f / d.z;
+  float Sx = - d.x() / d.z();
+  float Sy = - d.y() / d.z();
+  float Sz =   1.0f / d.z();
   p0t.x += Sx * p0t.z;
   p0t.y += Sy * p0t.z;
   p1t.x += Sx * p1t.z;
