@@ -1,6 +1,6 @@
 #pragma once
 
-#include "my_vectors.h"
+#include "math.h"
 
 class image
 {

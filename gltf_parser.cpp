@@ -1,6 +1,7 @@
 #include "gltf_parser.h"
 #include "meshes.h"
 #include "extern/simdjson/singleheader/simdjson.h"
+#include "extern/glm/glm/gtc/type_ptr.hpp"
 
 union  gltf_numeric { int i; float f; };
 using  gltf_buffer = std::vector<unsigned char>;
@@ -120,7 +121,7 @@ int element_size(const accessor& acc)
 void apply_pointwise_transformation(const transformation& M, mesh& mesh)
 {
   for (point& p : mesh.vertices)
-    M.apply_to(p);
+    p *= M;
 
   for (normed_vec3& n : mesh.normals); // TODO
   for (vec4& v : mesh.tangents); // TODO
@@ -382,11 +383,11 @@ mesh store_mesh( int index
             point p;
             float f;
             std::memcpy(&f, &data[i], s_component);
-            p.x() = f;
+            p.x = f;
             std::memcpy(&f, &data[i+s_component], s_component);
-            p.y() = f;
+            p.y = f;
             std::memcpy(&f, &data[i+2*s_component], s_component);
-            p.z() = f;
+            p.z = f;
             vertices.push_back(p);
           }
         } // unnamed scope
@@ -427,11 +428,11 @@ mesh store_mesh( int index
             vec3 v;
             float f;
             std::memcpy(&f, &data[i], s_component);
-            v.x() = f;
+            v.x = f;
             std::memcpy(&f, &data[i+s_component], s_component);
-            v.y() = f;
+            v.y = f;
             std::memcpy(&f, &data[i+2*s_component], s_component);
-            v.z() = f;
+            v.z = f;
             normals.emplace_back(normed_vec3(v));
           }
         }
@@ -521,10 +522,11 @@ void initialize_tree( std::shared_ptr<gltf_node>& parent
             // no matrix transformation provided
           } else {
             mat4 mat;
+            float* mat_ptr = glm::value_ptr(mat);
             unsigned short int s = 0;
             for (auto k : matrix_components)
             {
-              mat[s] = k.get_double();
+              mat_ptr[s] = k.get_double();
               ++s;
             }
             transform_ptr = std::make_shared<transformation>(mat);

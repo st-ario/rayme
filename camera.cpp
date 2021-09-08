@@ -19,22 +19,23 @@ camera::camera( point origin
         viewport_height = h * 2.0f;
         viewport_width = aspect_ratio * viewport_height;
 
-        point viewport_center = origin - rel_z.to_vec3();
+        point viewport_center = origin - static_cast<vec3>(rel_z);
 
         upper_left_corner = viewport_center
-                          - (viewport_width/2.0f)  * rel_x.to_vec3()
-                          + (viewport_height/2.0f) * rel_y.to_vec3();
+                          - (viewport_width/2.0f)  * static_cast<vec3>(rel_x)
+                          + (viewport_height/2.0f) * static_cast<vec3>(rel_y);
       }
 
 ray camera::get_ray(float horiz_factor, float vert_factor) const
 {
   vec3 nonunital_direction = upper_left_corner
-                          + (horiz_factor * viewport_width)  * rel_x.to_vec3()
-                          - (vert_factor  * viewport_height) * rel_y.to_vec3()
+                          + (horiz_factor * viewport_width)  * static_cast<vec3>(rel_x)
+                          - (vert_factor  * viewport_height) * static_cast<vec3>(rel_y)
                           - origin;
   //return ray(origin, unit(nonunital_direction));
-  point offset_origin = origin + z_near * unit(nonunital_direction).to_vec3();
-  return ray(offset_origin, unit(nonunital_direction));
+  point offset_origin = origin + z_near * static_cast<vec3>(unit(nonunital_direction));
+  normed_vec3 dir{unit(nonunital_direction)};
+  return ray(offset_origin, dir);
 }
 
 float camera::get_zfar() const { return z_far; }

@@ -20,7 +20,7 @@ static color ray_color(const ray& r, const element& world, int depth, float zfar
   }
 
   // else: gradient background, depending only on the y coordinate;
-  double t = 0.5 * (1 + (r.direction.y()));
+  double t = 0.5 * (1 + r.direction.y());
   return ((1.0 - t) * color(1.0, 1.0, 1.0) + t * color(0.5, 0.7, 1.0));
 }
 
@@ -45,7 +45,8 @@ static void render_tile( image* picture
     {
       if (v_offset + y > picture->get_height() - 1)
         break;
-      for (int s = 0; s < samples_per_pixel + 1; ++s)
+      pixel_color = {0,0,0};
+      for (int s = 0; s < samples_per_pixel; ++s)
       {
         float horiz_factor = (h_offset + x + random_float())/(picture->get_width()-1);
         float vert_factor = (v_offset + y + random_float())/(picture->get_height()-1);

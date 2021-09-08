@@ -3,13 +3,13 @@
 
 aabb surrounding_box(aabb box0, aabb box1)
 {
-  point small(fminf(box0.min().x(), box1.min().x()),
-              fminf(box0.min().y(), box1.min().y()),
-              fminf(box0.min().z(), box1.min().z()));
+  point small(fminf(box0.min().x, box1.min().x),
+              fminf(box0.min().y, box1.min().y),
+              fminf(box0.min().z, box1.min().z));
 
-  point big(fmaxf(box0.max().x(), box1.max().x()),
-            fmaxf(box0.max().y(), box1.max().y()),
-            fmaxf(box0.max().z(), box1.max().z()));
+  point big(fmaxf(box0.max().x, box1.max().x),
+            fmaxf(box0.max().y, box1.max().y),
+            fmaxf(box0.max().z, box1.max().z));
 
   return aabb(small,big);
 }
@@ -22,9 +22,9 @@ bvh_tree::bvh_tree(std::vector<std::shared_ptr<primitive>>&& primitives)
 
 inline float surface_area(std::shared_ptr<primitive>& leaf)
 {
-  return fabs(leaf->bounds.max().x() - leaf->bounds.min().x())
-       * fabs(leaf->bounds.max().y() - leaf->bounds.min().y())
-       * fabs(leaf->bounds.max().z() - leaf->bounds.min().z());
+  return fabs(leaf->bounds.max().x - leaf->bounds.min().x)
+       * fabs(leaf->bounds.max().y - leaf->bounds.min().y)
+       * fabs(leaf->bounds.max().z - leaf->bounds.min().z);
 }
 
 float sah(std::vector<std::shared_ptr<primitive>>& leaves, size_t begin, size_t end, size_t at)
