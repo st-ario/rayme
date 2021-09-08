@@ -6,6 +6,9 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+## set(GCC_WARNING_FLAGS "-Wall -Wextra")
+set(GCC_WARNING_FLAGS "")
+
 add_executable(${PROJECT_NAME}
   bvh.cpp
   camera.cpp
@@ -66,3 +69,5 @@ set_target_properties(glm PROPERTIES LINKER_LANGUAGE CXX)
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 target_link_libraries(rayme PRIVATE Threads::Threads)
+
+add_definitions(${GCC_WARNING_FLAGS})

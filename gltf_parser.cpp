@@ -169,7 +169,7 @@ gltf_scene get_scene(simdjson::ondemand::document& doc)
       std::exit(1);
   }
 
-  int j = 0;
+  uint j = 0;
   for (auto s : document_scenes)
   {
     if (j == selected_scene)

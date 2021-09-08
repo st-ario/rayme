@@ -5,8 +5,8 @@
 class image
 {
   private:
-    const int height;
     const int width;
+    const int height;
 
   public:
     std::vector<std::vector<color>> pixels;

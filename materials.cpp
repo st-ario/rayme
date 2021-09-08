@@ -1,6 +1,14 @@
 #include "materials.h"
 #include "bvh.h"
 
+normed_vec3 get_direction(bool b, normed_vec3 dir, normed_vec3 n, float ref_ratio)
+{
+  if (b)
+    return reflect(dir,n);
+  else
+    return refract(dir,n,ref_ratio);
+}
+
 std::optional<ray> lambertian::scatter(
     const ray& r
   , const hit_record& rec
@@ -18,7 +26,6 @@ std::optional<ray> lambertian::scatter(
 }
 // Alternatively: scatter with probability p and have attenuation be given by albedo/p
 
-
 std::optional<ray> metal::scatter(
         const ray& r
       , const hit_record& rec
@@ -33,6 +40,28 @@ std::optional<ray> metal::scatter(
     return scattered;
   return std::nullopt;
 }
+
+float reflectance(float cos, float refraction_index)
+{
+  // Use Schlick's approximation for reflectance.
+  float r0 = (1.0 - refraction_index) / (1.0 + refraction_index);
+  r0 = r0*r0;
+  return r0 + (1.0 - r0) * std::pow((1.0 - cos), 5);
+}
+
+/*
+float fresnel_reflectance(float cos_incidence, float cos_refraction, float refraction_index)
+{
+  float parallel = (refraction_index * cos_incidence - cos_refraction)/ (refraction_index * cos_incidence + cos_refraction);
+  parallel = parallel * parallel;
+
+  float perp = (cos_refraction - refraction_index * cos_incidence)/ (cos_refraction + refraction_index * cos_incidence);
+  perp = perp * perp;
+
+  float factor = (parallel + perp)/2;
+  return factor;
+}
+*/
 
 std::optional<ray> dielectric::scatter(
     const ray& r
@@ -55,32 +84,4 @@ std::optional<ray> dielectric::scatter(
   normed_vec3 direction = get_direction(aux, r.direction, rec.normal, refraction_ratio);
 
   return ray(r.at(rec.t), direction);
-}
-
-static normed_vec3 get_direction(bool b, normed_vec3 dir, normed_vec3 n, float ref_ratio)
-{
-  if (b)
-    return reflect(dir,n);
-  else
-    return refract(dir,n,ref_ratio);
-}
-
-static float reflectance(float cos, float refraction_index)
-{
-  // Use Schlick's approximation for reflectance.
-  float r0 = (1.0 - refraction_index) / (1.0 + refraction_index);
-  r0 = r0*r0;
-  return r0 + (1.0 - r0) * std::pow((1.0 - cos), 5);
-}
-
-static float fresnel_reflectance(float cos_incidence, float cos_refraction, float refraction_index)
-{
-  float parallel = (refraction_index * cos_incidence - cos_refraction)/ (refraction_index * cos_incidence + cos_refraction);
-  parallel = parallel * parallel;
-
-  float perp = (cos_refraction - refraction_index * cos_incidence)/ (cos_refraction + refraction_index * cos_incidence);
-  perp = perp * perp;
-
-  float factor = (parallel + perp)/2;
-  return factor;
 }

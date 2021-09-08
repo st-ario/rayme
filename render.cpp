@@ -97,7 +97,7 @@ void render( image& picture
 
   std::cout << "Rendering in progress...\n";
 
-  for (const auto pair : cartesian_product)
+  for (const auto& pair : cartesian_product)
   {
     future_tiles.push_back(std::async(std::launch::async, render_tile, &picture, tile_size, pair.first, pair.second, samples_per_pixel, depth, &cam, &world));
   }

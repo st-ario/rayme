@@ -29,7 +29,7 @@ int main()
 
   // Camera
   const float aspect_ratio = 16.0f/9.0f;
-  const float focal_length = 1.0f;
+  // const float focal_length = 1.0f;
   camera cam(point(2,1.5,1), vec3(0,0,-1), 50.0f, aspect_ratio, vec3(0,1,0));
   //camera cam(point(-2,2,1), vec3(0,0,-1), 48.0f, aspect_ratio, vec3(0,1,0));
   //camera cam(point(-6,6,5), vec3(0,0,-1), 50.0f, aspect_ratio, vec3(0,1,0));

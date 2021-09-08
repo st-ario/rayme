@@ -7,7 +7,6 @@ hit_record triangle::get_record(const ray& r, float at) const
   const point& p1 = parent_mesh->vertices[parent_mesh->vertex_indices[3*number+1]];
   const point& p2 = parent_mesh->vertices[parent_mesh->vertex_indices[3*number+2]];
 
-  point p = r.at(at);
   vec3 nonunital_candidate_normal = cross(p1-p0, p2-p0);
 
   bool front_face = glm::dot(static_cast<vec3>(r.direction), nonunital_candidate_normal) < 0;
@@ -133,9 +132,6 @@ hit_check triangle::hit(const ray& r, float t_max) const
 
   // Compute barycentric coordinates and $t$ value for triangle intersection
   float invDet = 1 / det;
-  float b0 = e0 * invDet;
-  float b1 = e1 * invDet;
-  float b2 = e2 * invDet;
   float t = tScaled * invDet;
 
   // Compute $\delta_z$ term for triangle $t$ error bounds
@@ -159,6 +155,10 @@ hit_check triangle::hit(const ray& r, float t_max) const
     return std::nullopt;
 
   /* error bounds, reintroduce later
+  float b0 = e0 * invDet;
+  float b1 = e1 * invDet;
+  float b2 = e2 * invDet;
+
   // Compute error bounds for triangle intersection
   float xAbsSum = (std::abs(b0 * p0.x) + std::abs(b1 * p1.x) + std::abs(b2 * p2.x));
   float yAbsSum = (std::abs(b0 * p0.y) + std::abs(b1 * p1.y) + std::abs(b2 * p2.y));
@@ -178,7 +178,6 @@ hit_check sphere::hit(const ray& r, float t_max) const
   if (discriminant < 0)
     return std::nullopt;
 
-  float sqrtdel = std::sqrt(discriminant);
   float root = -b_halved - std::sqrt(discriminant);
   if (root < 0.0f || root > t_max)
     return std::nullopt;
