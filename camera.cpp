@@ -49,9 +49,9 @@ camera::camera( float yfov_in_radians ,float znear)
 ray camera::get_ray(float horiz_factor, float vert_factor) const
 {
   vec3 nonunital_direction = rel_upper_left_corner - origin
-                             + (horiz_factor * viewport_width)  * rel_x.to_vec3()
-                             - (vert_factor  * viewport_height) * rel_y.to_vec3();
-  point offset_origin = origin + znear * unit(nonunital_direction).to_vec3();
+                             + (horiz_factor * viewport_width)  * rel_x
+                             - (vert_factor  * viewport_height) * rel_y;
+  point offset_origin = origin + znear * unit(nonunital_direction);
   return ray(offset_origin, unit(nonunital_direction));
 }
 
@@ -62,16 +62,16 @@ void camera::set_aspect_ratio(float ratio) { aspect_ratio = ratio; }
 
 void camera::absolute_transform_by(const transformation& transform)
 {
-  transform.apply_to(origin);
+  origin *= transform;
   transform_rel_origin_by(transform);
 }
 
 void camera::transform_rel_origin_by(const transformation& transform)
 {
-  vec3 new_z{transform * rel_z.to_vec3()};
+  vec3 new_z{transform * rel_z};
   rel_z = unit(new_z);
   normed_vec3 absolute_y{point{0.0f,1.0f,0.0f}};
-  if (rel_z.to_vec3() == absolute_y.to_vec3()) { /* TODO */ };
+  if (rel_z == absolute_y) { /* TODO */ };
   rel_x = normed_vec3{cross(absolute_y,rel_z)};
   rel_y = normed_vec3{cross(rel_z,rel_x)};
 }

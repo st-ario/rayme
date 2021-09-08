@@ -30,7 +30,7 @@ int main()
   //primitives.emplace_back(std::make_shared<sphere>(point( 0.0, -100.5, -1.0), 100.0, material_ground));
   //primitives.emplace_back(std::make_shared<sphere>(point( 0.0,    0.0, -1.0),   0.5, material_center));
   // currently parse_gltf just loads triangle meshes
-  parse_gltf("camera_experiment.gltf", primitives, cam, material_center);
+  parse_gltf("monkey.gltf", primitives, cam, material_center);
 
   bvh_tree scene_tree{std::move(primitives)};
 

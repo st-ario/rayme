@@ -1,6 +1,14 @@
 #include "materials.h"
 #include "bvh.h"
 
+normed_vec3 get_direction(bool b, normed_vec3 dir, normed_vec3 n, float ref_ratio)
+{
+  if (b)
+    return reflect(dir,n);
+  else
+    return refract(dir,n,ref_ratio);
+}
+
 std::optional<ray> lambertian::scatter(
     const ray& r
   , const hit_record& rec
@@ -8,8 +16,8 @@ std::optional<ray> lambertian::scatter(
   ) const
 {
   attenuation = albedo;
-  vec3 nonunital_scatter_direction = rec.normal.to_vec3() + normed_vec3::random_unit().to_vec3();
-  if (nonunital_scatter_direction.near_zero())
+  vec3 nonunital_scatter_direction = static_cast<vec3>(rec.normal) + static_cast<vec3>(normed_vec3::random_unit());
+  if(near_zero(nonunital_scatter_direction))
   {
     return ray(r.at(rec.t), rec.normal);
   } else {
@@ -18,7 +26,6 @@ std::optional<ray> lambertian::scatter(
 }
 // Alternatively: scatter with probability p and have attenuation be given by albedo/p
 
-
 std::optional<ray> metal::scatter(
         const ray& r
       , const hit_record& rec
@@ -26,13 +33,35 @@ std::optional<ray> metal::scatter(
  ) const
 {
   attenuation = albedo;
-  vec3 reflected = reflect(r.direction, rec.normal).to_vec3();
-  normed_vec3 scattered_direction = unit(reflected + roughness*vec3::random_in_unit_sphere());
+  vec3 reflected = static_cast<vec3>(reflect(r.direction, rec.normal));
+  normed_vec3 scattered_direction = unit(reflected + roughness*random_vec3_in_unit_sphere());
   ray scattered = ray(r.at(rec.t), scattered_direction);
-  if (dot(scattered.direction, rec.normal) > 0)
+  if (glm::dot(static_cast<vec3>(scattered.direction), static_cast<vec3>(rec.normal)) > 0)
     return scattered;
   return std::nullopt;
 }
+
+float reflectance(float cos, float refraction_index)
+{
+  // Use Schlick's approximation for reflectance.
+  float r0 = (1.0 - refraction_index) / (1.0 + refraction_index);
+  r0 = r0*r0;
+  return r0 + (1.0 - r0) * std::pow((1.0 - cos), 5);
+}
+
+/*
+float fresnel_reflectance(float cos_incidence, float cos_refraction, float refraction_index)
+{
+  float parallel = (refraction_index * cos_incidence - cos_refraction)/ (refraction_index * cos_incidence + cos_refraction);
+  parallel = parallel * parallel;
+
+  float perp = (cos_refraction - refraction_index * cos_incidence)/ (cos_refraction + refraction_index * cos_incidence);
+  perp = perp * perp;
+
+  float factor = (parallel + perp)/2;
+  return factor;
+}
+*/
 
 std::optional<ray> dielectric::scatter(
     const ray& r
@@ -43,7 +72,7 @@ std::optional<ray> dielectric::scatter(
   attenuation = color(1.0, 1.0, 1.0);
 
   float refraction_ratio = rec.front_face ? (1.0f / refraction_index) : refraction_index;
-  float cos_incindence_angle = std::fmin(1.0f, dot(r.direction, rec.normal));
+  float cos_incindence_angle = std::fmin(1.0f, glm::dot(static_cast<vec3>(r.direction), static_cast<vec3>(rec.normal)));
   float sin_incindence_angle = std::sqrt(1.0f - cos_incindence_angle * cos_incindence_angle);
   float sin_refracted_angle = refraction_ratio * sin_incindence_angle;
   // float cos_refracted_angle = std::sqrt(1.0f - sin_refracted_angle * sin_refracted_angle);
@@ -55,32 +84,4 @@ std::optional<ray> dielectric::scatter(
   normed_vec3 direction = get_direction(aux, r.direction, rec.normal, refraction_ratio);
 
   return ray(r.at(rec.t), direction);
-}
-
-static normed_vec3 get_direction(bool b, normed_vec3 dir, normed_vec3 n, float ref_ratio)
-{
-  if (b)
-    return reflect(dir,n);
-  else
-    return refract(dir,n,ref_ratio);
-}
-
-static float reflectance(float cos, float refraction_index)
-{
-  // Use Schlick's approximation for reflectance.
-  float r0 = (1.0 - refraction_index) / (1.0 + refraction_index);
-  r0 = r0*r0;
-  return r0 + (1.0 - r0) * std::pow((1.0 - cos), 5);
-}
-
-static float fresnel_reflectance(float cos_incidence, float cos_refraction, float refraction_index)
-{
-  float parallel = (refraction_index * cos_incidence - cos_refraction)/ (refraction_index * cos_incidence + cos_refraction);
-  parallel = parallel * parallel;
-
-  float perp = (cos_refraction - refraction_index * cos_incidence)/ (cos_refraction + refraction_index * cos_incidence);
-  perp = perp * perp;
-
-  float factor = (parallel + perp)/2;
-  return factor;
 }

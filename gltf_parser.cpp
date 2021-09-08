@@ -2,6 +2,7 @@
 #include "meshes.h"
 #include "camera.h"
 #include "extern/simdjson/singleheader/simdjson.h"
+#include "extern/glm/glm/gtc/type_ptr.hpp"
 
 union  gltf_numeric { int i; float f; };
 using  gltf_buffer = std::vector<unsigned char>;
@@ -138,7 +139,7 @@ int element_size(const accessor& acc)
 void apply_pointwise_transformation(const transformation& M, mesh& mesh)
 {
   for (point& p : mesh.vertices)
-    M.apply_to(p);
+    p *= M;
 
   for (normed_vec3& n : mesh.normals); // TODO
   for (vec4& v : mesh.tangents); // TODO
@@ -193,160 +194,160 @@ mesh store_mesh( int index
                , const std::vector<accessor>& accessors
                , const std::shared_ptr<material>& ptr_mat)
 {
-    simdjson::ondemand::array document_meshes = doc["meshes"];
-    int j = 0;
-    for (auto mesh_iterator : document_meshes)
+  simdjson::ondemand::array document_meshes = doc["meshes"];
+  int j = 0;
+  for (auto mesh_iterator : document_meshes)
+  {
+    if (j != index)
+      break;
+
+    auto json_mesh = mesh_iterator.get_object();
+    simdjson::ondemand::array mesh_primitives = json_mesh["primitives"];
+    for (auto primitive_iterator : mesh_primitives)
     {
-      if (j == index)
+      gltf_primitive prim;
+
+      auto json_primitive = primitive_iterator.get_object();
+      for (auto property : json_primitive)
       {
-        auto json_mesh = mesh_iterator.get_object();
-        simdjson::ondemand::array mesh_primitives = json_mesh["primitives"];
-        for (auto primitive_iterator : mesh_primitives)
+        if (property.key() == "attributes")
         {
-          gltf_primitive prim;
-
-          auto json_primitive = primitive_iterator.get_object();
-          for (auto property : json_primitive)
+          simdjson::ondemand::object attr_dict = property.value();
+          for (auto attr : attr_dict)
           {
-            if (property.key() == "attributes")
-            {
-              simdjson::ondemand::object attr_dict = property.value();
-              for (auto attr : attr_dict)
-              {
-                if (attr.key() == "POSITION")
-                  prim.attr_vertices = attr.value().get_uint64();
-                if (attr.key() == "NORMAL")
-                  prim.attr_normals = attr.value().get_uint64();
-                if (attr.key() == "TANGENT")
-                  prim.attr_tangents = attr.value().get_uint64();
-                if (attr.key() == "TEXCOORD_0")
-                  prim.attr_texcoord0 = attr.value().get_uint64();
-                if (attr.key() == "TEXCOORD_1")
-                  prim.attr_texcoord1 = attr.value().get_uint64();
-                if (attr.key() == "COLOR_0")
-                  prim.attr_color0 = attr.value().get_uint64();
-              }
-            }
-            if (property.key() == "indices")
-            {
-              prim.indices = property.value().get_uint64();
-              // TODO if not defined, the mesh has to be created differently
-              // (i.e. following GL's drawArrays() instead of drawElements())
-            }
-            if (property.key() == "material")
-              prim.material = property.value().get_uint64();
-            if (property.key() == "mode")
-            {
-              prim.mode = property.value().get_uint64();
-              // if anything other than 4, print error message "currently supporting only triangle meshes as primitives" and exit
-            }
+            if (attr.key() == "POSITION")
+              prim.attr_vertices = attr.value().get_uint64();
+            if (attr.key() == "NORMAL")
+              prim.attr_normals = attr.value().get_uint64();
+            if (attr.key() == "TANGENT")
+              prim.attr_tangents = attr.value().get_uint64();
+            if (attr.key() == "TEXCOORD_0")
+              prim.attr_texcoord0 = attr.value().get_uint64();
+            if (attr.key() == "TEXCOORD_1")
+              prim.attr_texcoord1 = attr.value().get_uint64();
+            if (attr.key() == "COLOR_0")
+              prim.attr_color0 = attr.value().get_uint64();
           }
-          // ######## CREATE MESH OBJECT
-          std::vector<point> vertices;
-          int n_vertices{0};
-          { // unnamed scope
-            const accessor& acc{accessors[prim.attr_vertices]};
-            n_vertices = acc.count;
-            int offset = views[acc.buffer_view].byte_offset
-                       + acc.byte_offset;
-            int s_component = 4;
-            int s_element = 12;
-            int length = s_element * accessors[prim.attr_vertices].count;
-
-            const gltf_buffer& data{buffers[views[acc.buffer_view].buffer_index]};
-
-            for (int i = offset; i < offset + length; i+=s_element)
-            {
-              point p;
-              float f;
-              std::memcpy(&f, &data[i], s_component);
-              p.x() = f;
-              std::memcpy(&f, &data[i+s_component], s_component);
-              p.y() = f;
-              std::memcpy(&f, &data[i+2*s_component], s_component);
-              p.z() = f;
-              vertices.push_back(p);
-            }
-          } // unnamed scope
-
-          std::vector<int> vertex_indices;
-          int n_triangles{0};
-          { // unnamed scope
-            const accessor& acc{accessors[prim.indices]};
-            n_triangles = acc.count / 3;
-
-            int offset = views[acc.buffer_view].byte_offset
-                       + acc.byte_offset;
-            int s_component = component_size(acc);
-            int length = s_component * acc.count;
-            const gltf_buffer& data{buffers[views[acc.buffer_view].buffer_index]};
-
-            for (int i = offset; i < offset + length ; i+=s_component)
-            {
-              uint16_t current_index;
-              std::memcpy(&current_index, &data[i], s_component);
-              vertex_indices.push_back(current_index);
-            }
-          } // unnamed scope
-
-          std::vector<normed_vec3> normals;
-          if (prim.attr_normals != -1)
-          {
-            const accessor& acc{accessors[prim.attr_normals]};
-            int offset = views[acc.buffer_view].byte_offset
-                       + acc.byte_offset;
-            int s_component = 4;
-            int s_element = 12;
-            int length = s_element * accessors[prim.attr_normals].count;
-            const gltf_buffer& data{buffers[views[acc.buffer_view].buffer_index]};
-
-            for (int i = offset; i < offset + length; i+=s_element)
-            {
-              vec3 v;
-              float f;
-              std::memcpy(&f, &data[i], s_component);
-              v.x() = f;
-              std::memcpy(&f, &data[i+s_component], s_component);
-              v.y() = f;
-              std::memcpy(&f, &data[i+2*s_component], s_component);
-              v.z() = f;
-              normals.emplace_back(normed_vec3(v));
-            }
-          }
-
-          std::vector<vec4> tangents;
-          if (prim.attr_tangents != -1)
-          {
-            const accessor& acc{accessors[prim.attr_tangents]};
-            int offset = views[acc.buffer_view].byte_offset
-                       + acc.byte_offset;
-            int s_component = 4;
-            int s_element = 16;
-            int length = s_element * accessors[prim.attr_tangents].count;
-            const gltf_buffer& data{buffers[views[acc.buffer_view].buffer_index]};
-
-            for (int i = offset; i < offset + length; i+=s_element)
-            {
-              vec4 v;
-              float f;
-              std::memcpy(&f, &data[i], s_component);
-              v[0] = f;
-              std::memcpy(&f, &data[i+s_component], s_component);
-              v[1] = f;
-              std::memcpy(&f, &data[i+2*s_component], s_component);
-              v[2] = f;
-              std::memcpy(&f, &data[i+2*s_component], s_component);
-              v[3] = f;
-
-              tangents.push_back(v);
-            }
-          }
-
-          return mesh{n_vertices, n_triangles, vertex_indices, vertices, ptr_mat, normals, tangents};
+        }
+        if (property.key() == "indices")
+        {
+          prim.indices = property.value().get_uint64();
+          // TODO if not defined, the mesh has to be created differently
+          // (i.e. following GL's drawArrays() instead of drawElements())
+        }
+        if (property.key() == "material")
+          prim.material = property.value().get_uint64();
+        if (property.key() == "mode")
+        {
+          prim.mode = property.value().get_uint64();
+          // if anything other than 4, print error message "currently supporting only triangle meshes as primitives" and exit
         }
       }
-      ++j;
+      // ######## CREATE MESH OBJECT
+      std::vector<point> vertices;
+      int n_vertices{0};
+      { // unnamed scope
+        const accessor& acc{accessors[prim.attr_vertices]};
+        n_vertices = acc.count;
+        int offset = views[acc.buffer_view].byte_offset
+                   + acc.byte_offset;
+        int s_component = 4;
+        int s_element = 12;
+        int length = s_element * accessors[prim.attr_vertices].count;
+
+        const gltf_buffer& data{buffers[views[acc.buffer_view].buffer_index]};
+
+        for (int i = offset; i < offset + length; i+=s_element)
+        {
+          point p;
+          float f;
+          std::memcpy(&f, &data[i], s_component);
+          p.x = f;
+          std::memcpy(&f, &data[i+s_component], s_component);
+          p.y = f;
+          std::memcpy(&f, &data[i+2*s_component], s_component);
+          p.z = f;
+          vertices.push_back(p);
+        }
+      } // unnamed scope
+
+      std::vector<int> vertex_indices;
+      int n_triangles{0};
+      { // unnamed scope
+        const accessor& acc{accessors[prim.indices]};
+        n_triangles = acc.count / 3;
+
+        int offset = views[acc.buffer_view].byte_offset
+                   + acc.byte_offset;
+        int s_component = component_size(acc);
+        int length = s_component * acc.count;
+        const gltf_buffer& data{buffers[views[acc.buffer_view].buffer_index]};
+
+        for (int i = offset; i < offset + length ; i+=s_component)
+        {
+          uint16_t current_index;
+          std::memcpy(&current_index, &data[i], s_component);
+          vertex_indices.push_back(current_index);
+        }
+      } // unnamed scope
+
+      std::vector<normed_vec3> normals;
+      if (prim.attr_normals != -1)
+      {
+        const accessor& acc{accessors[prim.attr_normals]};
+        int offset = views[acc.buffer_view].byte_offset
+                   + acc.byte_offset;
+        int s_component = 4;
+        int s_element = 12;
+        int length = s_element * accessors[prim.attr_normals].count;
+        const gltf_buffer& data{buffers[views[acc.buffer_view].buffer_index]};
+
+        for (int i = offset; i < offset + length; i+=s_element)
+        {
+          vec3 v;
+          float f;
+          std::memcpy(&f, &data[i], s_component);
+          v.x = f;
+          std::memcpy(&f, &data[i+s_component], s_component);
+          v.y = f;
+          std::memcpy(&f, &data[i+2*s_component], s_component);
+          v.z = f;
+          normals.emplace_back(normed_vec3(v));
+        }
+      }
+
+      std::vector<vec4> tangents;
+      if (prim.attr_tangents != -1)
+      {
+        const accessor& acc{accessors[prim.attr_tangents]};
+        int offset = views[acc.buffer_view].byte_offset
+                   + acc.byte_offset;
+        int s_component = 4;
+        int s_element = 16;
+        int length = s_element * accessors[prim.attr_tangents].count;
+        const gltf_buffer& data{buffers[views[acc.buffer_view].buffer_index]};
+
+        for (int i = offset; i < offset + length; i+=s_element)
+        {
+          vec4 v;
+          float f;
+          std::memcpy(&f, &data[i], s_component);
+          v[0] = f;
+          std::memcpy(&f, &data[i+s_component], s_component);
+          v[1] = f;
+          std::memcpy(&f, &data[i+2*s_component], s_component);
+          v[2] = f;
+          std::memcpy(&f, &data[i+2*s_component], s_component);
+          v[3] = f;
+
+          tangents.push_back(v);
+        }
+      }
+
+      return mesh{n_vertices, n_triangles, vertex_indices, vertices, ptr_mat, normals, tangents};
     }
+    ++j;
+  }
   std::cerr << "ERROR: unable to find mesh\n";
   std::exit(1);
 }
@@ -729,11 +730,12 @@ void parse_gltf( const std::string& filename
         error = node_obj["matrix"].get(matrix);
         if (!error)
         {
+          float* mat_ptr = glm::value_ptr(current_node.matrix);
           current_node.has_matrix = true;
           int i = 0;
           for (double k : matrix)
           {
-            current_node.matrix[i] = k;
+            mat_ptr[i] = k;
             ++i;
           }
         }

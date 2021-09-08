@@ -1,9 +1,10 @@
 #pragma once
 
-#include "my_vectors.h"
+#include "math.h"
 
 struct hit_record;
 class ray;
+class normed_vec3;
 
 class material
 {
@@ -57,7 +58,3 @@ class dielectric : public material
       , color& attenuation
       ) const override;
 };
-
-static normed_vec3 get_direction(bool b, normed_vec3 dir, normed_vec3 n, float ref_ratio);
-static float reflectance(float cos, float refraction_index);
-static float fresnel_reflectance(float cos_incidence, float cos_refraction, float refraction_index);

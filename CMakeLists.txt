@@ -6,6 +6,9 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+## set(GCC_WARNING_FLAGS "-Wall -Wextra")
+set(GCC_WARNING_FLAGS "")
+
 add_executable(${PROJECT_NAME}
   bvh.cpp
   camera.cpp
@@ -15,7 +18,6 @@ add_executable(${PROJECT_NAME}
   materials.cpp
   math.cpp
   meshes.cpp
-  my_vectors.cpp
   render.cpp
   extern/simdjson/singleheader/simdjson.cpp
   )
@@ -31,7 +33,7 @@ if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
                         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                         RESULT_VARIABLE GIT_SUBMOD_RESULT)
         if(NOT GIT_SUBMOD_RESULT EQUAL "0")
-            message(FATAL_ERROR "git submodule update --init failed with ${GIT_SUBMOD_RESULT}, please checkout submodules")
+            message(FATAL_ERROR "git submodule update --init --recursive failed with ${GIT_SUBMOD_RESULT}, please checkout submodules")
         endif()
     endif()
 endif()
@@ -46,20 +48,26 @@ endif()
 if(NOT EXISTS "${PROJECT_SOURCE_DIR}/extern/simdjson/singleheader/simdjson.cpp")
     message(FATAL_ERROR "The simdjson submodule was not downloaded! GIT_SUBMODULE was turned off or failed; please update submodules and try again.")
 endif()
+if(NOT EXISTS "${PROJECT_SOURCE_DIR}/extern/glm/CMakeLists.txt")
+    message(FATAL_ERROR "The glm submodule was not downloaded! GIT_SUBMODULE was turned off or failed; please update submodules and try again.")
+endif()
 
-#add_subdirectory(extern/stb)
-#add_subdirectory(extern/simdjson)
 
 target_link_directories(${PROJECT_NAME}
     PRIVATE extern/stb
     PRIVATE extern/simdjson
+    PRIVATE extern/glm
 )
 
 add_library(stb extern/stb/stb_image_write.h)
 set_target_properties(stb PROPERTIES LINKER_LANGUAGE CXX)
 add_library(simdjson extern/simdjson/singleheader/simdjson.h)
 set_target_properties(simdjson PROPERTIES LINKER_LANGUAGE CXX)
+add_library(glm extern/glm/glm/glm.hpp)
+set_target_properties(glm PROPERTIES LINKER_LANGUAGE CXX)
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 target_link_libraries(rayme PRIVATE Threads::Threads)
+
+add_definitions(${GCC_WARNING_FLAGS})

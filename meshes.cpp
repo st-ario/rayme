@@ -1,4 +1,5 @@
 #include "meshes.h"
+#include "extern/glm/glm/gtx/norm.hpp"
 
 hit_record triangle::get_record(const ray& r, float at) const
 {
@@ -6,10 +7,9 @@ hit_record triangle::get_record(const ray& r, float at) const
   const point& p1 = parent_mesh->vertices[parent_mesh->vertex_indices[3*number+1]];
   const point& p2 = parent_mesh->vertices[parent_mesh->vertex_indices[3*number+2]];
 
-  point p = r.at(at);
   vec3 nonunital_candidate_normal = cross(p1-p0, p2-p0);
 
-  bool front_face = dot(r.direction, nonunital_candidate_normal) < 0;
+  bool front_face = glm::dot(static_cast<vec3>(r.direction), nonunital_candidate_normal) < 0;
 
   normed_vec3 normal = front_face ? unit(nonunital_candidate_normal) : - unit(nonunital_candidate_normal);
 
@@ -23,13 +23,13 @@ aabb triangle::bounding_box() const
   const point& p1 = parent_mesh->vertices[parent_mesh->vertex_indices[3*number+1]];
   const point& p2 = parent_mesh->vertices[parent_mesh->vertex_indices[3*number+2]];
 
-  float min_x = fminf(p0.x(), fminf(p1.x(), p2.x())) - padding;
-  float min_y = fminf(p0.y(), fminf(p1.y(), p2.y())) - padding;
-  float min_z = fminf(p0.z(), fminf(p1.z(), p2.z())) - padding;
+  float min_x = fminf(p0.x, fminf(p1.x, p2.x)) - padding;
+  float min_y = fminf(p0.y, fminf(p1.y, p2.y)) - padding;
+  float min_z = fminf(p0.z, fminf(p1.z, p2.z)) - padding;
 
-  float max_x = fmaxf(p0.x(), fmaxf(p1.x(), p2.x())) + padding;
-  float max_y = fmaxf(p0.y(), fmaxf(p1.y(), p2.y())) + padding;
-  float max_z = fmaxf(p0.z(), fmaxf(p1.z(), p2.z())) + padding;
+  float max_x = fmaxf(p0.x, fmaxf(p1.x, p2.x)) + padding;
+  float max_y = fmaxf(p0.y, fmaxf(p1.y, p2.y)) + padding;
+  float max_z = fmaxf(p0.z, fmaxf(p1.z, p2.z)) + padding;
 
   return aabb(vec3(min_x, min_y, min_z), vec3(max_x, max_y, max_z));
 }
@@ -73,7 +73,7 @@ hit_check triangle::hit(const ray& r, float t_max) const
   point p2t = p2 - r.origin;
 
   // Permute components of triangle vertices and ray direction
-  int kz = max_dimension(abs(r.direction));
+  int kz = max_dimension(abs(static_cast<vec3>(r.direction)));
   int kx = kz + 1;
   if (kx == 3) kx = 0;
   int ky = kx + 1;
@@ -88,29 +88,29 @@ hit_check triangle::hit(const ray& r, float t_max) const
   float Sx = - d.x() / d.z();
   float Sy = - d.y() / d.z();
   float Sz =   1.0f / d.z();
-  p0t.x() += Sx * p0t.z();
-  p0t.y() += Sy * p0t.z();
-  p1t.x() += Sx * p1t.z();
-  p1t.y() += Sy * p1t.z();
-  p2t.x() += Sx * p2t.z();
-  p2t.y() += Sy * p2t.z();
+  p0t.x += Sx * p0t.z;
+  p0t.y += Sy * p0t.z;
+  p1t.x += Sx * p1t.z;
+  p1t.y += Sy * p1t.z;
+  p2t.x += Sx * p2t.z;
+  p2t.y += Sy * p2t.z;
 
   // Compute edge function coefficients
-  float e0 = p1t.x() * p2t.y() - p1t.y() * p2t.x();
-  float e1 = p2t.x() * p0t.y() - p2t.y() * p0t.x();
-  float e2 = p0t.x() * p1t.y() - p0t.y() * p1t.x();
+  float e0 = p1t.x * p2t.y - p1t.y * p2t.x;
+  float e1 = p2t.x * p0t.y - p2t.y * p0t.x;
+  float e2 = p0t.x * p1t.y - p0t.y * p1t.x;
 
   // Fall back to double precision test at triangle edges
   if  (e0 == 0.0f || e1 == 0.0f || e2 == 0.0f)
   {
-      double p2txp1ty = (double)p2t.x() * (double)p1t.y();
-      double p2typ1tx = (double)p2t.y() * (double)p1t.x();
+      double p2txp1ty = (double)p2t.x * (double)p1t.y;
+      double p2typ1tx = (double)p2t.y * (double)p1t.x;
       e0 = (float)(p2typ1tx - p2txp1ty);
-      double p0txp2ty = (double)p0t.x() * (double)p2t.y();
-      double p0typ2tx = (double)p0t.y() * (double)p2t.x();
+      double p0txp2ty = (double)p0t.x * (double)p2t.y;
+      double p0typ2tx = (double)p0t.y * (double)p2t.x;
       e1 = (float)(p0typ2tx - p0txp2ty);
-      double p1txp0ty = (double)p1t.x() * (double)p0t.y();
-      double p1typ0tx = (double)p1t.y() * (double)p0t.x();
+      double p1txp0ty = (double)p1t.x * (double)p0t.y;
+      double p1typ0tx = (double)p1t.y * (double)p0t.x;
       e2 = (float)(p1typ0tx - p1txp0ty);
   }
 
@@ -121,10 +121,10 @@ hit_check triangle::hit(const ray& r, float t_max) const
   if (det == 0) return std::nullopt;
 
   // Compute scaled hit distance to triangle and test against ray $t$ range
-  p0t.z() *= Sz;
-  p1t.z() *= Sz;
-  p2t.z() *= Sz;
-  float tScaled = e0 * p0t.z() + e1 * p1t.z() + e2 * p2t.z();
+  p0t.z *= Sz;
+  p1t.z *= Sz;
+  p2t.z *= Sz;
+  float tScaled = e0 * p0t.z + e1 * p1t.z + e2 * p2t.z;
   if (det < 0 && (tScaled >= 0 || tScaled < t_max * det))
       return std::nullopt;
   else if (det > 0 && (tScaled <= 0 || tScaled > t_max * det))
@@ -132,18 +132,15 @@ hit_check triangle::hit(const ray& r, float t_max) const
 
   // Compute barycentric coordinates and $t$ value for triangle intersection
   float invDet = 1 / det;
-  float b0 = e0 * invDet;
-  float b1 = e1 * invDet;
-  float b2 = e2 * invDet;
   float t = tScaled * invDet;
 
   // Compute $\delta_z$ term for triangle $t$ error bounds
-  float maxZt = max_component(abs(vec3(p0t.z(), p1t.z(), p2t.z())));
+  float maxZt = max_component(abs(vec3(p0t.z, p1t.z, p2t.z)));
   float deltaZ = gamma_bound(3) * maxZt;
 
   // Compute $\delta_x$ and $\delta_y$ terms for triangle $t$ error bounds
-  float maxXt = max_component(abs(vec3(p0t.x(), p1t.x(), p2t.x())));
-  float maxYt = max_component(abs(vec3(p0t.y(), p1t.y(), p2t.y())));
+  float maxXt = max_component(abs(vec3(p0t.x, p1t.x, p2t.x)));
+  float maxYt = max_component(abs(vec3(p0t.y, p1t.y, p2t.y)));
   float deltaX = gamma_bound(5) * (maxXt + maxZt);
   float deltaY = gamma_bound(5) * (maxYt + maxZt);
 
@@ -158,10 +155,14 @@ hit_check triangle::hit(const ray& r, float t_max) const
     return std::nullopt;
 
   /* error bounds, reintroduce later
+  float b0 = e0 * invDet;
+  float b1 = e1 * invDet;
+  float b2 = e2 * invDet;
+
   // Compute error bounds for triangle intersection
-  float xAbsSum = (std::abs(b0 * p0.x()) + std::abs(b1 * p1.x()) + std::abs(b2 * p2.x()));
-  float yAbsSum = (std::abs(b0 * p0.y()) + std::abs(b1 * p1.y()) + std::abs(b2 * p2.y()));
-  float zAbsSum = (std::abs(b0 * p0.z()) + std::abs(b1 * p1.z()) + std::abs(b2 * p2.z()));
+  float xAbsSum = (std::abs(b0 * p0.x) + std::abs(b1 * p1.x) + std::abs(b2 * p2.x));
+  float yAbsSum = (std::abs(b0 * p0.y) + std::abs(b1 * p1.y) + std::abs(b2 * p2.y));
+  float zAbsSum = (std::abs(b0 * p0.z) + std::abs(b1 * p1.z) + std::abs(b2 * p2.z));
   vec3 pError = gamma_bound(7) * vec3(xAbsSum, yAbsSum, zAbsSum);
   */
 
@@ -171,13 +172,12 @@ hit_check triangle::hit(const ray& r, float t_max) const
 hit_check sphere::hit(const ray& r, float t_max) const
 {
   vec3 center_to_origin = r.origin - center;
-  float b_halved = dot(center_to_origin,r.direction);
-  float c = center_to_origin.norm_squared() - radius*radius;
+  float b_halved = glm::dot(center_to_origin, static_cast<vec3>(r.direction));
+  float c = glm::length2(center_to_origin) - radius*radius;
   float discriminant = b_halved*b_halved - c;
   if (discriminant < 0)
     return std::nullopt;
 
-  float sqrtdel = std::sqrt(discriminant);
   float root = -b_halved - std::sqrt(discriminant);
   if (root < 0.0f || root > t_max)
     return std::nullopt;
@@ -189,7 +189,7 @@ hit_record sphere::get_record(const ray& r, float at) const
 {
   point p = r.at(at);
   vec3 nonunital_candidate_normal = p - center;
-  bool front_face = dot(r.direction, nonunital_candidate_normal) < 0;
+  bool front_face = glm::dot(static_cast<vec3>(r.direction), nonunital_candidate_normal) < 0;
   normed_vec3 normal = front_face ? unit(nonunital_candidate_normal) : - unit(nonunital_candidate_normal);
   return hit_record(at, front_face, ptr_mat, normal);
 }

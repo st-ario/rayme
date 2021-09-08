@@ -35,9 +35,9 @@ void image::write_to_ppm(std::string file_name)
   {
     for (color c : row)
     {
-      ppm_red = static_cast<int>(255 * clamp(c.r(), 0, 1.0));
-      ppm_green = static_cast<int>(255 * clamp(c.g(), 0, 1.0));
-      ppm_blue = static_cast<int>(255 * clamp(c.b(), 0, 1.0));
+      ppm_red   = static_cast<int>(255 * clamp(c.r, 0, 1.0));
+      ppm_green = static_cast<int>(255 * clamp(c.g, 0, 1.0));
+      ppm_blue  = static_cast<int>(255 * clamp(c.b, 0, 1.0));
       image_file << std::string{std::to_string(ppm_red) + ' ' + std::to_string(ppm_green) + ' ' + std::to_string(ppm_blue) + '\n'};
     }
   }
@@ -53,9 +53,9 @@ void image::write_to_png(std::string file_name)
   {
     for (color c : row)
     {
-      data[index++] = static_cast<uint8_t>(255.0 * clamp(c.r(), 0, 1.0));
-      data[index++] = static_cast<uint8_t>(255.0 * clamp(c.g(), 0, 1.0));
-      data[index++] = static_cast<uint8_t>(255.0 * clamp(c.b(), 0, 1.0));
+      data[index++] = static_cast<uint8_t>(255.0 * clamp(c.r, 0, 1.0));
+      data[index++] = static_cast<uint8_t>(255.0 * clamp(c.g, 0, 1.0));
+      data[index++] = static_cast<uint8_t>(255.0 * clamp(c.b, 0, 1.0));
     }
   }
 

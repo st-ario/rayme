@@ -1,6 +1,9 @@
 #pragma once
 
 #include "bvh.h"
+#include "extern/glm/glm/vec4.hpp"
+
+using vec4 = glm::vec4;
 
 class triangle;
 

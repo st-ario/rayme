@@ -1,4 +1,5 @@
 #pragma once
+
 #include "ray.h"
 
 class material; // defined in materials.h
