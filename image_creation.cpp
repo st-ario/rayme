@@ -20,17 +20,11 @@ int main()
   world.add(std::make_shared<sphere>(point( 1.0,    0.0, -1.0),   0.5, material_right));
   */
 
-  // Debugging camera: gets replaced by parse_gltf
-  // remove eventually
-  const float aspect_ratio = 16.0f/9.0f;
-  std::shared_ptr<camera> cam{std::make_shared<camera>(point(2,1.5,1), vec3(0,0,-1), 50.0f, aspect_ratio, vec3(0,1,0))};
-  // std::shared_ptr<camera> cam{std::make_shared<camera>(point(-2,2,1), vec3(0,0,-1), 50.0f, aspect_ratio, vec3(0,1,0))};
-  // std::shared_ptr<camera> cam{std::make_shared<camera>(point(-6,6,5), vec3(0,0,-1), 50.0f, aspect_ratio, vec3(0,1,0))};
-
   //primitives.emplace_back(std::make_shared<sphere>(point( 0.0, -100.5, -1.0), 100.0, material_ground));
   //primitives.emplace_back(std::make_shared<sphere>(point( 0.0,    0.0, -1.0),   0.5, material_center));
   // currently parse_gltf just loads triangle meshes
-  parse_gltf("monkey.gltf", primitives, cam, material_center);
+  std::shared_ptr<camera> cam{std::make_shared<camera>(-1,0,0)};
+  parse_gltf("camera_rot.gltf", primitives, cam, material_center);
 
   bvh_tree scene_tree{std::move(primitives)};
 
@@ -39,6 +33,12 @@ int main()
   const int image_height = static_cast<int>(image_width / cam->get_aspect_ratio());
   const int samples_per_pixel = 10;
   const int max_depth = 5;
+
+  std::cout << "\nCamera information:\n";
+  std::cout << "origin:" << cam->origin[0] << "," << cam->origin[1] << "," << cam->origin[2] <<"\n";
+  std::cout << "relx:" << cam->rel_x[0] << "," << cam->rel_x[1] << "," << cam->rel_x[2] <<"\n";
+  std::cout << "rely:" << cam->rel_y[0] << "," << cam->rel_y[1] << "," << cam->rel_y[2] <<"\n";
+  std::cout << "relz:" << cam->rel_z[0] << "," << cam->rel_z[1] << "," << cam->rel_z[2] <<"\n";
 
   // Render
   image picture(image_width,image_height);

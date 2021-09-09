@@ -3,19 +3,19 @@
 #include <future>
 
 // temporary solution, to use before properly dealing with lights
-static color ray_color(const ray& r, const element& world, int depth, float zfar)
+static color ray_color(const ray& r, const element& world, int depth)
 {
   if (depth < 1)
     return color(0,0,0);
 
-  auto rec = world.hit(r, zfar);
+  auto rec = world.hit(r, infinity);
   if (rec)
   {
     hit_record record = rec.value().first->get_record(r,rec.value().second);
     color attenuation;
     auto scattered_ray = record.ptr_mat->scatter(r, record, attenuation);
     if (scattered_ray)
-      return attenuation * ray_color(scattered_ray.value(), world, depth-1, zfar);
+      return attenuation * ray_color(scattered_ray.value(), world, depth-1);
     return color(0,0,0);
   }
 
@@ -51,7 +51,7 @@ static void render_tile( image* picture
         float horiz_factor = (h_offset + x + random_float())/(picture->get_width()-1);
         float vert_factor = (v_offset + y + random_float())/(picture->get_height()-1);
         ray r = cam->get_ray(horiz_factor, vert_factor);
-        pixel_color += ray_color(r, *world, depth, cam->get_zfar());
+        pixel_color += ray_color(r, *world, depth);
       }
       pixel_color = pixel_color / double(samples_per_pixel);
       gamma2_correct(pixel_color);

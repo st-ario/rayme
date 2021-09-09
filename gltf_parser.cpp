@@ -4,7 +4,6 @@
 #include "extern/simdjson/singleheader/simdjson.h"
 #include "extern/glm/glm/gtc/type_ptr.hpp"
 
-union  gltf_numeric { int i; float f; };
 using  gltf_buffer = std::vector<unsigned char>;
 
 struct gltf_node
@@ -26,8 +25,8 @@ struct raw_gltf_node
   bool has_rotation = false;
   bool has_scale = false;
   bool has_translation = false;
-  int camera;
-  int mesh;
+  int camera = -1;
+  int mesh = -1;
   mat4 matrix;
   vec4 rotation;
   vec3 scale;
@@ -171,7 +170,7 @@ void apply_camera_transformations(gltf_node& node, camera& camera)
 {
   transformation id;
   if (node.transform && *(node.transform) != id)
-    camera.absolute_transform_by(*(node.transform));
+    camera.transform_by(*(node.transform));
 
   if (auto p_p = node.parent.lock())
     apply_camera_transformations(*p_p, camera);
@@ -180,11 +179,11 @@ void apply_camera_transformations(gltf_node& node, camera& camera)
 void apply_camera_transformations(gltf_node& node)
 {
   transformation id;
+  if (node.transform && *(node.transform) != id)
+    node.cam->transform_by(*(node.transform));
+
   if (auto p_p = node.parent.lock())
     apply_camera_transformations(*p_p, *(node.cam));
-
-  if (node.transform && *(node.transform) != id)
-    node.cam->transform_rel_origin_by(*(node.transform));
 }
 
 mesh store_mesh( int index
@@ -381,14 +380,17 @@ camera store_camera(int camera_index, simdjson::ondemand::document& doc)
       float yfov = persp_obj["yfov"].get_double();
       float znear = persp_obj["znear"].get_double();
       camera cam{yfov,znear};
-      double aspect_ratio{-1};
+      double aspect_ratio{16.0f/9.0f};
       error = persp_obj["aspectRatio"].get(aspect_ratio);
       if (!error)
         cam.set_aspect_ratio(aspect_ratio);
+      else
+        std::cerr << "WARNING: camera's aspect ratio not defined, "
+                  << "the default value of 16/9 will be used";
       double zfar{-1};
       error = persp_obj["zfar"].get(zfar);
       if (!error)
-        cam.set_zfar(zfar);
+        std::cerr << "WARNING: camera's zfar was set to a finite value, will be ignored\n";
 
       return cam;
     }
@@ -400,22 +402,22 @@ camera store_camera(int camera_index, simdjson::ondemand::document& doc)
 
 // the ptr_mat argument is a temporary hack, to pass to all meshes the same standard material for
 // rendering, to be removed as soon as materials are properly dealt with
-void initialize_tree( std::shared_ptr<gltf_node>& parent
-                    , simdjson::ondemand::document& doc
-                    , const std::vector<raw_gltf_node>& raw_nodes
-                    , const std::vector<gltf_buffer>& buffers
-                    , const std::vector<buffer_view>& views
-                    , const std::vector<accessor>& accessors
-                    , const std::shared_ptr<material>& ptr_mat
-                    , std::vector<std::shared_ptr<primitive>>& primitives
-                    , std::shared_ptr<camera>& cam)
+void process_tree( std::shared_ptr<gltf_node>& parent
+                 , simdjson::ondemand::document& doc
+                 , const std::vector<raw_gltf_node>& raw_nodes
+                 , const std::vector<gltf_buffer>& buffers
+                 , const std::vector<buffer_view>& views
+                 , const std::vector<accessor>& accessors
+                 , const std::shared_ptr<material>& ptr_mat
+                 , std::vector<std::shared_ptr<primitive>>& primitives
+                 , std::shared_ptr<camera>& cam)
 {
   for (int child_index : parent->children_indices)
   {
-    auto current_raw_node = raw_nodes[child_index];
+    const raw_gltf_node& current_raw_node = raw_nodes[child_index];
 
-    std::shared_ptr<gltf_node> child_node{std::make_shared<gltf_node>()};
-    child_node->parent = parent;
+    std::shared_ptr<gltf_node> current_node{std::make_shared<gltf_node>()};
+    current_node->parent = parent;
 
     // get total transformation matrix the node
     // default = identity
@@ -460,46 +462,35 @@ void initialize_tree( std::shared_ptr<gltf_node>& parent
       }
     }
 
-    child_node->transform = transform_ptr;
+    current_node->transform = transform_ptr;
 
     // get childred indices
     if (current_raw_node.has_children)
     {
-      child_node->children_indices = current_raw_node.children;
-      initialize_tree(child_node,doc, raw_nodes, buffers, views, accessors, ptr_mat, primitives, cam);
+      current_node->children_indices = current_raw_node.children;
+      process_tree(current_node,doc, raw_nodes, buffers, views, accessors, ptr_mat, primitives, cam);
     }
 
     // process mesh
     if (current_raw_node.has_mesh)
     {
-      child_node->m_mesh = std::make_shared<mesh>(store_mesh(current_raw_node.mesh,doc,buffers,views,accessors,ptr_mat));
-      apply_mesh_transformations(*child_node);
-      primitives.reserve(primitives.size() + child_node->m_mesh->n_triangles);
+      current_node->m_mesh = std::make_shared<mesh>(store_mesh(current_raw_node.mesh,doc,buffers,views,accessors,ptr_mat));
+      apply_mesh_transformations(*current_node);
+      primitives.reserve(primitives.size() + current_node->m_mesh->n_triangles);
 
-      for (auto& tri : child_node->m_mesh->get_triangles())
+      for (auto& tri : current_node->m_mesh->get_triangles())
         primitives.emplace_back(std::move(tri));
     }
 
     // process camera
     if (current_raw_node.has_camera)
     {
-      child_node->cam = std::make_shared<camera>(store_camera(current_raw_node.camera,doc));
-      apply_camera_transformations(*child_node);
-      /*
-      if (!child_node->children.empty())
-      {
-        transformation local_transform;
-        for (auto camera_child : child_node->children)
-          local_transform *= *(camera_child->transform);
-        transformation id;
-        if (local_transform != id)
-          cam->transform_rel_origin_by(local_transform);
-      }
-      */
-      cam = child_node->cam;
+      current_node->cam = std::make_shared<camera>(store_camera(current_raw_node.camera,doc));
+      apply_camera_transformations(*current_node);
+      cam = current_node->cam;
     }
 
-    parent->children.push_back(child_node);
+    parent->children.push_back(current_node);
   }
 }
 
@@ -787,5 +778,5 @@ void parse_gltf( const std::string& filename
   } // unnamed scope
 
   // recursively process the scene tree
-  initialize_tree(scene.root_node, doc, raw_nodes, buffers, views, accessors, ptr_mat, primitives, cam);
+  process_tree(scene.root_node, doc, raw_nodes, buffers, views, accessors, ptr_mat, primitives, cam);
 }
