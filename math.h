@@ -11,6 +11,7 @@
 #include <iostream>
 #include <optional>
 
+#define GLM_FORCE_CTOR_INIT
 #include "extern/glm/glm/vec3.hpp"
 #include "extern/glm/glm/geometric.hpp"
 

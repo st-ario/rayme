@@ -34,8 +34,6 @@ struct raw_gltf_node
   std::vector<int> children;
 };
 
-struct gltf_scene { std::shared_ptr<gltf_node> root_node{std::make_shared<gltf_node>()}; };
-
 struct gltf_primitive
 {
   int attr_vertices = -1;
@@ -402,7 +400,7 @@ camera store_camera(int camera_index, simdjson::ondemand::document& doc)
 
 // the ptr_mat argument is a temporary hack, to pass to all meshes the same standard material for
 // rendering, to be removed as soon as materials are properly dealt with
-void process_tree( std::shared_ptr<gltf_node>& parent
+void process_tree( std::shared_ptr<gltf_node>& relative_root
                  , simdjson::ondemand::document& doc
                  , const std::vector<raw_gltf_node>& raw_nodes
                  , const std::vector<gltf_buffer>& buffers
@@ -412,12 +410,12 @@ void process_tree( std::shared_ptr<gltf_node>& parent
                  , std::vector<std::shared_ptr<primitive>>& primitives
                  , std::shared_ptr<camera>& cam)
 {
-  for (int child_index : parent->children_indices)
+  for (int child_index : relative_root->children_indices)
   {
     const raw_gltf_node& current_raw_node = raw_nodes[child_index];
 
     std::shared_ptr<gltf_node> current_node{std::make_shared<gltf_node>()};
-    current_node->parent = parent;
+    current_node->parent = relative_root;
 
     // get total transformation matrix the node
     // default = identity
@@ -490,7 +488,7 @@ void process_tree( std::shared_ptr<gltf_node>& parent
       cam = current_node->cam;
     }
 
-    parent->children.push_back(current_node);
+    relative_root->children.push_back(current_node);
   }
 }
 
@@ -524,7 +522,7 @@ void parse_gltf( const std::string& filename
   }
 
   // get root nodes of the scene
-  gltf_scene scene;
+  std::vector<int> roots_indices;
   { // unnamed scope
     uint64_t selected_scene;
     auto error = doc["scene"].get(selected_scene);
@@ -556,7 +554,7 @@ void parse_gltf( const std::string& filename
           std::exit(1);
         }
         for (auto node : scene_nodes)
-          scene.root_node->children_indices.emplace_back(node.get_uint64());
+          roots_indices.emplace_back(node.get_uint64());
       }
       ++j;
     }
@@ -777,6 +775,9 @@ void parse_gltf( const std::string& filename
     }
   } // unnamed scope
 
+  std::shared_ptr<gltf_node> scene_root{std::make_shared<gltf_node>()};
+  scene_root->children_indices = roots_indices;
+
   // recursively process the scene tree
-  process_tree(scene.root_node, doc, raw_nodes, buffers, views, accessors, ptr_mat, primitives, cam);
+  process_tree(scene_root, doc, raw_nodes, buffers, views, accessors, ptr_mat, primitives, cam);
 }
