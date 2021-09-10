@@ -2,7 +2,7 @@
 #include "render.h"
 
 // y = up, x = right, right-handed
-int main()
+int main(int argc, char* argv[])
 {
   std::vector<std::shared_ptr<primitive>> primitives;
 
@@ -22,9 +22,10 @@ int main()
 
   //primitives.emplace_back(std::make_shared<sphere>(point( 0.0, -100.5, -1.0), 100.0, material_ground));
   //primitives.emplace_back(std::make_shared<sphere>(point( 0.0,    0.0, -1.0),   0.5, material_center));
-  // currently parse_gltf just loads triangle meshes
-  std::shared_ptr<camera> cam{std::make_shared<camera>(-1,0,0)};
-  parse_gltf("camera_rot.gltf", primitives, cam, material_center);
+  // currently parse_gltf just loads camera position and triangle meshes
+  std::shared_ptr<camera> cam{};
+  std::string filename{argv[1]};
+  parse_gltf(filename, primitives, cam, material_center);
 
   bvh_tree scene_tree{std::move(primitives)};
 
