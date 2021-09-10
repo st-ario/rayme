@@ -5,6 +5,7 @@ camera::camera(float yfov_in_radians, float znear, float aspect_ratio)
   : origin{0.0f, 0.0f, 0.0f}
   , aspect_ratio{aspect_ratio}
   , yfov{yfov_in_radians}
+  , sensor_width{2 * std::tan(yfov/2.0f)}
   , rel_z{unit(vec3{0.0f, 0.0f, 1.0f})}
   , rel_x{unit(vec3{1.0f, 0.0f, 0.0f})}
   , rel_y{unit(vec3{0.0f, 1.0f, 0.0f})}
@@ -12,8 +13,7 @@ camera::camera(float yfov_in_radians, float znear, float aspect_ratio)
 
 ray camera::get_ray(float horiz_factor, float vert_factor, int canvas_height_in_pixels) const
 {
-  float h  = 2 * std::tan(yfov/2.0f);
-  float scale = canvas_height_in_pixels / h;
+  float scale = canvas_height_in_pixels / sensor_width;
   float canvas_width = canvas_height_in_pixels * aspect_ratio;
   point rel_upper_left_corner{-(canvas_width/2.0f), canvas_height_in_pixels/2.0f, -scale};
 

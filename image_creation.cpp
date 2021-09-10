@@ -34,12 +34,6 @@ int main()
   const int samples_per_pixel = 10;
   const int max_depth = 5;
 
-  std::cout << "\nCamera information:\n";
-  std::cout << "origin:" << cam->origin[0] << "," << cam->origin[1] << "," << cam->origin[2] <<"\n";
-  std::cout << "relx:" << cam->rel_x[0] << "," << cam->rel_x[1] << "," << cam->rel_x[2] <<"\n";
-  std::cout << "rely:" << cam->rel_y[0] << "," << cam->rel_y[1] << "," << cam->rel_y[2] <<"\n";
-  std::cout << "relz:" << cam->rel_z[0] << "," << cam->rel_z[1] << "," << cam->rel_z[2] <<"\n";
-
   // Render
   image picture(image_width,image_height);
   render(picture, samples_per_pixel, max_depth, *cam, scene_tree);

@@ -6,16 +6,6 @@ class transformation;
 
 class camera
 {
-  //private:
-  public:
-    point origin;
-    float aspect_ratio;
-    float yfov;
-    normed_vec3 rel_z;
-    normed_vec3 rel_x;
-    normed_vec3 rel_y;
-    float znear;
-
   public:
     camera( float yfov_in_radians
           , float znear
@@ -28,4 +18,14 @@ class camera
     void set_aspect_ratio(float ratio);
 
     void transform_by(const transformation& transform);
+
+  private:
+    point origin;
+    float aspect_ratio;
+    float yfov;
+    float sensor_width;
+    normed_vec3 rel_z;
+    normed_vec3 rel_x;
+    normed_vec3 rel_y;
+    float znear;
 };
