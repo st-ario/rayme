@@ -50,7 +50,7 @@ static void render_tile( image* picture
       {
         float horiz_factor = (h_offset + x + random_float())/(picture->get_width()-1);
         float vert_factor = (v_offset + y + random_float())/(picture->get_height()-1);
-        ray r = cam->get_ray(horiz_factor, vert_factor);
+        ray r = cam->get_ray(horiz_factor, vert_factor,picture->get_height());
         pixel_color += ray_color(r, *world, depth);
       }
       pixel_color = pixel_color / double(samples_per_pixel);
