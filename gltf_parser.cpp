@@ -47,7 +47,40 @@ struct gltf_primitive
   int mode = 4;
 };
 
-struct gltf_material {};
+struct gltf_texture_info
+{
+  int index = -1;
+  int tex_coord = 0;
+};
+struct gltf_normal_texture_info : public gltf_texture_info
+{
+  float scale = 1.0f;
+};
+
+struct gltf_occlusion_texture_info : public gltf_texture_info
+{
+  float strength = 1.0f;
+};
+
+struct gltf_pbr_metallic_roughness
+{
+  vec4 base_color_factor = {1.0f,1.0f,1.0f,1.0f};
+  float metallic_factor = 1.0f;
+  float roughness_factor = 1.0f;
+  gltf_texture_info base_color_texture;
+  gltf_texture_info metallic_roughness_texture;
+};
+
+struct gltf_material
+{
+  gltf_pbr_metallic_roughness pbrmr;
+  vec3 emissive_factor = {0,0,0};
+  std::string alpha_mode = "OPAQUE";
+  float alpha_cutoff = 0.5f;
+  bool double_sided = false;
+  gltf_texture_info emissive_texture;
+};
+
 struct glft_texture {};
 struct gltf_image {};
 struct gltf_sampler {};
