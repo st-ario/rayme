@@ -9,7 +9,7 @@ hit_record triangle::get_record(const ray& r, float at) const
 
   vec3 nonunital_candidate_normal = cross(p1-p0, p2-p0);
 
-  bool front_face = glm::dot(static_cast<vec3>(r.direction), nonunital_candidate_normal) < 0;
+  bool front_face = dot(r.direction, nonunital_candidate_normal) < 0;
 
   normed_vec3 normal = front_face ? unit(nonunital_candidate_normal) : - unit(nonunital_candidate_normal);
 
@@ -73,7 +73,7 @@ hit_check triangle::hit(const ray& r, float t_max) const
   point p2t = p2 - r.origin;
 
   // Permute components of triangle vertices and ray direction
-  int kz = max_dimension(abs(static_cast<vec3>(r.direction)));
+  int kz = max_dimension(abs(r.direction.to_vec3()));
   int kx = kz + 1;
   if (kx == 3) kx = 0;
   int ky = kx + 1;
@@ -172,7 +172,7 @@ hit_check triangle::hit(const ray& r, float t_max) const
 hit_check sphere::hit(const ray& r, float t_max) const
 {
   vec3 center_to_origin = r.origin - center;
-  float b_halved = glm::dot(center_to_origin, static_cast<vec3>(r.direction));
+  float b_halved = dot(center_to_origin, r.direction);
   float c = glm::length2(center_to_origin) - radius*radius;
   float discriminant = b_halved*b_halved - c;
   if (discriminant < 0)
@@ -189,7 +189,7 @@ hit_record sphere::get_record(const ray& r, float at) const
 {
   point p = r.at(at);
   vec3 nonunital_candidate_normal = p - center;
-  bool front_face = glm::dot(static_cast<vec3>(r.direction), nonunital_candidate_normal) < 0;
+  bool front_face = dot(r.direction, nonunital_candidate_normal) < 0;
   normed_vec3 normal = front_face ? unit(nonunital_candidate_normal) : - unit(nonunital_candidate_normal);
   return hit_record(at, front_face, ptr_mat, normal);
 }

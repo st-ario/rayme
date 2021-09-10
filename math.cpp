@@ -125,23 +125,23 @@ normed_vec3 normed_vec3::random_unit()
 vec3 random_vec3_in_unit_sphere()
 {
   float random_radius = random_float();
-  return random_radius * static_cast<vec3>(normed_vec3::random_unit());
+  return random_radius * normed_vec3::random_unit();
 }
 
 normed_vec3 reflect(const normed_vec3& incident, const normed_vec3& normal)
 {
-  vec3 i = static_cast<vec3>(incident);
-  vec3 n = static_cast<vec3>(normal);
+  vec3 i = incident.to_vec3();
+  vec3 n = normal.to_vec3();
 
-  return unit(i - 2 * glm::dot(i,n) * n);
+  return unit(i - 2 * dot(i,n) * n);
 }
 
 normed_vec3 refract(const normed_vec3& incident, const normed_vec3& normal, float refractive_indices_ratio)
 {
-  vec3 i = static_cast<vec3>(incident);
-  vec3 n = static_cast<vec3>(normal);
+  vec3 i = incident.to_vec3();
+  vec3 n = normal.to_vec3();
 
-  float cos_incidence_angle = glm::dot(-i,n);
+  float cos_incidence_angle = dot(-i,n);
   vec3 refracted_perp = refractive_indices_ratio * (i + cos_incidence_angle * n);
   vec3 refracted_parallel = - std::sqrt(1.0f - glm::length2(refracted_perp)) * n;
   return unit(refracted_perp + refracted_parallel);

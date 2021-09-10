@@ -15,17 +15,17 @@ struct ray
 
   point at(float t) const
   {
-    return origin + t * static_cast<vec3>(direction);
+    return origin + t * direction;
   }
 };
 
 inline point ray::offset_ray_origin(const point &p, const vec3 &pError,
                                     const normed_vec3 &n, const vec3 &w)
 {
-    float d = glm::dot(abs(static_cast<vec3>(n)), pError);
-    vec3 offset = d * static_cast<vec3>(n);
+    float d = dot(abs(n.to_vec3()), pError);
+    vec3 offset = d * n;
 
-    if (glm::dot(w, static_cast<vec3>(n)) < 0)
+    if (dot(w, n) < 0)
       offset = - offset;
 
     point po = p + offset;

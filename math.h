@@ -101,27 +101,40 @@ using vec3 = glm::vec3;
 typedef glm::vec<3,double> color;
 typedef vec3 point;
 
-class normed_vec3 : public vec3
+class normed_vec3 : private vec3
 {
   private:
     // unsafe constructor, doesn't check the invariant
-    normed_vec3(float w0, float w1, float w2);
+    using vec3::vec3;
 
   public:
-    // construct a normed vector from an ordinary one by normalizing it
-    explicit normed_vec3(const vec3& w);
+    vec3 to_vec3() const { return static_cast<vec3>(*this); }
 
-    // coordinates can only be returned as const, to preserve the invariant
+    // coordinates can only be returned by value, to preserve the invariant
     float x() const { return vec3::x; }
     float y() const { return vec3::y; }
     float z() const { return vec3::z; }
-
-    normed_vec3& operator-();
-    normed_vec3 operator-() const;
+    float operator[](int i) const { return vec3::operator[](i); }
 
     static normed_vec3 random_unit();
 
+    normed_vec3 operator-() const;
+    bool operator==(const normed_vec3& v) const { return static_cast<vec3>(*this) == static_cast<vec3>(v) ;}
+
+    // return unit vector corresponding to v
+    friend normed_vec3 unit(const vec3& v);
     friend normed_vec3 permute(const normed_vec3& v, int x, int y, int z);
+
+    friend float dot(const normed_vec3& v, const normed_vec3& w);
+    friend float dot(const vec3& v,        const normed_vec3& w);
+    friend float dot(const normed_vec3& v, const vec3& w);
+
+    friend vec3  operator*(float x, const normed_vec3& w);
+    friend vec3  operator*(const normed_vec3& v, float x);
+
+    friend normed_vec3 cross(const normed_vec3& v, const normed_vec3& w);
+    friend vec3        cross(const vec3& v,        const normed_vec3& w);
+    friend vec3        cross(const normed_vec3& v, const vec3& w);
 };
 
 inline bool near_zero(const vec3& v)
@@ -132,8 +145,11 @@ inline bool near_zero(const vec3& v)
 
 vec3 random_vec3_in_unit_sphere();
 
-// return unit vector corresponding to v
-inline normed_vec3 unit(const vec3& v) { return normed_vec3(v); }
+inline normed_vec3 unit(const vec3& v)
+{
+  vec3 n = glm::normalize(v);
+  return normed_vec3(n[0],n[1],n[2]);
+}
 
 int max_dimension(const vec3& v);
 float max_component(const vec3& v);
@@ -147,36 +163,58 @@ normed_vec3 refract(const normed_vec3& incident, const normed_vec3& normal,
 void gamma2_correct(color& c);
 void gamma_correct(color& c, double gamma);
 
-inline normed_vec3::normed_vec3(const vec3& w)
-{
-  float squared_norm = w[0]*w[0] + w[1]*w[1] + w[2]*w[2];
-  float inverse_norm = fast_inverse_sqrt(squared_norm);
-  this->operator[](0) = w[0] * inverse_norm;
-  this->operator[](1) = w[1] * inverse_norm;
-  this->operator[](2) = w[2] * inverse_norm;
-}
-
-inline normed_vec3::normed_vec3(float w0, float w1, float w2)
-{
-  this->operator[](0) = w0;
-  this->operator[](1) = w1;
-  this->operator[](2) = w2;
-}
-
-inline normed_vec3& normed_vec3::operator-()
-{
-  this->operator[](0) = - this->operator[](0);
-  this->operator[](1) = - this->operator[](1);
-  this->operator[](2) = - this->operator[](2);
-
-  return *this;
-}
 inline normed_vec3 normed_vec3::operator-() const
 {
-  return normed_vec3(- this->operator[](0),
-                     - this->operator[](1),
-                     - this->operator[](2));
+  vec3 res = - static_cast<vec3>(*this);
+  return normed_vec3(res[0],res[1],res[2]);
 }
+
+inline float dot(const normed_vec3& v, const normed_vec3& w)
+{
+  float res = dot(static_cast<vec3>(v), static_cast<vec3>(w));
+  return res;
+}
+
+inline float dot(const vec3& v, const normed_vec3& w)
+{
+  float res = dot(v, static_cast<vec3>(w));
+  return res;
+}
+
+inline float dot(const normed_vec3& v, const vec3& w)
+{
+  return dot(w,v);
+}
+
+inline vec3 operator*(float x, const normed_vec3& w)
+{
+  vec3 res = x * static_cast<vec3>(w);
+  return res;
+}
+
+inline vec3 operator*(const normed_vec3& v, float x)
+{
+  return (x * v);
+}
+
+inline normed_vec3 cross(const normed_vec3& v, const normed_vec3& w)
+{
+  vec3 c = cross(static_cast<vec3>(v), static_cast<vec3>(w));
+  return normed_vec3(c[0], c[1], c[2]);
+}
+
+inline vec3 cross(const vec3& v, const normed_vec3& w)
+{
+  vec3 res = cross(v, static_cast<vec3>(w));
+  return res;
+}
+
+inline vec3 cross(const normed_vec3& v, const vec3& w)
+{
+  vec3 res = cross(static_cast<vec3>(v), w);
+  return res;
+}
+
 
 inline void gamma2_correct(color& c)
 {

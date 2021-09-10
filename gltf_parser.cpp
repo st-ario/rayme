@@ -309,7 +309,7 @@ mesh store_mesh( int index
           v.y = f;
           std::memcpy(&f, &data[i+2*s_component], s_component);
           v.z = f;
-          normals.emplace_back(normed_vec3(v));
+          normals.emplace_back(unit(v));
         }
       }
 
