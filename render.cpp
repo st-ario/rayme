@@ -34,8 +34,8 @@ static void render_tile( image* picture
                        , const bvh_tree* world)
 {
   color pixel_color(0,0,0);
-  int h_offset = column * tile_size;
-  int v_offset = row * tile_size;
+  const int h_offset = column * tile_size;
+  const int v_offset = row * tile_size;
 
   for (int x = 0; x < tile_size; ++x)
   {
@@ -48,8 +48,10 @@ static void render_tile( image* picture
       pixel_color = {0,0,0};
       for (int s = 0; s < samples_per_pixel; ++s)
       {
-        float horiz_factor = (h_offset + x + random_float())/(picture->get_width()-1);
-        float vert_factor = (v_offset + y + random_float())/(picture->get_height()-1);
+        float horiz_wiggle = static_cast<float>(h_offset + x) / static_cast<float>(picture->get_height());
+        float vert_wiggle = static_cast<float>(v_offset + y) / static_cast<float>(picture->get_width());
+        float horiz_factor = (h_offset + x + random_float(-horiz_wiggle, 1.0f - horiz_wiggle))/(picture->get_width()-1);
+        float vert_factor = (v_offset + y + random_float(-vert_wiggle, 1.0f - vert_wiggle))/(picture->get_height()-1);
         ray r = cam->get_ray(horiz_factor, vert_factor,picture->get_height());
         pixel_color += ray_color(r, *world, depth);
       }
