@@ -707,6 +707,66 @@ void parse_gltf( const std::string& filename
     }
   } // unnamed scope
 
+  // store materials
+  std::vector<gltf_material> materials;
+  { // unnamed scope
+    simdjson::ondemand::array document_materials;
+    auto error = doc["materials"].get(document_materials);
+    if (!error)
+    {
+      for (auto a : document_materials)
+      {
+        auto mat_obj = a.get_object();
+        gltf_material current;
+
+        for (auto property : mat_obj)
+        {
+          if (property.key() == "alphaCutoff")
+            current.alpha_cutoff = property.value().get_double();
+          if (property.key() == "doubleSided")
+            current.double_sided = property.value().get_bool();
+          if (property.key() == "alphaMode")
+            current.alpha_mode = std::string(std::string_view(property.value()));
+          if (property.key() == "emissiveFactor")
+          {
+            int i = 0;
+            for (double x : property.value())
+            {
+              current.emissive_factor[i] = x;
+              ++i;
+            }
+          }
+          if (property.key() == "pbrMetallicRoughness")
+          {
+            auto pbrmr_obj = property.value().get_object();
+            gltf_pbr_metallic_roughness mr;
+
+            for (auto mr_property : pbrmr_obj)
+            {
+              if (mr_property.key() == "metallicFactor")
+                mr.metallic_factor = mr_property.value().get_double();
+              if (mr_property.key() == "roughnessFactor")
+                mr.roughness_factor = mr_property.value().get_double();
+              if (mr_property.key() == "baseColorFactor")
+              {
+                int i = 0;
+                for (double x : mr_property.value())
+                {
+                  mr.base_color_factor[i] = x;
+                  ++i;
+                }
+              }
+            }
+            current.pbrmr = mr;
+          }
+        }
+        materials.push_back(current);
+      }
+    } else {
+      std::cerr << "WARNING: the gltf file does not contain any material\n";
+    }
+  } // unnamed scope
+
   // store local representation of nodes, for recursive traversal
   std::vector<raw_gltf_node> raw_nodes;
   { // unnamed scope
