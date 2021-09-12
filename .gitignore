@@ -9,6 +9,7 @@ misc/
 *.gltf
 *.glb
 *.txt
+*.bak
 
 #cmake stuff
 CMakeLists.txt.user

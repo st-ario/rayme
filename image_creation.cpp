@@ -1,31 +1,16 @@
 #include "gltf_parser.h"
 #include "render.h"
+#include "meshes.h"
+#include "camera.h"
 
 // y = up, x = right, right-handed
 int main(int argc, char* argv[])
 {
   std::vector<std::shared_ptr<primitive>> primitives;
+  std::shared_ptr<camera> cam;
 
-  auto material_ground = std::make_shared<lambertian>(color(0.8, 0.8, 0.0));
-  auto material_center = std::make_shared<lambertian>(color(0.1, 0.2, 0.5));
-  //auto material_left   = std::make_shared<dielectric>(1.5);
-  auto material_right  = std::make_shared<metal>(color(0.8, 0.6, 0.2), 0.0);
-  auto material_left  = std::make_shared<metal>(color(0.1, 0.1, 0.2), 0.0);
-
-  /*
-  world.add(std::make_shared<sphere>(point( 0.0, -100.5, -1.0), 100.0, material_ground));
-  //world.add(std::make_shared<sphere>(point( 0.0,    0.0, -1.0),   0.5, material_center));
-  world.add(std::make_shared<sphere>(point(-1.0,    0.0, -1.0),   0.5, material_left));
-  //world.add(std::make_shared<sphere>(point(-1.0,    0.0, -1.0), -0.45, material_left));
-  world.add(std::make_shared<sphere>(point( 1.0,    0.0, -1.0),   0.5, material_right));
-  */
-
-  //primitives.emplace_back(std::make_shared<sphere>(point( 0.0, -100.5, -1.0), 100.0, material_ground));
-  //primitives.emplace_back(std::make_shared<sphere>(point( 0.0,    0.0, -1.0),   0.5, material_center));
-  // currently parse_gltf just loads camera position and triangle meshes
-  std::shared_ptr<camera> cam{};
   std::string filename{argv[1]};
-  parse_gltf(filename, primitives, cam, material_center);
+  parse_gltf(filename, primitives, cam);
 
   bvh_tree scene_tree{std::move(primitives)};
 
@@ -33,11 +18,10 @@ int main(int argc, char* argv[])
   const int image_width = 800;
   const int image_height = static_cast<int>(image_width / cam->get_aspect_ratio());
   const int samples_per_pixel = 10;
-  const int max_depth = 5;
 
   // Render
   image picture(image_width,image_height);
-  render(picture, samples_per_pixel, max_depth, *cam, scene_tree);
+  render(picture, samples_per_pixel, *cam, scene_tree);
 
   std::cerr << "\nExporting file...";
   std::flush(std::cerr);

@@ -1,27 +1,24 @@
 #include "render.h"
+#include "meshes.h"
+#include "materials.h"
+#include "camera.h"
 
 #include <future>
 
-// temporary solution, to use before properly dealing with lights
-static color ray_color(const ray& r, const element& world, int depth)
+static color ray_color(const ray& r, const element& world)
 {
-  if (depth < 1)
-    return color(0,0,0);
-
+  color pixel_color;
   auto rec = world.hit(r, infinity);
-  if (rec)
-  {
-    hit_record record = rec.value().first->get_record(r,rec.value().second);
-    color attenuation;
-    auto scattered_ray = record.ptr_mat->scatter(r, record, attenuation);
-    if (scattered_ray)
-      return attenuation * ray_color(scattered_ray.value(), world, depth-1);
-    return color(0,0,0);
-  }
 
-  // else: gradient background, depending only on the y coordinate;
-  double t = 0.5 * (1 + r.direction.y());
-  return ((1.0 - t) * color(1.0, 1.0, 1.0) + t * color(0.5, 0.7, 1.0));
+  if (!rec)
+    return {0,0,0};
+
+  hit_record record = rec.value().first->get_record(r,rec.value().second);
+
+  if (record.ptr_mat->emitter)
+    pixel_color = record.ptr_mat->emissive_factor;
+
+  return pixel_color;
 }
 
 static void render_tile( image* picture
@@ -29,7 +26,6 @@ static void render_tile( image* picture
                        , int row
                        , int column
                        , int samples_per_pixel
-                       , int depth
                        , const camera* cam
                        , const bvh_tree* world)
 {
@@ -53,7 +49,7 @@ static void render_tile( image* picture
         float horiz_factor = (h_offset + x + random_float(-horiz_wiggle, 1.0f - horiz_wiggle))/(picture->get_width()-1);
         float vert_factor = (v_offset + y + random_float(-vert_wiggle, 1.0f - vert_wiggle))/(picture->get_height()-1);
         ray r = cam->get_ray(horiz_factor, vert_factor,picture->get_height());
-        pixel_color += ray_color(r, *world, depth);
+        pixel_color += ray_color(r, *world);
       }
       pixel_color = pixel_color / double(samples_per_pixel);
       gamma2_correct(pixel_color);
@@ -65,7 +61,6 @@ static void render_tile( image* picture
 
 void render( image& picture
            , int samples_per_pixel
-           , int depth
            , const camera& cam
            , const bvh_tree& world)
 {
@@ -92,7 +87,7 @@ void render( image& picture
       ++counter;
       std::cerr << "\x1b[2K" << "\rRemaining tiles to render: " << (num_rows * num_columns - counter);
       std::flush(std::cerr);
-      render_tile(&picture, tile_size, pair.first, pair.second, samples_per_pixel, depth, &cam, &world);
+      render_tile(&picture, tile_size, pair.first, pair.second, samples_per_pixel, &cam, &world);
   }
 #else
   std::vector<std::future<void>> future_tiles;
@@ -101,7 +96,7 @@ void render( image& picture
 
   for (const auto& pair : cartesian_product)
   {
-    future_tiles.push_back(std::async(std::launch::async, render_tile, &picture, tile_size, pair.first, pair.second, samples_per_pixel, depth, &cam, &world));
+    future_tiles.push_back(std::async(std::launch::async, render_tile, &picture, tile_size, pair.first, pair.second, samples_per_pixel, &cam, &world));
   }
 #endif
 }

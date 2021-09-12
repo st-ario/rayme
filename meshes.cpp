@@ -168,36 +168,3 @@ hit_check triangle::hit(const ray& r, float t_max) const
 
   return std::make_pair(this, t);
 }
-
-hit_check sphere::hit(const ray& r, float t_max) const
-{
-  vec3 center_to_origin = r.origin - center;
-  float b_halved = dot(center_to_origin, r.direction);
-  float c = glm::length2(center_to_origin) - radius*radius;
-  float discriminant = b_halved*b_halved - c;
-  if (discriminant < 0)
-    return std::nullopt;
-
-  float root = -b_halved - std::sqrt(discriminant);
-  if (root < 0.0f || root > t_max)
-    return std::nullopt;
-
-  return std::make_pair(this, root);
-}
-
-hit_record sphere::get_record(const ray& r, float at) const
-{
-  point p = r.at(at);
-  vec3 nonunital_candidate_normal = p - center;
-  bool front_face = dot(r.direction, nonunital_candidate_normal) < 0;
-  normed_vec3 normal = front_face ? unit(nonunital_candidate_normal) : - unit(nonunital_candidate_normal);
-  return hit_record(at, front_face, ptr_mat, normal);
-}
-
-aabb sphere::bounding_box() const
-{
-  float padding = 0.001f;
-  float r = radius + padding;
-  return aabb{ center - vec3(r, r, r)
-             , center + vec3(r, r, r)};
-}

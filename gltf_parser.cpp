@@ -1,6 +1,8 @@
 #include "gltf_parser.h"
 #include "meshes.h"
 #include "camera.h"
+#include "transformations.h"
+#include "materials.h"
 #include "extern/simdjson/singleheader/simdjson.h"
 #include "extern/glm/glm/gtc/type_ptr.hpp"
 
@@ -11,7 +13,7 @@ struct gltf_node
   std::vector<int> children_indices;
   std::vector<std::shared_ptr<gltf_node>> children;
   std::weak_ptr<gltf_node> parent;
-  std::shared_ptr<mesh> m_mesh;
+  std::vector<std::shared_ptr<mesh>> m_mesh;
   std::shared_ptr<camera> cam;
   std::shared_ptr<transformation> transform;
 };
@@ -175,6 +177,23 @@ void apply_pointwise_transformation(const transformation& M, mesh& mesh)
   for (vec4& v : mesh.tangents); // TODO
 }
 
+material material_from_info(const gltf_material& mat_info)
+{
+  material res;
+
+  if (mat_info.emissive_factor != vec3{0.0f,0.0f,0.0f})
+  {
+    res.emitter = true;
+    res.emissive_factor = mat_info.emissive_factor;
+  }
+  res.base_color = vec3(mat_info.pbrmr.base_color_factor);
+  res.alpha = mat_info.pbrmr.base_color_factor[3];
+  res.metallic_factor = mat_info.pbrmr.metallic_factor;
+  res.roughness_factor = mat_info.pbrmr.roughness_factor;
+
+  return res;
+}
+
 // TODO can make it faster by multiplying all the matrices first, then acting on the mesh
 
 void apply_mesh_transformations(gltf_node& node, mesh& mesh)
@@ -191,10 +210,16 @@ void apply_mesh_transformations(gltf_node& node)
 {
   transformation id;
   if (node.transform && *(node.transform) != id)
-    apply_pointwise_transformation(*(node.transform), *(node.m_mesh));
+  {
+    for(auto& x : node.m_mesh)
+    apply_pointwise_transformation(*(node.transform), *x);
+  }
 
   if (auto p_p = node.parent.lock())
-    apply_mesh_transformations(*p_p, *(node.m_mesh));
+  {
+    for(auto& x : node.m_mesh)
+    apply_mesh_transformations(*p_p, *x);
+  }
 }
 
 void apply_camera_transformations(gltf_node& node, camera& camera)
@@ -217,13 +242,16 @@ void apply_camera_transformations(gltf_node& node)
     apply_camera_transformations(*p_p, *(node.cam));
 }
 
-mesh store_mesh( int index
-               , simdjson::ondemand::document& doc
-               , const std::vector<gltf_buffer>& buffers
-               , const std::vector<buffer_view>& views
-               , const std::vector<accessor>& accessors
-               , const std::shared_ptr<material>& ptr_mat)
+std::vector<std::shared_ptr<mesh>> store_mesh(
+                  int index
+                , simdjson::ondemand::document& doc
+                , const std::vector<gltf_buffer>& buffers
+                , const std::vector<buffer_view>& views
+                , const std::vector<accessor>& accessors
+                , const std::vector<gltf_material>& gltf_materials)
 {
+  std::vector<std::shared_ptr<mesh>> res;
+
   simdjson::ondemand::array document_meshes = doc["meshes"];
   int j = 0;
   for (auto mesh_iterator : document_meshes)
@@ -240,6 +268,7 @@ mesh store_mesh( int index
     {
       gltf_primitive prim;
 
+      // record intermediate representation
       auto json_primitive = primitive_iterator.get_object();
       for (auto property : json_primitive)
       {
@@ -273,12 +302,18 @@ mesh store_mesh( int index
         if (property.key() == "mode")
         {
           prim.mode = property.value().get_uint64();
-          // if anything other than 4, print error message "currently supporting only triangle meshes as primitives" and exit
+          if (prim.mode != 4)
+          {
+            std::cerr << "ERROR: currently supporting only triangle meshes as primitives\n";
+            std::exit(1);
+          }
         }
       }
-      // ######## CREATE MESH OBJECT
+
+      // create mesh object
+
       std::vector<point> vertices;
-      int n_vertices{0};
+      size_t n_vertices{0};
       { // unnamed scope
         const accessor& acc{accessors[prim.attr_vertices]};
         n_vertices = acc.count;
@@ -304,8 +339,8 @@ mesh store_mesh( int index
         }
       } // unnamed scope
 
-      std::vector<int> vertex_indices;
-      int n_triangles{0};
+      std::vector<size_t> vertex_indices;
+      size_t n_triangles{0};
       { // unnamed scope
         const accessor& acc{accessors[prim.indices]};
         n_triangles = acc.count / 3;
@@ -377,11 +412,21 @@ mesh store_mesh( int index
         }
       }
 
-      return mesh{n_vertices, n_triangles, vertex_indices, vertices, ptr_mat, normals, tangents};
+      std::shared_ptr<material> ptr_mat = std::make_shared<material>(
+        material_from_info(gltf_materials[prim.material]));
+
+      res.emplace_back(std::make_shared<mesh>(n_vertices, n_triangles, vertex_indices, vertices, ptr_mat, normals, tangents));
     }
+    ++j;
   }
-  std::cerr << "ERROR: unable to find mesh\n";
-  std::exit(1);
+
+  if (res.empty())
+  {
+    std::cerr << "ERROR: unable to find mesh\n";
+    std::exit(1);
+  }
+
+  return res;
 }
 
 camera store_camera(int camera_index, simdjson::ondemand::document& doc)
@@ -433,15 +478,13 @@ camera store_camera(int camera_index, simdjson::ondemand::document& doc)
   std::exit(1);
 }
 
-// the ptr_mat argument is a temporary hack, to pass to all meshes the same standard material for
-// rendering, to be removed as soon as materials are properly dealt with
 void process_tree( std::shared_ptr<gltf_node>& relative_root
                  , simdjson::ondemand::document& doc
                  , const std::vector<raw_gltf_node>& raw_nodes
                  , const std::vector<gltf_buffer>& buffers
                  , const std::vector<buffer_view>& views
                  , const std::vector<accessor>& accessors
-                 , const std::shared_ptr<material>& ptr_mat
+                 , const std::vector<gltf_material>& gltf_materials
                  , std::vector<std::shared_ptr<primitive>>& primitives
                  , std::shared_ptr<camera>& cam)
 {
@@ -501,18 +544,25 @@ void process_tree( std::shared_ptr<gltf_node>& relative_root
     if (current_raw_node.has_children)
     {
       current_node->children_indices = current_raw_node.children;
-      process_tree(current_node,doc, raw_nodes, buffers, views, accessors, ptr_mat, primitives, cam);
+      process_tree(current_node,doc, raw_nodes, buffers, views, accessors, gltf_materials, primitives, cam);
     }
 
     // process mesh
     if (current_raw_node.has_mesh)
     {
-      current_node->m_mesh = std::make_shared<mesh>(store_mesh(current_raw_node.mesh,doc,buffers,views,accessors,ptr_mat));
+      current_node->m_mesh = store_mesh(current_raw_node.mesh,doc,buffers,views,accessors,gltf_materials);
       apply_mesh_transformations(*current_node);
-      primitives.reserve(primitives.size() + current_node->m_mesh->n_triangles);
 
-      for (auto& tri : current_node->m_mesh->get_triangles())
-        primitives.emplace_back(std::move(tri));
+      size_t new_triangles = 0;
+      for (auto& x : current_node->m_mesh)
+        new_triangles += x->n_triangles;
+      primitives.reserve(primitives.size() + new_triangles);
+
+      for (auto& x : current_node->m_mesh)
+      {
+        for (auto& tri : x->get_triangles())
+          primitives.emplace_back(std::move(tri));
+      }
     }
 
     // process camera
@@ -529,8 +579,7 @@ void process_tree( std::shared_ptr<gltf_node>& relative_root
 
 void parse_gltf( const std::string& filename
                , std::vector<std::shared_ptr<primitive>>& primitives
-               , std::shared_ptr<camera>& cam
-               , const std::shared_ptr<material>& ptr_mat)
+               , std::shared_ptr<camera>& cam)
 {
   simdjson::ondemand::parser parser;
   auto gltf = simdjson::padded_string::load(filename);
@@ -708,7 +757,7 @@ void parse_gltf( const std::string& filename
   } // unnamed scope
 
   // store materials
-  std::vector<gltf_material> materials;
+  std::vector<gltf_material> gltf_materials;
   { // unnamed scope
     simdjson::ondemand::array document_materials;
     auto error = doc["materials"].get(document_materials);
@@ -760,7 +809,7 @@ void parse_gltf( const std::string& filename
             current.pbrmr = mr;
           }
         }
-        materials.push_back(current);
+        gltf_materials.push_back(current);
       }
     } else {
       std::cerr << "WARNING: the gltf file does not contain any material\n";
@@ -874,5 +923,5 @@ void parse_gltf( const std::string& filename
   scene_root->children_indices = roots_indices;
 
   // recursively process the scene tree
-  process_tree(scene_root, doc, raw_nodes, buffers, views, accessors, ptr_mat, primitives, cam);
+  process_tree(scene_root, doc, raw_nodes, buffers, views, accessors, gltf_materials, primitives, cam);
 }

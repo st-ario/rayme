@@ -18,7 +18,6 @@ add_executable(${PROJECT_NAME}
   gltf_parser.cpp
   image_creation.cpp
   images.cpp
-  materials.cpp
   math.cpp
   meshes.cpp
   render.cpp
