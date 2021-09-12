@@ -229,7 +229,10 @@ mesh store_mesh( int index
   for (auto mesh_iterator : document_meshes)
   {
     if (j != index)
-      break;
+    {
+      ++j;
+      continue;
+    }
 
     auto json_mesh = mesh_iterator.get_object();
     simdjson::ondemand::array mesh_primitives = json_mesh["primitives"];
@@ -376,7 +379,6 @@ mesh store_mesh( int index
 
       return mesh{n_vertices, n_triangles, vertex_indices, vertices, ptr_mat, normals, tangents};
     }
-    ++j;
   }
   std::cerr << "ERROR: unable to find mesh\n";
   std::exit(1);
