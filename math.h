@@ -14,6 +14,7 @@
 #define GLM_FORCE_CTOR_INIT
 #include "extern/glm/glm/vec3.hpp"
 #include "extern/glm/glm/geometric.hpp"
+#include "extern/glm/glm/mat3x3.hpp"
 
 // Constants
 
@@ -116,8 +117,6 @@ class normed_vec3 : private vec3
     float z() const { return vec3::z; }
     float operator[](int i) const { return vec3::operator[](i); }
 
-    static normed_vec3 random_unit();
-
     normed_vec3 operator-() const;
     bool operator==(const normed_vec3& v) const { return static_cast<vec3>(*this) == static_cast<vec3>(v) ;}
 
@@ -135,6 +134,9 @@ class normed_vec3 : private vec3
     friend normed_vec3 cross(const normed_vec3& v, const normed_vec3& w);
     friend vec3        cross(const vec3& v,        const normed_vec3& w);
     friend vec3        cross(const normed_vec3& v, const vec3& w);
+
+    // return a uniformly distributed random unit vector in the hemisphere having the argument as normal
+    friend normed_vec3 random_hemisphere_unit(const normed_vec3& normal);
 };
 
 inline bool near_zero(const vec3& v)
@@ -143,7 +145,10 @@ inline bool near_zero(const vec3& v)
   return (std::fabs(v.x) < epsilon) && (std::fabs(v.y) < epsilon) && (std::fabs(v.z) < epsilon);
 }
 
-vec3 random_vec3_in_unit_sphere();
+// return uniformly distributed vector inside the unit disk
+vec3 random_vec3_in_unit_disk();
+// return uniformly distributed vector on the unit sphere
+normed_vec3 random_unit();
 
 inline normed_vec3 unit(const vec3& v)
 {
@@ -295,4 +300,37 @@ inline vec3 permute(const vec3& v, int x, int y, int z)
 inline normed_vec3 permute(const normed_vec3& v, int x, int y, int z)
 {
   return normed_vec3{v[x], v[y], v[z]};
+}
+
+inline normed_vec3 random_upper_hemisphere_unit()
+{
+  float a = random_float();
+  float b = std::sqrt(1.0f - a*a);
+  float c = 2 * pi * random_float();
+  return normed_vec3(std::cos(c)*b, a, std::sin(c)*b);
+}
+
+inline normed_vec3 random_hemisphere_unit(const normed_vec3& normal)
+{
+  glm::mat3 change_of_base;
+
+  if (normal.x() == 0 && normal.z() == 0)
+  {
+    if (normal.y() > 0)
+      return random_upper_hemisphere_unit();
+    else
+    {
+      change_of_base = {-1.0f,  0.0f, 0.0f,
+                         0.0f, -1.0f, 0.0f,
+                         0.0f,  0.0f, 1.0f};
+    }
+  } else {
+    normed_vec3 rel_x = unit(cross(normal,vec3(1.0f,0.0f,0.0f)));
+    normed_vec3 rel_z = cross(rel_x,normal);
+    change_of_base = {rel_x.to_vec3(), normal.to_vec3(), rel_z.to_vec3()};
+  }
+
+  vec3 res = change_of_base * static_cast<vec3>(random_upper_hemisphere_unit());
+
+  return normed_vec3(res[0],res[1],res[2]);
 }

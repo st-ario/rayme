@@ -16,7 +16,7 @@ std::optional<ray> lambertian::scatter(
   ) const
 {
   attenuation = albedo;
-  vec3 nonunital_scatter_direction = rec.normal.to_vec3() + normed_vec3::random_unit().to_vec3();
+  vec3 nonunital_scatter_direction = rec.normal.to_vec3() + random_unit().to_vec3();
   if(near_zero(nonunital_scatter_direction))
   {
     return ray(r.at(rec.t), rec.normal);
@@ -34,7 +34,7 @@ std::optional<ray> metal::scatter(
 {
   attenuation = albedo;
   vec3 reflected = reflect(r.direction, rec.normal).to_vec3();
-  normed_vec3 scattered_direction = unit(reflected + roughness*random_vec3_in_unit_sphere());
+  normed_vec3 scattered_direction = unit(reflected + roughness*random_vec3_in_unit_disk());
   ray scattered = ray(r.at(rec.t), scattered_direction);
   if (dot(scattered.direction, rec.normal) > 0)
     return scattered;
