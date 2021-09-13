@@ -13,30 +13,30 @@ class mesh : public std::enable_shared_from_this<mesh>
   public:
     const size_t n_vertices;
     const size_t n_triangles;
-    std::vector<size_t> vertex_indices;
+    const std::vector<size_t> vertex_indices;
     std::vector<point> vertices;
     std::vector<normed_vec3> normals;
     std::vector<vec4> tangents;
-    std::shared_ptr<material> ptr_mat;
+    std::shared_ptr<const material> ptr_mat;
 
     mesh( size_t n_vertices
         , size_t n_triangles
         , std::vector<size_t> vertex_indices
         , std::vector<point> vertices
-        , std::shared_ptr<material> ptr_mat
+        , std::shared_ptr<const material> ptr_mat
         , std::vector<normed_vec3> normals = {}
         , std::vector<vec4> tangents = {}) :
         n_vertices{n_vertices}, n_triangles{n_triangles},
         vertex_indices{vertex_indices}, vertices{vertices},
         normals{normals}, tangents{tangents}, ptr_mat{ptr_mat} {}
 
-    std::vector<std::shared_ptr<triangle>> get_triangles()
+    std::vector<std::shared_ptr<const triangle>> get_triangles() const
     {
-      std::vector<std::shared_ptr<triangle>> triangles;
+      std::vector<std::shared_ptr<const triangle>> triangles;
       triangles.reserve(n_triangles);
 
       for (size_t i = 0; i < n_triangles; ++i)
-        triangles.push_back(std::make_shared<triangle>(shared_from_this(), i));
+        triangles.push_back(std::make_shared<const triangle>(shared_from_this(), i));
 
       return triangles;
     }
@@ -45,11 +45,11 @@ class mesh : public std::enable_shared_from_this<mesh>
 class triangle : public primitive
 {
   private:
-    std::shared_ptr<mesh> parent_mesh;
+    std::shared_ptr<const mesh> parent_mesh;
     const size_t number;
 
   public:
-    triangle(const std::shared_ptr<mesh>& parent_mesh, size_t triangle_number)
+    triangle(const std::shared_ptr<const mesh>& parent_mesh, size_t triangle_number)
     : parent_mesh{parent_mesh}, number{triangle_number}
     {
       bounds = bounding_box();

@@ -14,20 +14,19 @@ aabb surrounding_box(aabb box0, aabb box1)
   return aabb(small,big);
 }
 
-bvh_tree::bvh_tree(std::vector<std::shared_ptr<primitive>>&& primitives)
-: primitives{primitives}
+bvh_tree::bvh_tree(std::vector<std::shared_ptr<const primitive>>& primitives)
 {
-  root = recursive_build(bvh_tree::primitives, 0, bvh_tree::primitives.size());
+  root = recursive_build(primitives, 0, primitives.size());
 }
 
-inline float surface_area(std::shared_ptr<primitive>& leaf)
+inline float surface_area(std::shared_ptr<const primitive>& leaf)
 {
   return fabs(leaf->bounds.max().x - leaf->bounds.min().x)
        * fabs(leaf->bounds.max().y - leaf->bounds.min().y)
        * fabs(leaf->bounds.max().z - leaf->bounds.min().z);
 }
 
-float sah(std::vector<std::shared_ptr<primitive>>& leaves, size_t begin, size_t end, size_t at)
+float sah(std::vector<std::shared_ptr<const primitive>>& leaves, size_t begin, size_t end, size_t at)
 {
   float left_surface_area{0};
   float right_surface_area{0};
@@ -39,7 +38,7 @@ float sah(std::vector<std::shared_ptr<primitive>>& leaves, size_t begin, size_t 
   return left_surface_area * (at - begin) + right_surface_area * (end - at);
 }
 
-std::shared_ptr<element> bvh_tree::recursive_build(std::vector<std::shared_ptr<primitive>>& leaves, size_t begin, size_t end) const
+std::shared_ptr<const element> bvh_tree::recursive_build(std::vector<std::shared_ptr<const primitive>>& leaves, size_t begin, size_t end) const
 {
   if (begin + 1 == end)
   {
@@ -75,7 +74,7 @@ std::shared_ptr<element> bvh_tree::recursive_build(std::vector<std::shared_ptr<p
 
   // sort leaves based on their centroid coordinate
   std::sort(leaves.begin()+begin, leaves.begin()+end,
-            [=](const std::shared_ptr<primitive>& leaf1, const std::shared_ptr<primitive>& leaf2)
+            [=](const std::shared_ptr<const primitive>& leaf1, const std::shared_ptr<const primitive>& leaf2)
             {
               return leaf1->centroid[axis] < leaf2->centroid[axis];
             });
@@ -101,7 +100,7 @@ std::shared_ptr<element> bvh_tree::recursive_build(std::vector<std::shared_ptr<p
   return new_node;
 }
 
-bvh_node::bvh_node(const std::vector<std::shared_ptr<primitive>>& leaves, size_t start, size_t end)
+bvh_node::bvh_node(std::vector<std::shared_ptr<const primitive>>& leaves, size_t start, size_t end)
 {
   for(size_t i = start; i < end; ++i)
     bounds = surrounding_box(bounds,leaves[i]->bounds);

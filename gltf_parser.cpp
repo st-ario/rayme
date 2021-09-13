@@ -412,7 +412,7 @@ std::vector<std::shared_ptr<mesh>> store_mesh(
         }
       }
 
-      std::shared_ptr<material> ptr_mat = std::make_shared<material>(
+      std::shared_ptr<const material> ptr_mat = std::make_shared<const material>(
         material_from_info(gltf_materials[prim.material]));
 
       res.emplace_back(std::make_shared<mesh>(n_vertices, n_triangles, vertex_indices, vertices, ptr_mat, normals, tangents));
@@ -485,7 +485,7 @@ void process_tree( std::shared_ptr<gltf_node>& relative_root
                  , const std::vector<buffer_view>& views
                  , const std::vector<accessor>& accessors
                  , const std::vector<gltf_material>& gltf_materials
-                 , std::vector<std::shared_ptr<primitive>>& primitives
+                 , std::vector<std::shared_ptr<const primitive>>& primitives
                  , std::shared_ptr<camera>& cam)
 {
   for (int child_index : relative_root->children_indices)
@@ -561,7 +561,7 @@ void process_tree( std::shared_ptr<gltf_node>& relative_root
       for (auto& x : current_node->m_mesh)
       {
         for (auto& tri : x->get_triangles())
-          primitives.emplace_back(std::move(tri));
+          primitives.emplace_back(static_cast<std::shared_ptr<const triangle>>(tri));
       }
     }
 
@@ -578,7 +578,7 @@ void process_tree( std::shared_ptr<gltf_node>& relative_root
 }
 
 void parse_gltf( const std::string& filename
-               , std::vector<std::shared_ptr<primitive>>& primitives
+               , std::vector<std::shared_ptr<const primitive>>& primitives
                , std::shared_ptr<camera>& cam)
 {
   simdjson::ondemand::parser parser;

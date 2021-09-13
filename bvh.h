@@ -8,12 +8,12 @@ struct hit_record
 {
   float t;
   bool front_face;
-  std::shared_ptr<material> ptr_mat;
+  std::shared_ptr<const material> ptr_mat;
   normed_vec3 normal;
 
   hit_record( float at
             , bool front_face
-            , std::shared_ptr<material> ptr_mat
+            , std::shared_ptr<const material> ptr_mat
             , normed_vec3 n
             ) : t{at}, front_face{front_face}, ptr_mat{ptr_mat}, normal{n} {}
 };
@@ -104,11 +104,11 @@ class primitive : public element
 class bvh_node : public element
 {
   public:
-    std::shared_ptr<element> left;
-    std::shared_ptr<element> right;
+    std::shared_ptr<const element> left;
+    std::shared_ptr<const element> right;
 
   public:
-    bvh_node(const std::vector<std::shared_ptr<primitive>>& primitives, size_t start, size_t end);
+    bvh_node(std::vector<std::shared_ptr<const primitive>>& primitives, size_t start, size_t end);
 
     virtual hit_check hit(const ray& r, float t_max) const override
     {
@@ -141,14 +141,13 @@ class bvh_node : public element
 class bvh_tree : public element
 {
   private:
-    std::shared_ptr<element> root;
-    std::vector<std::shared_ptr<primitive>> primitives;
+    std::shared_ptr<const element> root;
 
   public:
-    bvh_tree(std::vector<std::shared_ptr<primitive>>&& primitives);
+    bvh_tree(std::vector<std::shared_ptr<const primitive>>& primitives);
 
     virtual hit_check hit(const ray& r, float t_max) const override;
 
   private:
-    std::shared_ptr<element> recursive_build(std::vector<std::shared_ptr<primitive>>& leaves, size_t begin, size_t end) const;
+    std::shared_ptr<const element> recursive_build(std::vector<std::shared_ptr<const primitive>>& leaves, size_t begin, size_t end) const;
 };

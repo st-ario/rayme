@@ -6,13 +6,13 @@
 // y = up, x = right, right-handed
 int main(int argc, char* argv[])
 {
-  std::vector<std::shared_ptr<primitive>> primitives;
+  std::vector<std::shared_ptr<const primitive>> primitives;
   std::shared_ptr<camera> cam;
 
   std::string filename{argv[1]};
   parse_gltf(filename, primitives, cam);
 
-  bvh_tree scene_tree{std::move(primitives)};
+  bvh_tree scene_tree{primitives};
 
   // Image
   const int image_width = 800;
