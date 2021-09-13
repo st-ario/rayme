@@ -6,6 +6,6 @@ class camera;
 class bvh_tree;
 
 void render( image& picture
-           , int samples_per_pixel
+           , uint16_t samples_per_pixel
            , const camera& cam
            , const bvh_tree& world);

@@ -3,24 +3,21 @@
 #include "meshes.h"
 #include "camera.h"
 
-// y = up, x = right, right-handed
 int main(int argc, char* argv[])
 {
+  const uint16_t image_height = 800;
+
   std::vector<std::shared_ptr<const primitive>> primitives;
   std::shared_ptr<camera> cam;
 
   std::string filename{argv[1]};
-  parse_gltf(filename, primitives, cam);
+  parse_gltf(filename, primitives, cam, image_height);
 
   bvh_tree scene_tree{primitives};
 
-  // Image
-  const int image_width = 800;
-  const int image_height = static_cast<int>(image_width / cam->get_aspect_ratio());
-  const int samples_per_pixel = 10;
+  const uint16_t samples_per_pixel = 1;
 
-  // Render
-  image picture(image_width,image_height);
+  image picture(cam->get_image_width(),cam->get_image_height());
   render(picture, samples_per_pixel, *cam, scene_tree);
 
   std::cerr << "\nExporting file...";

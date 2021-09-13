@@ -17,38 +17,37 @@ static color ray_color(const ray& r, const element& world)
 
   if (record.ptr_mat->emitter)
     pixel_color = record.ptr_mat->emissive_factor;
+  else
+    pixel_color = record.ptr_mat->base_color;
 
   return pixel_color;
 }
 
 static void render_tile( image* picture
-                       , int tile_size
-                       , int row
-                       , int column
-                       , int samples_per_pixel
+                       , uint8_t tile_size
+                       , uint16_t row
+                       , uint16_t column
+                       , uint16_t samples_per_pixel
                        , const camera* cam
                        , const bvh_tree* world)
 {
   color pixel_color(0,0,0);
-  const int h_offset = column * tile_size;
-  const int v_offset = row * tile_size;
+  const uint16_t h_offset = column * tile_size;
+  const uint16_t v_offset = row * tile_size;
 
-  for (int x = 0; x < tile_size; ++x)
+  for (uint16_t x = 0; x < tile_size; ++x)
   {
     if (h_offset + x > picture->get_width() - 1)
       break;
-    for (int y = 0; y < tile_size; ++y)
+    for (uint16_t y = 0; y < tile_size; ++y)
     {
       if (v_offset + y > picture->get_height() - 1)
         break;
       pixel_color = {0,0,0};
-      for (int s = 0; s < samples_per_pixel; ++s)
+      for (uint16_t s = 0; s < samples_per_pixel; ++s)
       {
-        float horiz_wiggle = static_cast<float>(h_offset + x) / static_cast<float>(picture->get_height());
-        float vert_wiggle = static_cast<float>(v_offset + y) / static_cast<float>(picture->get_width());
-        float horiz_factor = (h_offset + x + random_float(-horiz_wiggle, 1.0f - horiz_wiggle))/(picture->get_width()-1);
-        float vert_factor = (v_offset + y + random_float(-vert_wiggle, 1.0f - vert_wiggle))/(picture->get_height()-1);
-        ray r = cam->get_ray(horiz_factor, vert_factor,picture->get_height());
+        ray r{cam->get_ray(h_offset + x, v_offset + y)};
+        //ray r{cam->get_stochastic_ray(h_offset + x, v_offset + y)};
         pixel_color += ray_color(r, *world);
       }
       pixel_color = pixel_color / double(samples_per_pixel);
@@ -60,20 +59,24 @@ static void render_tile( image* picture
 }
 
 void render( image& picture
-           , int samples_per_pixel
+           , uint16_t samples_per_pixel
            , const camera& cam
            , const bvh_tree& world)
 {
-  const int tile_size{16};
-  const int num_columns{static_cast<int>(std::ceil(float(picture.get_width() / float(tile_size))))};
-  const int num_rows{static_cast<int>(std::ceil(float(picture.get_height() / float(tile_size))))};
+  const uint8_t tile_size{16};
+  const uint16_t num_columns{static_cast<uint16_t>(
+    std::ceil(static_cast<float>(picture.get_width() / static_cast<float>(tile_size)))
+    )};
+  const uint16_t num_rows{static_cast<uint16_t>(
+    std::ceil(static_cast<float>(picture.get_height() / static_cast<float>(tile_size)))
+    )};
 
 
-  std::vector<std::pair<int,int>> cartesian_product;
+  std::vector<std::pair<uint16_t,uint16_t>> cartesian_product;
 
-  for (int r = 0; r < num_rows; ++r)
+  for (uint16_t r = 0; r < num_rows; ++r)
   {
-    for(int c = 0; c < num_columns; ++c)
+    for(uint16_t c = 0; c < num_columns; ++c)
     {
       cartesian_product.emplace_back(std::make_pair(r,c));
     }
@@ -81,7 +84,7 @@ void render( image& picture
 
 //#define NOTPAR 1
 #ifdef NOTPAR
-  int counter{0};
+  uint16_t counter{0};
   for (const auto pair : cartesian_product)
   {
       ++counter;

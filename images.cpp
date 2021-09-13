@@ -5,15 +5,15 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "extern/stb/stb_image_write.h"
 
-image::image(int pixel_width, int pixel_height) : width{pixel_width}, height{pixel_height}
+image::image(uint16_t pixel_width, uint16_t pixel_height) : width{pixel_width}, height{pixel_height}
 {
   pixels.reserve(pixel_height);
-  for (int r = 0; r < pixel_height; ++r)
+  for (uint16_t r = 0; r < pixel_height; ++r)
   {
     std::vector<color> row;
     row.reserve(pixel_width);
 
-    for (int c = 0; c < pixel_width; ++c)
+    for (uint16_t c = 0; c < pixel_width; ++c)
     {
       row.emplace_back(color(0,0,0));
     }
@@ -48,7 +48,7 @@ void image::write_to_ppm(std::string file_name)
 void image::write_to_png(std::string file_name)
 {
   uint8_t data[width * height * 3]; //3 channels, RGB
-  int index = 0;
+  size_t index = 0;
   for (std::vector<color> row : pixels)
   {
     for (color c : row)
@@ -62,5 +62,5 @@ void image::write_to_png(std::string file_name)
   stbi_write_png((file_name + ".png").c_str(), width, height, 3, data, width * 3);
 }
 
-int image::get_height() const { return height; }
-int image::get_width() const { return width; }
+uint16_t image::get_height() const { return height; }
+uint16_t image::get_width()  const { return width;  }

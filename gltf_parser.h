@@ -9,4 +9,5 @@ class camera;
 
 void parse_gltf( const std::string& filename
                , std::vector<std::shared_ptr<const primitive>>& primitives
-               , std::shared_ptr<camera>& cam);
+               , std::shared_ptr<camera>& cam
+               , uint16_t image_height);

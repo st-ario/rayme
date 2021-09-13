@@ -429,7 +429,7 @@ std::vector<std::shared_ptr<mesh>> store_mesh(
   return res;
 }
 
-camera store_camera(int camera_index, simdjson::ondemand::document& doc)
+camera store_camera(int camera_index, simdjson::ondemand::document& doc, uint16_t image_height)
 {
   simdjson::ondemand::array doc_cameras;
   auto error = doc["cameras"].get(doc_cameras);
@@ -470,6 +470,7 @@ camera store_camera(int camera_index, simdjson::ondemand::document& doc)
       if (!error)
         std::cerr << "WARNING: camera's zfar was set to a finite value, will be ignored\n";
 
+      cam.set_image_height(image_height);
       return cam;
     }
     ++i;
@@ -486,7 +487,8 @@ void process_tree( std::shared_ptr<gltf_node>& relative_root
                  , const std::vector<accessor>& accessors
                  , const std::vector<gltf_material>& gltf_materials
                  , std::vector<std::shared_ptr<const primitive>>& primitives
-                 , std::shared_ptr<camera>& cam)
+                 , std::shared_ptr<camera>& cam
+                 , uint16_t image_height)
 {
   for (int child_index : relative_root->children_indices)
   {
@@ -544,7 +546,7 @@ void process_tree( std::shared_ptr<gltf_node>& relative_root
     if (current_raw_node.has_children)
     {
       current_node->children_indices = current_raw_node.children;
-      process_tree(current_node,doc, raw_nodes, buffers, views, accessors, gltf_materials, primitives, cam);
+      process_tree(current_node,doc, raw_nodes, buffers, views, accessors, gltf_materials, primitives, cam, image_height);
     }
 
     // process mesh
@@ -568,7 +570,7 @@ void process_tree( std::shared_ptr<gltf_node>& relative_root
     // process camera
     if (current_raw_node.has_camera)
     {
-      current_node->cam = std::make_shared<camera>(store_camera(current_raw_node.camera,doc));
+      current_node->cam = std::make_shared<camera>(store_camera(current_raw_node.camera,doc,image_height));
       apply_camera_transformations(*current_node);
       cam = current_node->cam;
     }
@@ -579,7 +581,8 @@ void process_tree( std::shared_ptr<gltf_node>& relative_root
 
 void parse_gltf( const std::string& filename
                , std::vector<std::shared_ptr<const primitive>>& primitives
-               , std::shared_ptr<camera>& cam)
+               , std::shared_ptr<camera>& cam
+               , uint16_t image_height)
 {
   simdjson::ondemand::parser parser;
   auto gltf = simdjson::padded_string::load(filename);
@@ -923,5 +926,5 @@ void parse_gltf( const std::string& filename
   scene_root->children_indices = roots_indices;
 
   // recursively process the scene tree
-  process_tree(scene_root, doc, raw_nodes, buffers, views, accessors, gltf_materials, primitives, cam);
+  process_tree(scene_root, doc, raw_nodes, buffers, views, accessors, gltf_materials, primitives, cam, image_height);
 }

@@ -5,18 +5,18 @@
 class image
 {
   private:
-    const int width;
-    const int height;
+    const uint16_t width;
+    const uint16_t height;
 
   public:
     std::vector<std::vector<color>> pixels;
 
   public:
     image() = delete;
-    image(int pixel_width, int pixel_height);
+    image(uint16_t pixel_width, uint16_t pixel_height);
 
-    int get_height() const;
-    int get_width() const;
+    uint16_t get_height() const;
+    uint16_t get_width() const;
 
     void write_to_ppm(std::string filename);
     void write_to_png(std::string filename);

@@ -10,12 +10,18 @@ class camera
     camera( float yfov_in_radians
           , float znear
           , float aspect_ratio = 16.0f/9.0f
+          , uint16_t image_height_in_pixels = 1080
           );
 
-    ray get_ray(float horiz_factor, float vert_factor, int canvas_height_in_pixels) const;
+    ray get_ray(uint16_t pixel_x, uint16_t pixel_y) const;
+    ray get_stochastic_ray(uint16_t pixel_x, uint16_t pixel_y) const;
 
     float get_aspect_ratio() const;
-    void set_aspect_ratio(float ratio);
+    void  set_aspect_ratio(float ratio);
+
+    uint16_t get_image_width()  const;
+    uint16_t get_image_height() const;
+    void set_image_height(uint16_t height);
 
     void transform_by(const transformation& transform);
 
@@ -23,9 +29,11 @@ class camera
     point origin;
     float aspect_ratio;
     float yfov;
-    float sensor_width;
+    float canvas_height;
+    float canvas_width;
     normed_vec3 rel_z;
     normed_vec3 rel_x;
     normed_vec3 rel_y;
+    vec3 offset;
     float znear;
 };
