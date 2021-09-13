@@ -56,18 +56,19 @@ inline vec3& operator*=(vec3& v, const transformation& m)
 
 inline transformation rotation_matrix(const vec4& q)
 {
+  float eps = machine_two_epsilon;
   return transformation{
-    1.0f - 2.0f * (q[1] * q[1] + q[2] * q[2]),
-    2.0f * (q[0] * q[1] + q[2] * q[3]),
-    2.0f * (q[0] * q[2] - q[1] * q[3]),
+    epsilon_clamp(1.0f - 2.0f * (q[1] * q[1] + q[2] * q[2])),
+    epsilon_clamp(2.0f * (q[0] * q[1] + q[2] * q[3])),
+    epsilon_clamp(2.0f * (q[0] * q[2] - q[1] * q[3])),
     0.0f,
-    2.0f * (q[0] * q[1] - q[2] * q[3]),
-    1.0f - 2.0f * (q[0] * q[0] + q[2] * q[2]),
-    2.0f * (q[1] * q[2] + q[0] * q[3]),
+    epsilon_clamp(2.0f * (q[0] * q[1] - q[2] * q[3])),
+    epsilon_clamp(1.0f - 2.0f * (q[0] * q[0] + q[2] * q[2])),
+    epsilon_clamp(2.0f * (q[1] * q[2] + q[0] * q[3])),
     0.0f,
-    2.0f * (q[0] * q[2] + q[1] * q[3]),
-    2.0f * (q[1] * q[2] - q[0] * q[3]),
-    1.0f - 2.0f * (q[0] * q[0] + q[1] * q[1]),
+    epsilon_clamp(2.0f * (q[0] * q[2] + q[1] * q[3])),
+    epsilon_clamp(2.0f * (q[1] * q[2] - q[0] * q[3])),
+    epsilon_clamp(1.0f - 2.0f * (q[0] * q[0] + q[1] * q[1])),
     0.0f,
     0.0f, 0.0f, 0.0f,1.0f
   };
