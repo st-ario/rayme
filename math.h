@@ -351,9 +351,9 @@ inline normed_vec3 random_hemisphere_unit(const normed_vec3& normal)
 {
   glm::mat3 change_of_base;
 
-  if (normal.x() == 0 && normal.z() == 0)
+  if (normal.x() < machine_two_epsilon && normal.z() < machine_two_epsilon)
   {
-    if (normal.y() > 0)
+    if (normal.y() > machine_two_epsilon)
       return random_upper_hemisphere_unit();
     else
     {
@@ -361,9 +361,20 @@ inline normed_vec3 random_hemisphere_unit(const normed_vec3& normal)
                          0.0f, -1.0f, 0.0f,
                          0.0f,  0.0f, 1.0f};
     }
+  } else if (normal.y() < machine_two_epsilon && normal.z() < machine_two_epsilon) {
+    if (normal.x() > machine_two_epsilon)
+    {
+      change_of_base = {  0.0f, 1.0f, 0.0f,
+                         -1.0f, 0.0f, 0.0f,
+                          0.0f, 0.0f, 1.0f};
+    } else {
+      change_of_base = { 0.0f, -1.0f, 0.0f,
+                         1.0f,  0.0f, 0.0f,
+                         0.0f,  0.0f, 1.0f};
+    }
   } else {
-    normed_vec3 rel_x = unit(cross(normal,vec3(1.0f,0.0f,0.0f)));
-    normed_vec3 rel_z = unit(cross(rel_x,normal));
+    normed_vec3 rel_x{unit(cross(normal,normed_vec3::absolute_x()))};
+    normed_vec3 rel_z{unit(cross(rel_x,normal))};
     change_of_base = {rel_x.to_vec3(), normal.to_vec3(), rel_z.to_vec3()};
   }
 

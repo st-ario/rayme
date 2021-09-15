@@ -27,9 +27,7 @@ ray camera::get_ray(uint16_t pixel_x, uint16_t pixel_y) const
                               + vec3{pixel_x + 0.5f, -(pixel_y + 0.5f), 0.0f}};
   vec3 nonunital_direction{to_world*nonunital_rel_direction};
 
-  normed_vec3 direction = unit(nonunital_direction);
-  point offset_origin{origin + znear * direction.to_vec3()};
-  return ray(offset_origin, unit(nonunital_direction));
+  return ray(origin,unit(nonunital_direction));
 }
 
 ray camera::get_stochastic_ray(uint16_t pixel_x, uint16_t pixel_y) const
@@ -40,9 +38,7 @@ ray camera::get_stochastic_ray(uint16_t pixel_x, uint16_t pixel_y) const
                                     , 0.0f}};
   vec3 nonunital_direction{to_world*nonunital_rel_direction};
 
-  normed_vec3 direction = unit(nonunital_direction);
-  point offset_origin{origin + znear * direction.to_vec3()};
-  return ray(offset_origin, unit(nonunital_direction));
+  return ray(origin,unit(nonunital_direction));
 }
 
 float camera::get_aspect_ratio() const { return aspect_ratio; }

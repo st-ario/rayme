@@ -2,12 +2,14 @@
 #include "meshes.h"
 #include "materials.h"
 #include "camera.h"
+#include "integrator.h"
 
 #include <future>
 
 static color ray_color(const ray& r, const element& world)
 {
-  color pixel_color;
+  const uint16_t integration_samples_N{100};
+  color pixel_color{0.0f,0.0f,0.0f};
   auto rec = world.hit(r, infinity);
 
   if (!rec)
@@ -15,10 +17,17 @@ static color ray_color(const ray& r, const element& world)
 
   hit_record record = rec.value().first->get_record(r,rec.value().second);
 
+  for (uint16_t i = 0; i < integration_samples_N; ++i)
+  {
+  // assuming everything is Lambertian
+  // TODO change when materials are properly dealt with
   if (record.ptr_mat->emitter)
-    pixel_color = record.ptr_mat->emissive_factor;
-  else
-    pixel_color = record.ptr_mat->base_color;
+    pixel_color += record.ptr_mat->emissive_factor;
+
+  pixel_color += incoming_light(r.at(record.t), record.normal, world);
+  }
+
+  pixel_color /= integration_samples_N;
 
   return pixel_color;
 }
