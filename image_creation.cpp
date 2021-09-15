@@ -23,7 +23,6 @@ int main(int argc, char* argv[])
   std::cerr << "\nExporting file...";
   std::flush(std::cerr);
 
-  picture.write_to_ppm("image");
   picture.write_to_png("image");
 
   std::cerr << "\nDone!\n";

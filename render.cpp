@@ -8,28 +8,9 @@
 
 static color ray_color(const ray& r, const element& world)
 {
-  const uint16_t integration_samples_N{100};
-  color pixel_color{0.0f,0.0f,0.0f};
-  auto rec = world.hit(r, infinity);
-
-  if (!rec)
-    return {0,0,0};
-
-  hit_record record = rec.value().first->get_record(r,rec.value().second);
-
-  for (uint16_t i = 0; i < integration_samples_N; ++i)
-  {
-  // assuming everything is Lambertian
-  // TODO change when materials are properly dealt with
-  if (record.ptr_mat->emitter)
-    pixel_color += record.ptr_mat->emissive_factor;
-
-  pixel_color += incoming_light(r.at(record.t), record.normal, world);
-  }
-
-  pixel_color /= integration_samples_N;
-
-  return pixel_color;
+  const uint16_t integration_samples_N{300};
+  const uint16_t depth{0};
+  return incoming_light(r,world,integration_samples_N,0);
 }
 
 static void render_tile( image* picture
@@ -60,7 +41,7 @@ static void render_tile( image* picture
         pixel_color += ray_color(r, *world);
       }
       pixel_color = pixel_color / double(samples_per_pixel);
-      gamma2_correct(pixel_color);
+      gamma_correct(pixel_color,3);
 
       picture->pixels[v_offset + y][h_offset + x] = pixel_color;
     }

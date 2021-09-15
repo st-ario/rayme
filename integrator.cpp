@@ -1,25 +1,45 @@
 #include "integrator.h"
 #include "materials.h"
 
-color incoming_light(point p, const normed_vec3& normal, const element& world)
+color integrator(const ray& r, const element& world, uint16_t depth)
 {
-  color res{0.0f,0.0f,0.0f};
+  // assuming everything is Lambertian
+  // TODO change when materials are properly dealt with
+  color res{0.0,0.0,0.0};
 
-  normed_vec3 scattered = random_hemisphere_unit(normal);
-  ray r{p,scattered};
+  if (depth > uint16_t(5))
+    return res;
 
-  auto rec = world.hit(r,infinity);
+  auto rec = world.hit(r, infinity);
+
   if (!rec)
-    return {0,0,0};
+    return res;
 
   hit_record record = rec.value().first->get_record(r,rec.value().second);
 
-  color emit{0.0f,0.0f,0.0f};
-
   if (record.ptr_mat->emitter)
-    emit = record.ptr_mat->emissive_factor;
+    res += record.ptr_mat->emissive_factor;
 
-  res += static_cast<double>(pi * dot(normal,scattered)) * emit;
+  normed_vec3 scatter_dir = random_hemisphere_unit(record.normal);
+  ray scattered{r.at(record.t),scatter_dir};
 
+  color incoming{0.0,0.0,0.0};
+  incoming += record.ptr_mat->base_color
+    * integrator(scattered,world,depth+1)
+    * static_cast<double>(dot(record.normal,scatter_dir * pi));
+
+  res += incoming;
+
+  return res;
+}
+
+color incoming_light(const ray& r, const element& world, uint16_t integration_samples_N, uint16_t depth)
+{
+  color res{0.0,0.0,0.0};
+
+  for (uint16_t i = 0; i < integration_samples_N; ++i)
+    res += integrator(r,world,depth);
+
+  res /= integration_samples_N;
   return res;
 }

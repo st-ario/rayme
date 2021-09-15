@@ -4,7 +4,7 @@
 
 struct material
 {
-  vec3 base_color = {1.0f,1.0f,1.0f};
+  color base_color = {1.0,1.0,1.0};
   float alpha = 1.0f;
   bool emitter = false;
   float metallic_factor = 1.0f;
