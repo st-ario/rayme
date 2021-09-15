@@ -321,12 +321,30 @@ inline normed_vec3 permute(const normed_vec3& v, int x, int y, int z)
   return normed_vec3{v[x], v[y], v[z]};
 }
 
+inline normed_vec3 random_unit()
+{
+  // computed normalizing standard Gaussians for each coordinate
+  // to get the uniform distribution on the surface
+  float rx = standard_normal_random_float();
+  float ry = standard_normal_random_float();
+  float rz = standard_normal_random_float();
+  float inverse_norm = fast_inverse_sqrt(rx*rx + ry*ry + rz*rz);
+  return normed_vec3(rx*inverse_norm,ry*inverse_norm,rz*inverse_norm);
+}
+
+inline vec3 random_vec3_in_unit_disk()
+{
+  float random_radius = random_float();
+  return random_radius * random_unit();
+}
+
 inline normed_vec3 random_upper_hemisphere_unit()
 {
-  float a = random_float();
-  float b = std::sqrt(1.0f - a*a);
-  float c = 2 * pi * random_float();
-  return normed_vec3(std::cos(c)*b, a, std::sin(c)*b);
+  normed_vec3 res = random_unit();
+  if (random_unit().y() < 0)
+    return normed_vec3(res.x(), - res.y(), res.z());
+
+  return res;
 }
 
 inline normed_vec3 random_hemisphere_unit(const normed_vec3& normal)
