@@ -1,6 +1,9 @@
 #pragma once
 
 #include "ray.h"
+#include "extern/glm/glm/mat3x3.hpp"
+
+using mat3 = glm::mat3;
 
 class transformation;
 
@@ -34,6 +37,7 @@ class camera
     normed_vec3 rel_z;
     normed_vec3 rel_x;
     normed_vec3 rel_y;
-    vec3 offset;
+    mat3 to_world;
+    vec3 rel_upper_left_corner;
     float znear;
 };
