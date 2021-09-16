@@ -26,7 +26,7 @@ color integrator(const ray& r, const element& world, uint16_t depth)
   color incoming{0.0,0.0,0.0};
   incoming += record.ptr_mat->base_color
     * integrator(scattered,world,depth+1)
-    * static_cast<double>(dot(record.normal,scatter_dir * pi));
+    * dot(record.normal,scatter_dir * pi);
 
   res += incoming;
 

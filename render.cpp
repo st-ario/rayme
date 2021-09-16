@@ -40,7 +40,7 @@ static void render_tile( image* picture
         //ray r{cam->get_stochastic_ray(h_offset + x, v_offset + y)};
         pixel_color += ray_color(r, *world);
       }
-      pixel_color = pixel_color / double(samples_per_pixel);
+      pixel_color = pixel_color / static_cast<float>(samples_per_pixel);
       gamma_correct(pixel_color,3);
 
       picture->pixels[v_offset + y][h_offset + x] = pixel_color;

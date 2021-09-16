@@ -100,7 +100,7 @@ inline float next_float_down(float f)
 // vectors
 
 using vec3 = glm::vec3;
-typedef glm::vec<3,double> color;
+typedef glm::vec3 color;
 typedef vec3 point;
 
 class normed_vec3 : private vec3
