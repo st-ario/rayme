@@ -13,6 +13,7 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 set(GCC_WARNING_FLAGS "")
 
 add_executable(${PROJECT_NAME}
+  bdf.cpp
   bvh.cpp
   camera.cpp
   gltf_parser.cpp

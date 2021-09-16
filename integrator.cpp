@@ -1,5 +1,6 @@
 #include "integrator.h"
 #include "materials.h"
+#include "bdf.h"
 
 color integrator(const ray& r, const element& world, uint16_t depth)
 {
@@ -20,13 +21,12 @@ color integrator(const ray& r, const element& world, uint16_t depth)
   if (record.ptr_mat->emitter)
     res += record.ptr_mat->emissive_factor;
 
-  normed_vec3 scatter_dir = random_hemisphere_unit(record.normal);
-  ray scattered{r.at(record.t),scatter_dir};
+  diffuse_brdf brdf{record.ptr_mat};
+
+  auto sample{brdf.sample(r.at(record.t),record.normal)};
 
   color incoming{0.0,0.0,0.0};
-  incoming += record.ptr_mat->base_color
-    * integrator(scattered,world,depth+1)
-    * dot(record.normal,scatter_dir * pi);
+  incoming += sample.first * integrator(sample.second,world,depth+1);
 
   res += incoming;
 
