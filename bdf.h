@@ -9,7 +9,7 @@ class diffuse_brdf
   public:
     diffuse_brdf(const std::shared_ptr<const material>& ptr_mat) : ptr_mat{ptr_mat} {};
 
-    float pdf();
+    float pdf(const normed_vec3& normal, const normed_vec3& scattered);
     color eval();
     std::pair<color,ray> sample(const point& at, const normed_vec3& normal);
 
