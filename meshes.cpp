@@ -34,6 +34,74 @@ aabb triangle::bounding_box() const
   return aabb(vec3(min_x, min_y, min_z), vec3(max_x, max_y, max_z));
 }
 
+void light::compute_surface_area()
+{
+  float surface{0.0f};
+  triangles_areas.reserve(n_triangles);
+  triangles_cdf.reserve(n_triangles);
+
+  float triangle_surface{0.0f};
+
+  for (size_t i = 0; i < n_triangles; ++i)
+  {
+    const point& p0 = vertices[vertex_indices[3*i]];
+    const point& p1 = vertices[vertex_indices[3*i+1]];
+    const point& p2 = vertices[vertex_indices[3*i+2]];
+
+    triangle_surface = 0.5f * glm::length(cross(p1 - p0, p2 - p0));
+    triangles_areas.push_back(triangle_surface);
+
+    surface += triangle_surface;
+    triangles_cdf.push_back(surface);
+  }
+
+  surface_area = surface;
+}
+
+void world_lights::compute_light_areas()
+{
+  for (auto& light : lights())
+    light->compute_surface_area();
+}
+
+point light::random_surface_point() const
+{
+  // select a triangle with a PDF weighted by the surface of each triangle using the inversion method
+  // then return a uniformly distributed point from it
+
+  // binary search to invert the CDF
+  float r0{random_float()};
+
+  size_t sel{0};
+  size_t len{n_triangles};
+  size_t step{0};
+
+  while (len != 0)
+  {
+    step = len / 2;
+
+    if (triangles_cdf[sel + step] < r0)
+    {
+      sel += ++step;
+      len -= step;
+    } else {
+      len = step;
+    }
+  }
+
+  const point& p0 = vertices[vertex_indices[3*sel]];
+  const point& p1 = vertices[vertex_indices[3*sel + 1]];
+  const point& p2 = vertices[vertex_indices[3*sel + 2]];
+
+  // uniform distribution on a triangle
+  float r1{std::sqrt(random_float())};
+  float r2{random_float()};
+
+  point res =  (1.0f - r1) * p0 + (r1 * (1.0f - r2)) * p1 + (r1 * r2) * p2;
+
+  return res;
+}
+
 hit_check triangle::hit(const ray& r, float t_max) const
 {
   // adapted from pbrt v3

@@ -415,7 +415,12 @@ std::vector<std::shared_ptr<mesh>> store_mesh(
       std::shared_ptr<const material> ptr_mat = std::make_shared<const material>(
         material_from_info(gltf_materials[prim.material]));
 
-      res.emplace_back(std::make_shared<mesh>(n_vertices, n_triangles, vertex_indices, vertices, ptr_mat, normals, tangents));
+      if (ptr_mat->emitter)
+        res.emplace_back(std::make_shared<light>( n_vertices, n_triangles, vertex_indices
+                                                , vertices, ptr_mat, normals, tangents));
+      else
+        res.emplace_back(std::make_shared<mesh>( n_vertices, n_triangles, vertex_indices
+                                               , vertices, ptr_mat, normals, tangents));
     }
     ++j;
   }
@@ -927,4 +932,12 @@ void parse_gltf( const std::string& filename
 
   // recursively process the scene tree
   process_tree(scene_root, doc, raw_nodes, buffers, views, accessors, gltf_materials, primitives, cam, image_height);
+
+  if (world_lights::lights().empty())
+  {
+    std::cerr << "ERROR: the scene doesn't contain any light sources";
+    std::exit(1);
+  }
+
+  world_lights::compute_light_areas();
 }
