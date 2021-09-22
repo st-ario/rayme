@@ -2,25 +2,38 @@
 #include "extern/glm/glm/gtx/norm.hpp"
 
 #include <random>
+#include <thread>
+#include <time.h>
+
+float random_uint16_t(uint16_t min, uint16_t max)
+{
+  static thread_local std::mt19937_64 generator(std::clock()
+    + std::hash<std::thread::id>()(std::this_thread::get_id()));
+  static std::uniform_int_distribution<uint16_t> distribution(min, max);
+  return distribution(generator);
+}
 
 float random_float()
 {
-    static std::uniform_real_distribution<float> distribution(0.0, 1.0);
-    static std::mt19937_64 generator;
-    return distribution(generator);
+  static thread_local std::mt19937_64 generator(std::clock()
+    + std::hash<std::thread::id>()(std::this_thread::get_id()));
+  static std::uniform_real_distribution<float> distribution(0.0, 1.0);
+  return distribution(generator);
 }
 
 float random_float(float min, float max)
 {
-    static std::uniform_real_distribution<float> distribution(min, max);
-    static std::mt19937_64 generator;
-    return distribution(generator);
+  static thread_local std::mt19937_64 generator(std::clock()
+    + std::hash<std::thread::id>()(std::this_thread::get_id()));
+  static std::uniform_real_distribution<float> distribution(min, max);
+  return distribution(generator);
 }
 
 float standard_normal_random_float()
 {
+  static thread_local std::mt19937_64 generator(std::clock()
+    + std::hash<std::thread::id>()(std::this_thread::get_id()));
   static std::normal_distribution<float> distribution(0,1);
-  static std::mt19937_64 generator;
   return distribution(generator);
 }
 

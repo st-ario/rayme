@@ -70,7 +70,7 @@ point light::random_surface_point() const
   // then return a uniformly distributed point from it
 
   // binary search to invert the CDF
-  float r0{random_float()};
+  float r0{random_float(0.0f,get_surface_area())};
 
   size_t sel{0};
   size_t len{n_triangles};

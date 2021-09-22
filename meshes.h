@@ -59,16 +59,16 @@ class world_lights
     world_lights& operator=(const world_lights&) = delete;
     world_lights& operator=(world_lights&&) = delete;
 
-    static const std::vector<std::shared_ptr<light>>& lights() { return get().lights_vector; }
+    static const std::vector<light*>& lights() { return get().lights_vector; }
 
   private:
     world_lights() = default;
 
     static world_lights& get() { static world_lights static_instance; return static_instance; }
-    void add(std::shared_ptr<light>&& l) { lights_vector.emplace_back(l); }
+    void add(light* l) { lights_vector.push_back(l); }
     static void compute_light_areas();
 
-    std::vector<std::shared_ptr<light>> lights_vector;
+    std::vector<light*> lights_vector;
 };
 
 class light : public mesh
@@ -84,7 +84,7 @@ class light : public mesh
          , std::vector<vec4> tangents = {})
          : mesh{n_vertices,n_triangles,vertex_indices,vertices,ptr_mat,normals,tangents}
          {
-           world_lights::get().add(std::make_shared<light>(*this));
+           world_lights::get().add(this);
          }
 
     // return a uniformly distributed random point on the surface of the mesh

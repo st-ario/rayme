@@ -10,7 +10,8 @@ static color ray_color(const ray& r, const element& world)
 {
   const uint16_t integration_samples_N{300};
   const uint16_t depth{0};
-  return incoming_light(r,world,integration_samples_N,0);
+  return sample_bdf(r,world,integration_samples_N,0);
+  //return sample_lights(r,world,integration_samples_N,0);
 }
 
 static void render_tile( image* picture

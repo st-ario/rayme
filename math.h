@@ -29,6 +29,7 @@ static constexpr float two_pi{2.0f*pi};
 
 float random_float();
 float random_float(float min, float max);
+float random_uint16_t(uint16_t min, uint16_t max);
 float standard_normal_random_float();
 
 float fast_inverse_sqrt(float x);
