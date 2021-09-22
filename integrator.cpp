@@ -76,28 +76,23 @@ color direct_light(const ray& r, const element& world, uint16_t depth, uint16_t 
   hit_record record = rec.value().first->get_record(r,rec.value().second);
 
   if (record.ptr_mat->emitter)
-  {
-    res += record.ptr_mat->emissive_factor;
-    return res;
-  }
+    return record.ptr_mat->emissive_factor;
 
   point target = world_lights::lights()[L]->random_surface_point();
+  point x = r.at(record.t);
 
-  vec3 nonunital_shadow_dir{target - r.at(record.t)};
-  ray shadow{r.at(record.t),unit(nonunital_shadow_dir)};
+  vec3 nonunital_shadow_dir{target - x};
+  ray shadow{x,unit(nonunital_shadow_dir)};
 
   auto rec_shadow = world.hit(shadow, infinity);
   auto record_shadow = rec_shadow.value().first->get_record(shadow,rec_shadow.value().second);
 
-  float v{0.0f};
-
+  vec3 emit{0.0f,0.0f,0.0f};
   vec3 diff{glm::abs(shadow.at(record_shadow.t) - target)};
   if (diff.x < machine_two_epsilon && diff.y < machine_two_epsilon && diff.z < machine_two_epsilon)
-    v = 1.0f;
+    emit = record_shadow.ptr_mat->emissive_factor;
 
-  vec3 emit = v * record_shadow.ptr_mat->emissive_factor;
-
-  float projection_factor = - dot(record_shadow.normal,shadow.direction) / glm::length2(nonunital_shadow_dir);
+  float projection_factor = dot(record_shadow.normal, - shadow.direction) / glm::length2(nonunital_shadow_dir);
 
   res += record.ptr_mat->base_color/pi * emit
        * dot(record.normal, shadow.direction) * projection_factor
