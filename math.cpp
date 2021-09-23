@@ -5,11 +5,11 @@
 #include <thread>
 #include <time.h>
 
-float random_uint16_t(uint16_t min, uint16_t max)
+size_t random_size_t(size_t min, size_t max)
 {
   static thread_local std::mt19937_64 generator(std::clock()
     + std::hash<std::thread::id>()(std::this_thread::get_id()));
-  static std::uniform_int_distribution<uint16_t> distribution(min, max);
+  static std::uniform_int_distribution<size_t> distribution(min, max);
   return distribution(generator);
 }
 

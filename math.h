@@ -27,9 +27,9 @@ static constexpr float two_pi{2.0f*pi};
 
 // Utility Functions
 
+size_t random_size_t(size_t min, size_t max);
 float random_float();
 float random_float(float min, float max);
-float random_uint16_t(uint16_t min, uint16_t max);
 float standard_normal_random_float();
 
 float fast_inverse_sqrt(float x);
@@ -194,7 +194,7 @@ normed_vec3 refract(const normed_vec3& incident, const normed_vec3& normal,
                     float refractive_indices_ratio);
 
 void gamma2_correct(color& c);
-void gamma_correct(color& c, double gamma);
+void gamma_correct(color& c, float gamma);
 
 inline normed_vec3 normed_vec3::operator-() const
 {
@@ -248,7 +248,6 @@ inline vec3 cross(const normed_vec3& v, const vec3& w)
   return res;
 }
 
-
 inline void gamma2_correct(color& c)
 {
   c.r = std::sqrt(c.r);
@@ -256,11 +255,12 @@ inline void gamma2_correct(color& c)
   c.b = std::sqrt(c.b);
 }
 
-inline void gamma_correct(color& c, double gamma)
+inline void gamma_correct(color& c, float gamma)
 {
-  c.r = std::pow(c.r, 1.0/gamma);
-  c.g = std::pow(c.g, 1.0/gamma);
-  c.b = std::pow(c.b, 1.0/gamma);
+  float g{1.0f/gamma};
+  c.r = std::pow(c.r, g);
+  c.g = std::pow(c.g, g);
+  c.b = std::pow(c.b, g);
 }
 
 inline int max_dimension(const vec3& v)
