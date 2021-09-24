@@ -32,43 +32,27 @@ class aabb
 
       for (int a = 0; a < 3; a++)
       {
-        if (r.direction[a] != 0.0f)
-        {
-          float invD = 1.0f / r.direction[a];
+        // if for any i r.direction[i] is 0, invD[i] is infinity
+        // in order to avoid 0*infinity, we need to handle the following case separately
+        // conservatively: true (false negatives would be bad, false positives have little
+        // impact and will be handled correctly by some subsequent hit check)
+        if (r.origin[a] == 0.0f && (r.origin[a] == minimum[a] || r.origin[a] == maximum[a]))
+          return false;
 
-          // smaller coordinate
-          float t0 = (minimum[a] - r.origin[a]) * invD;
-          // bigger coordinate
-          float t1 = (maximum[a] - r.origin[a]) * invD;
+        float t_small = (minimum[a] - r.origin[a]) * r.invD[a];
+        float t_big = (maximum[a] - r.origin[a]) * r.invD[a];
 
-          // if the direction is negative, the order of the planes is inverted
-          if (invD < 0.0f)
-            std::swap(t0, t1);
+        // if the direction is negative, the order of the planes is inverted
+        if (r.invD[a] < 0.0f)
+          std::swap(t_small, t_big);
 
-          t_min = t0 > t_min ? t0 : t_min;
-          t_max = t1 < t_max ? t1 : t_max;
-          if (t_max <= t_min)
-            return false;
-        } else {
-          if (r.origin[a] == minimum[a] || r.origin[a] == maximum[a])
-          {
-            // the ray lies on one of the planes bounding the slab
-            return false;
-          }
-          // otherwise, use signed infinities to deal with the comparisons
+        // float rounding compensation
+        t_big *= 1.0f + 2.0f * gamma_bound(3.0);
 
-          float invD = r.direction[a] * infinity;
-          float t0 = (minimum[a] - r.origin[a]) * invD;
-          float t1 = (maximum[a] - r.origin[a]) * invD;
-
-          if (invD < 0.0f)
-            std::swap(t0, t1);
-
-          t_min = t0 > t_min ? t0 : t_min;
-          t_max = t1 < t_max ? t1 : t_max;
-          if (t_max <= t_min)
-            return false;
-        }
+        t_min = t_small > t_min ? t_small : t_min;
+        t_max = t_big < t_max ? t_big : t_max;
+        if (t_min > t_max)
+          return false;
       }
       return true;
     }
