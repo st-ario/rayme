@@ -124,7 +124,7 @@ struct accessor
 
 int component_size(const accessor& acc)
 {
-  int s;
+  int s{-1};
   switch(acc.component_type)
   {
     case 5120: s = 1; break;
@@ -133,7 +133,7 @@ int component_size(const accessor& acc)
     case 5123: s = 2; break;
     case 5125: s = 4; break;
     case 5126: s = 4; break;
-    default: ; // print error message and exit
+    default: std::cout << "ERROR: bad component type specification in glTF document;"; std::exit(1);
   }
 
   return s;
@@ -141,7 +141,7 @@ int component_size(const accessor& acc)
 
 int n_components(const accessor& acc)
 {
-  int n;
+  int n{-1};
   if (acc.type == "SCALAR") {
     n = 1;
   } else if (acc.type == "VEC2") {
@@ -157,7 +157,8 @@ int n_components(const accessor& acc)
   } else if (acc.type == "MAT4") {
     n = 16;
   } else {
-    //print error message and exit
+    std::cout << "ERROR: bad accessor type specification in glTF document;";
+    std::exit(1);
   }
 
   return n;
@@ -347,7 +348,7 @@ std::vector<std::shared_ptr<mesh>> store_mesh(
 
         int offset = views[acc.buffer_view].byte_offset
                    + acc.byte_offset;
-        int s_component = component_size(acc);
+        int s_component{component_size(acc)};
         int length = s_component * acc.count;
         const gltf_buffer& data{buffers[views[acc.buffer_view].buffer_index]};
 
@@ -632,7 +633,7 @@ void parse_gltf( const std::string& filename
         std::exit(1);
     }
 
-    int j = 0;
+    uint64_t j = 0;
     for (auto s : document_scenes)
     {
       if (j == selected_scene)
