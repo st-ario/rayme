@@ -145,27 +145,17 @@ hit_check triangle::hit(const ray& r, float t_max) const
   point p2t = p2 - r.origin;
 
   // Permute components of triangle vertices and ray direction
-  int kz = max_dimension(abs(r.direction.to_vec3()));
-  int kx = kz + 1;
-  if (kx == 3) kx = 0;
-  int ky = kx + 1;
-  if (ky == 3) ky = 0;
-  normed_vec3 d = permute(r.direction, kx, ky, kz);
-  p0t = permute(p0t, kx, ky, kz);
-  p1t = permute(p1t, kx, ky, kz);
-  p2t = permute(p2t, kx, ky, kz);
+  p0t = permute(p0t, r.perm.x, r.perm.y, r.perm.z);
+  p1t = permute(p1t, r.perm.x, r.perm.y, r.perm.z);
+  p2t = permute(p2t, r.perm.x, r.perm.y, r.perm.z);
 
   // shear to align ray direction with the Y axis
-  // TODO memoize these values in the ray class
-  float Sx = - d.x() / d.z();
-  float Sy = - d.y() / d.z();
-  float Sz =   1.0f / d.z();
-  p0t.x += Sx * p0t.z;
-  p0t.y += Sy * p0t.z;
-  p1t.x += Sx * p1t.z;
-  p1t.y += Sy * p1t.z;
-  p2t.x += Sx * p2t.z;
-  p2t.y += Sy * p2t.z;
+  p0t.x += r.shear_coefficients.x * p0t.z;
+  p0t.y += r.shear_coefficients.y * p0t.z;
+  p1t.x += r.shear_coefficients.x * p1t.z;
+  p1t.y += r.shear_coefficients.y * p1t.z;
+  p2t.x += r.shear_coefficients.x * p2t.z;
+  p2t.y += r.shear_coefficients.y * p2t.z;
 
   // Compute edge function coefficients
   float e0 = p1t.x * p2t.y - p1t.y * p2t.x;
@@ -193,9 +183,9 @@ hit_check triangle::hit(const ray& r, float t_max) const
   if (det == 0) return std::nullopt;
 
   // Compute scaled hit distance to triangle and test against ray $t$ range
-  p0t.z *= Sz;
-  p1t.z *= Sz;
-  p2t.z *= Sz;
+  p0t.z *= r.shear_coefficients.z;
+  p1t.z *= r.shear_coefficients.z;
+  p2t.z *= r.shear_coefficients.z;
   float tScaled = e0 * p0t.z + e1 * p1t.z + e2 * p2t.z;
   if (det < 0 && (tScaled >= 0 || tScaled < t_max * det))
       return std::nullopt;

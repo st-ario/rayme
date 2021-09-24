@@ -129,7 +129,7 @@ class normed_vec3 : private vec3
 
     // return unit vector corresponding to v
     friend normed_vec3 unit(const vec3& v);
-    friend normed_vec3 permute(const normed_vec3& v, int x, int y, int z);
+    friend normed_vec3 permute(const normed_vec3& v, uint8_t x, uint8_t y, uint8_t z);
 
     friend float dot(const normed_vec3& v, const normed_vec3& w);
     friend float dot(const vec3& v,        const normed_vec3& w);
@@ -184,7 +184,7 @@ inline normed_vec3 unit(const vec3& v)
   return normed_vec3(n[0],n[1],n[2]);
 }
 
-int max_dimension(const vec3& v);
+uint8_t max_dimension(const vec3& v);
 float max_component(const vec3& v);
 
 inline vec3 abs(const vec3& v);
@@ -263,7 +263,7 @@ inline void gamma_correct(color& c, float gamma)
   c.b = std::pow(c.b, g);
 }
 
-inline int max_dimension(const vec3& v)
+inline uint8_t max_dimension(const vec3& v)
 {
   if (v.x > v.y)
   {
@@ -320,12 +320,12 @@ inline vec3 abs(const vec3& v)
   return vec3(std::fabs(v[0]), std::fabs(v[1]), std::fabs(v[2]));
 }
 
-inline vec3 permute(const vec3& v, int x, int y, int z)
+inline vec3 permute(const vec3& v, uint8_t x, uint8_t y, uint8_t z)
 {
   return vec3{v[x], v[y], v[z]};
 }
 
-inline normed_vec3 permute(const normed_vec3& v, int x, int y, int z)
+inline normed_vec3 permute(const normed_vec3& v, uint8_t x, uint8_t y, uint8_t z)
 {
   return normed_vec3{v[x], v[y], v[z]};
 }
