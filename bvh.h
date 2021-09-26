@@ -2,8 +2,9 @@
 
 #include "ray.h"
 
-class material; // defined in materials.h
+class material;
 
+// TODO verify whether a tuple is faster
 struct hit_record
 {
   float t;
@@ -63,8 +64,15 @@ class aabb
 };
 
 class primitive;
-// hit_check: type to say whether a primitive was hit, and if so, which one and at what ray coordinate
-using hit_check = std::optional<std::pair<const primitive*, float>>;
+
+// what where how
+using wwh = std::tuple<const primitive*, float, vec3>;
+enum wwh_fields { WHAT, WHERE, HOW };
+// TODO check whether a struct would be faster
+
+// hit_check: type to say whether a primitive was hit, and, if so, to store which primitive,
+// the ray coordinate for the hit and the error estimate
+using hit_check = std::optional<wwh>;
 
 // elements: primitives and nodes of the BVH
 class element
@@ -100,13 +108,13 @@ class bvh_node : public element
         return std::nullopt;
 
       hit_check hit_left = left->hit(r, t_max);
-      hit_check hit_right = right->hit(r, (hit_left) ? hit_left->second : t_max);
+      hit_check hit_right = right->hit(r, (hit_left) ? std::get<WHERE>(hit_left.value()) : t_max);
 
       if (hit_left)
       {
         if (hit_right)
         {
-          if (hit_left->second < hit_right->second)
+          if (std::get<WHERE>(hit_left.value()) < std::get<WHERE>(hit_right.value()))
           {
             return *hit_left;
           } else {

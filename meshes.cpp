@@ -196,6 +196,10 @@ hit_check triangle::hit(const ray& r, float t_max) const
   float invDet = 1 / det;
   float t = tScaled * invDet;
 
+  float b0 = e0 * invDet;
+  float b1 = e1 * invDet;
+  float b2 = e2 * invDet;
+
   // Compute $\delta_z$ term for triangle $t$ error bounds
   float maxZt = max_component(abs(vec3(p0t.z, p1t.z, p2t.z)));
   float deltaZ = gamma_bound(3) * maxZt;
@@ -216,17 +220,11 @@ hit_check triangle::hit(const ray& r, float t_max) const
   if (t <= deltaT)
     return std::nullopt;
 
-  /* error bounds, reintroduce later
-  float b0 = e0 * invDet;
-  float b1 = e1 * invDet;
-  float b2 = e2 * invDet;
-
-  // Compute error bounds for triangle intersection
+  // Compute error bounds
   float xAbsSum = (std::abs(b0 * p0.x) + std::abs(b1 * p1.x) + std::abs(b2 * p2.x));
   float yAbsSum = (std::abs(b0 * p0.y) + std::abs(b1 * p1.y) + std::abs(b2 * p2.y));
   float zAbsSum = (std::abs(b0 * p0.z) + std::abs(b1 * p1.z) + std::abs(b2 * p2.z));
-  vec3 pError = gamma_bound(7) * vec3(xAbsSum, yAbsSum, zAbsSum);
-  */
+  vec3 p_error = gamma_bound(7) * vec3(xAbsSum, yAbsSum, zAbsSum);
 
-  return std::make_pair(this, t);
+  return std::make_tuple(this, t, p_error);
 }

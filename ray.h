@@ -45,11 +45,9 @@ struct ray
   {
     return origin + t * direction;
   }
-
-  point offset_ray_origin(const point& p, const vec3& p_error, const normed_vec3& normal, const vec3& w);
 };
 
-inline point ray::offset_ray_origin(const point& p, const vec3& p_error, const normed_vec3& normal, const vec3& w)
+inline point offset_ray_origin(const point& p, const vec3& p_error, const normed_vec3& normal, const vec3& w)
 {
     float d = dot(abs(normal.to_vec3()), p_error);
     vec3 offset = d * normal;

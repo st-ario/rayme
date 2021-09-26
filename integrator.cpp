@@ -25,7 +25,7 @@ color direct_light(const point& x, const normed_vec3& normal, const element& wor
   if (!rec_shadow)
     return {0.0f,0.0f,0.0f};
 
-  auto record_shadow = rec_shadow.value().first->get_record(shadow,rec_shadow.value().second);
+  auto record_shadow = std::get<WHAT>(rec_shadow.value())->get_record(shadow,std::get<WHERE>(rec_shadow.value()));
 
   vec3 emit{0.0f,0.0f,0.0f};
   vec3 diff{glm::abs(shadow.at(record_shadow.t) - target)};
@@ -63,7 +63,7 @@ color integrator(const ray& r, const element& world, uint16_t depth, color& thro
   auto rec = world.hit(r, infinity);
   if (!rec)
     return {0.0f,0.0f,0.0f};
-  hit_record record = rec.value().first->get_record(r,rec.value().second);
+  hit_record record = std::get<WHAT>(rec.value())->get_record(r,std::get<WHERE>(rec.value()));
 
   color res{0.0f,0.0f,0.0f};
 
@@ -74,10 +74,13 @@ color integrator(const ray& r, const element& world, uint16_t depth, color& thro
   auto sample{brdf.sample(r.at(record.t),record.normal)};
   throughput *= sample.first;
 
-  size_t light_index{random_size_t(0,world_lights::lights().size()-1)};
-  color direct{direct_light(r.at(record.t),record.normal,world,light_index)};
+  // TERRIBLE, change asap
+  point offset_origin{offset_ray_origin(r.at(record.t),std::get<HOW>(rec.value()),record.normal,sample.second.direction.to_vec3())};
 
-  color indirect{integrator(sample.second, world, depth+1, throughput)};
+  size_t light_index{random_size_t(0,world_lights::lights().size()-1)};
+  color direct{direct_light(offset_origin,record.normal,world,light_index)};
+
+  color indirect{integrator(ray(offset_origin,sample.second.direction), world, depth+1, throughput)};
 
   res += throughput * (direct + indirect);
 
