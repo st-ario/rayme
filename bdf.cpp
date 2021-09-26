@@ -9,12 +9,11 @@ float diffuse_brdf::pdf(const normed_vec3& normal, const normed_vec3& scattered)
   return dot(normal,scattered) * inverse_hemisphere_area;
 }
 
-std::pair<color,ray> diffuse_brdf::sample(const point& at, const normed_vec3& normal)
+std::pair<color,normed_vec3> diffuse_brdf::sample(const point& at, const normed_vec3& normal)
 {
   normed_vec3 scatter_dir = cos_weighted_random_hemisphere_unit(normal);
-  ray scattered{at,scatter_dir};
 
-  return {dot(normal,scattered.direction) * eval() / pdf(normal,scattered.direction), scattered};
+  return {dot(normal,scatter_dir) * eval() / pdf(normal,scatter_dir), scatter_dir};
 }
 
 color diffuse_brdf::eval()

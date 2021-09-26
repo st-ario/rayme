@@ -115,7 +115,7 @@ class triangle : public primitive
     }
 
     virtual hit_check hit(const ray& r, float t_max) const override;
-    virtual hit_record get_record(const ray& r, float at) const override;
+    virtual hit_properties get_info(const ray& r) const override;
 
   private:
     aabb bounding_box() const;

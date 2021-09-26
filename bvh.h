@@ -4,20 +4,44 @@
 
 class material;
 
-// TODO verify whether a tuple is faster
-struct hit_record
+// TODO verify whether tuples or raw data members are faster for hit_properties and hit_record
+class hit_properties
 {
-  float t;
-  bool front_face;
-  std::shared_ptr<const material> ptr_mat;
-  normed_vec3 normal;
+  public:
+    const bool front_face() const { return m_front_face; }
+    const std::shared_ptr<const material> ptr_mat() const { return m_ptr_mat; }
+    const normed_vec3 normal() const { return m_normal; }
 
-  hit_record( float at
-            , bool front_face
-            , std::shared_ptr<const material> ptr_mat
-            , normed_vec3 n
-            ) : t{at}, front_face{front_face}, ptr_mat{ptr_mat}, normal{n} {}
+    hit_properties( bool front_face
+                  , std::shared_ptr<const material> ptr_mat
+                  , normed_vec3 n
+                  ) : m_front_face{front_face}, m_ptr_mat{ptr_mat}, m_normal{n} {}
+
+  private:
+    bool m_front_face;
+    std::shared_ptr<const material> m_ptr_mat;
+    normed_vec3 m_normal;
 };
+
+class primitive;
+class hit_record
+{
+  public:
+    const primitive* what() const { return m_what; }
+    const float t() const { return m_t; }
+    const vec3 p_error() const { return m_p_error; }
+
+    hit_record(const primitive* what, float at, const vec3& p_error)
+      : m_what{what}, m_t{at}, m_p_error{p_error} {};
+
+  private:
+    const primitive* m_what;
+    float m_t;
+    vec3  m_p_error;
+};
+
+// hit_check: type to say whether a primitive was hit, and, if so, to store its hit_record
+using hit_check = std::optional<hit_record>;
 
 class aabb
 {
@@ -63,16 +87,6 @@ class aabb
     point maximum;
 };
 
-class primitive;
-
-// what where how
-using wwh = std::tuple<const primitive*, float, vec3>;
-enum wwh_fields { WHAT, WHERE, HOW };
-// TODO check whether a struct would be faster
-
-// hit_check: type to say whether a primitive was hit, and, if so, to store which primitive,
-// the ray coordinate for the hit and the error estimate
-using hit_check = std::optional<wwh>;
 
 // elements: primitives and nodes of the BVH
 class element
@@ -90,7 +104,7 @@ class primitive : public element
   public:
     point centroid;
   public:
-    virtual hit_record get_record(const ray& r, float at) const = 0;
+    virtual hit_properties get_info(const ray& r) const = 0;
 };
 
 class bvh_node : public element
@@ -108,13 +122,13 @@ class bvh_node : public element
         return std::nullopt;
 
       hit_check hit_left = left->hit(r, t_max);
-      hit_check hit_right = right->hit(r, (hit_left) ? std::get<WHERE>(hit_left.value()) : t_max);
+      hit_check hit_right = right->hit(r, (hit_left) ? hit_left->t() : t_max);
 
       if (hit_left)
       {
         if (hit_right)
         {
-          if (std::get<WHERE>(hit_left.value()) < std::get<WHERE>(hit_right.value()))
+          if (hit_left->t() < hit_right->t())
           {
             return *hit_left;
           } else {

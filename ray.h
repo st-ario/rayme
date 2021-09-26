@@ -47,23 +47,34 @@ struct ray
   }
 };
 
-inline point offset_ray_origin(const point& p, const vec3& p_error, const normed_vec3& normal, const vec3& w)
+inline point offset_ray_origin( const point& p
+                              , const vec3& p_error
+                              , const normed_vec3& normal
+                              , const normed_vec3& direction)
 {
-    float d = dot(abs(normal.to_vec3()), p_error);
-    vec3 offset = d * normal;
+  float d = dot(abs(normal.to_vec3()), p_error);
+  vec3 offset = d * normal;
 
-    offset = (dot(w, normal) < 0) ? -offset : offset;
+  offset = (dot(direction, normal) < 0) ? -offset : offset;
 
-    point offset_point = p + offset;
+  point offset_point = p + offset;
 
-    // round offset point away from p
-    for (int i = 0; i < 3; ++i)
-    {
-      if (offset[i] > 0)
-        offset_point[i] = next_float_up(offset_point[i]);
-      else if (offset.x < 0)
-        offset_point[i] = next_float_down(offset_point[i]);
-    }
+  // round offset point away from p
+  for (int i = 0; i < 3; ++i)
+  {
+    if (offset[i] > 0)
+      offset_point[i] = next_float_up(offset_point[i]);
+    else if (offset.x < 0)
+      offset_point[i] = next_float_down(offset_point[i]);
+  }
 
-    return offset_point;
+  return offset_point;
+}
+
+inline ray bounce_ray( const point& p
+                     , const vec3& p_error
+                     , const normed_vec3& normal
+                     , const normed_vec3& direction)
+{
+  return ray(offset_ray_origin(p,p_error,normal,direction),direction);
 }

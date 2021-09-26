@@ -1,7 +1,7 @@
 #include "meshes.h"
 #include "extern/glm/glm/gtx/norm.hpp"
 
-hit_record triangle::get_record(const ray& r, float at) const
+hit_properties triangle::get_info(const ray& r) const
 {
   const point& p0 = parent_mesh->vertices[parent_mesh->vertex_indices[3*number]];
   const point& p1 = parent_mesh->vertices[parent_mesh->vertex_indices[3*number+1]];
@@ -13,7 +13,7 @@ hit_record triangle::get_record(const ray& r, float at) const
 
   normed_vec3 normal = front_face ? unit(nonunital_candidate_normal) : - unit(nonunital_candidate_normal);
 
-  return hit_record(at, front_face, parent_mesh->ptr_mat, normal);
+  return hit_properties(front_face, parent_mesh->ptr_mat, normal);
 }
 
 aabb triangle::bounding_box() const
@@ -226,5 +226,5 @@ hit_check triangle::hit(const ray& r, float t_max) const
   float zAbsSum = (std::abs(b0 * p0.z) + std::abs(b1 * p1.z) + std::abs(b2 * p2.z));
   vec3 p_error = gamma_bound(7) * vec3(xAbsSum, yAbsSum, zAbsSum);
 
-  return std::make_tuple(this, t, p_error);
+  return hit_record(this,t,p_error);
 }
