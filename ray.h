@@ -52,7 +52,7 @@ inline point offset_ray_origin( const point& p
                               , const normed_vec3& normal
                               , const normed_vec3& direction)
 {
-  float d = dot(abs(normal.to_vec3()), p_error);
+  float d = dot(glm::abs(normal.to_vec3()), p_error);
   vec3 offset = d * normal;
 
   offset = (dot(direction, normal) < 0) ? -offset : offset;
@@ -62,9 +62,9 @@ inline point offset_ray_origin( const point& p
   // round offset point away from p
   for (int i = 0; i < 3; ++i)
   {
-    if (offset[i] > 0)
+    if (std::signbit(offset[i] == false)) // account for positive zero
       offset_point[i] = next_float_up(offset_point[i]);
-    else if (offset.x < 0)
+    else if (std::signbit(offset[i] == true)) // account for negative zero
       offset_point[i] = next_float_down(offset_point[i]);
   }
 

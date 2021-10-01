@@ -71,7 +71,7 @@ inline float next_float_up(float f)
 {
   if (std::isinf(f) && f > 0.0f)
     return f;
-  if (f == -0.0f)
+  if (f == 0.0f && std::signbit(f) == true) // if (f == -0.0f)
     f = 0.0f;
 
   uint32_t bits = float_to_bits(f);
@@ -87,8 +87,8 @@ inline float next_float_down(float f)
 {
   if (std::isinf(f) && f < 0.0f)
     return f;
-  if (f == 0.0f)
-    f = -0.0f;
+  if (f == 0.0f && std::signbit(f) == false) // if (f == 0.0f)
+    f = -1.0f * 0.0f;
 
   uint32_t bits = float_to_bits(f);
   if (f > 0)
@@ -186,8 +186,6 @@ inline normed_vec3 unit(const vec3& v)
 
 uint8_t max_dimension(const vec3& v);
 float max_component(const vec3& v);
-
-inline vec3 abs(const vec3& v);
 
 normed_vec3 reflect(const normed_vec3& incident, const normed_vec3& normal);
 normed_vec3 refract(const normed_vec3& incident, const normed_vec3& normal,
@@ -313,11 +311,6 @@ inline float min_component(const vec3& v)
     return v.y;
 
   return v.z;
-}
-
-inline vec3 abs(const vec3& v)
-{
-  return vec3(std::fabs(v[0]), std::fabs(v[1]), std::fabs(v[2]));
 }
 
 inline vec3 permute(const vec3& v, uint8_t x, uint8_t y, uint8_t z)
