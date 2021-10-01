@@ -30,7 +30,7 @@ class mesh : public std::enable_shared_from_this<mesh>
         vertex_indices{vertex_indices}, vertices{vertices},
         normals{normals}, tangents{tangents}, ptr_mat{ptr_mat} {}
 
-    std::vector<std::shared_ptr<const triangle>> get_triangles() const
+    virtual std::vector<std::shared_ptr<const triangle>> get_triangles() const
     {
       std::vector<std::shared_ptr<const triangle>> triangles;
       triangles.reserve(n_triangles);
@@ -87,15 +87,32 @@ class light : public mesh
            world_lights::get().add(this);
          }
 
-    // return a uniformly distributed random point on the surface of the mesh
-    point random_surface_point() const;
+    // return a uniformly distributed random point on the surface of the mesh, and a pointer
+    // to the primitive containing it
+    std::pair<point, std::shared_ptr<const triangle>> random_surface_point() const;
 
     float get_surface_area() const { return surface_area; }
+
+    virtual std::vector<std::shared_ptr<const triangle>> get_triangles() const override
+    {
+      std::vector<std::shared_ptr<const triangle>> triangles;
+      triangles.reserve(n_triangles);
+
+      for (size_t i = 0; i < n_triangles; ++i)
+      {
+        auto t{std::make_shared<const triangle>(shared_from_this(), i)};
+        triangles.push_back(t);
+        ptr_triangles.push_back(t);
+      }
+
+      return triangles;
+    }
 
   private:
     float surface_area{0.0f};
     std::vector<float> triangles_areas;
     std::vector<float> triangles_cdf;
+    mutable std::vector<std::shared_ptr<const triangle>> ptr_triangles;
 
     void compute_surface_area();
 };

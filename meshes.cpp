@@ -64,7 +64,7 @@ void world_lights::compute_light_areas()
     light->compute_surface_area();
 }
 
-point light::random_surface_point() const
+std::pair<point, std::shared_ptr<const triangle>> light::random_surface_point() const
 {
   // select a triangle with a PDF weighted by the surface of each triangle using the inversion method
   // then return a uniformly distributed point from it
@@ -103,7 +103,7 @@ point light::random_surface_point() const
   point res = p0;
   res += (outside) ? (1.0f - r1) * (p1-p0) + (1.0f - r2) * (p2-p0) : r1 * (p1-p0) + r2 * (p2-p0);
 
-  return res;
+  return std::make_pair(res,ptr_triangles[sel]);
 }
 
 hit_check triangle::hit(const ray& r, float t_max) const

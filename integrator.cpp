@@ -8,38 +8,38 @@
 
 static constexpr uint16_t MAX_DEPTH{1000};
 
-color direct_light(const point& x, const vec3& x_error, const normed_vec3& normal, const element& world, size_t L)
+color direct_light( const point& x
+                  , const hit_record& record
+                  , const hit_properties& info
+                  , const element& world
+                  , size_t L)
 {
-  point target = world_lights::lights()[L]->random_surface_point();
+  auto target_pair{world_lights::lights()[L]->random_surface_point()};
 
-  vec3 nonunital_shadow_dir{target - x};
+  vec3 nonunital_shadow_dir{target_pair.first - x};
   normed_vec3 shadow_dir{unit(nonunital_shadow_dir)};
-
-  ray shadow{offset_ray_origin(x,x_error,normal,shadow_dir),shadow_dir};
-
-  float cos_angle{dot(normal, shadow.direction)};
-
-  if (cos_angle < machine_epsilon)
+  float cos_angle{dot(info.normal(), shadow_dir)};
+  if (cos_angle < machine_two_epsilon)
     return {0.0f,0.0f,0.0f};
+
+  ray shadow{offset_ray_origin(x,record.p_error(),info.normal(),shadow_dir),shadow_dir};
 
   auto rec_shadow = world.hit(shadow, infinity);
 
   if (!rec_shadow)
     return {0.0f,0.0f,0.0f};
 
-  auto record_shadow{rec_shadow->what()->get_info(shadow)};
+  auto info_shadow{rec_shadow->what()->get_info(shadow)};
 
-  vec3 emit{0.0f,0.0f,0.0f};
-  vec3 diff{glm::abs(shadow.at(rec_shadow->t()) - target)};
-  if (diff.x < machine_two_epsilon && diff.y < machine_two_epsilon && diff.z < machine_two_epsilon)
-    emit = record_shadow.ptr_mat()->emissive_factor;
+  if (rec_shadow->what() != target_pair.second.get())
+      return{0.0f,0.0f,0.0f};
 
-  float cos_light_angle{dot(record_shadow.normal(), -shadow.direction)};
-  if (cos_light_angle < machine_epsilon)
+  float cos_light_angle{dot(info_shadow.normal(), -shadow.direction)};
+  float projection_factor{cos_light_angle / glm::length2(nonunital_shadow_dir)};
+  if (projection_factor < machine_two_epsilon)
     return {0.0f,0.0f,0.0f};
 
-  float projection_factor = cos_light_angle / glm::length2(nonunital_shadow_dir);
-
+  vec3 emit{world_lights::lights()[L]->ptr_mat->emissive_factor};
   color res{emit * cos_angle * projection_factor * world_lights::lights()[L]->get_surface_area()};
 
   return res;
@@ -75,7 +75,7 @@ color integrator(const ray& r, const element& world, uint16_t depth, color& thro
 
   // sample direct light
   size_t light_index{random_size_t(0,world_lights::lights().size()-1)};
-  color direct{direct_light(hit_point,rec->p_error(),info.normal(),world,light_index)};
+  color direct{direct_light(hit_point,rec.value(),info,world,light_index)};
 
   // sample brdf
   diffuse_brdf brdf{info.ptr_mat()};
