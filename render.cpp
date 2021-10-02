@@ -41,7 +41,7 @@ static void render_tile( image* picture
         pixel_color += ray_color(r, *world);
       }
       pixel_color = pixel_color / static_cast<float>(samples_per_pixel);
-      gamma_correct(pixel_color,3);
+      gamma_correct(pixel_color,2.2f);
 
       picture->pixels[v_offset + y][h_offset + x] = pixel_color;
     }

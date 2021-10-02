@@ -1,5 +1,8 @@
 #include "meshes.h"
+#include "extern/glm/glm/mat3x3.hpp"
 #include "extern/glm/glm/gtx/norm.hpp"
+
+using mat3 = glm::mat3;
 
 hit_properties triangle::get_info(const ray& r) const
 {
@@ -108,123 +111,96 @@ std::pair<point, std::shared_ptr<const triangle>> light::random_surface_point() 
 
 hit_check triangle::hit(const ray& r, float t_max) const
 {
-  // adapted from pbrt v3
-  /*
-  Copyright (c) 1998-2015, Matt Pharr, Greg Humphreys, and Wenzel Jakob.
-  All rights reserved.
+  // Adapted from Woop--Benthin--Wald "Watertight Ray/Triangle Intersection"
+  // Journal of Computer Graphics Techniques, 2013
 
-  Redistribution and use in source and binary forms, with or without modification, are permitted
-  provided that the following conditions are met:
+  // Numerical error analysis adapted from Pharr--Jakob--Humphreys,
+  // "Physically Based Rendering: From Theory to Implementation"
+  // online edition, 2018
 
-  Redistributions of source code must retain the above copyright notice, this list of conditions
-  and the following disclaimer.
+  const point& p0{parent_mesh->vertices[parent_mesh->vertex_indices[3*number]]};
+  const point& p1{parent_mesh->vertices[parent_mesh->vertex_indices[3*number+1]]};
+  const point& p2{parent_mesh->vertices[parent_mesh->vertex_indices[3*number+2]]};
 
-  Redistributions in binary form must reproduce the above copyright notice, this list of
-  conditions and the following disclaimer in the documentation and/or other materials provided
-  with the distribution.
+  // vertices relative to ray origin
+  point tp0{p0-r.origin};
+  point tp1{p1-r.origin};
+  point tp2{p2-r.origin};
 
+  // shear and scale vertices
+  const float tp0x{tp0[r.perm.x] - r.shear_coefficients.x * tp0[r.perm.z]};
+  const float tp0y{tp0[r.perm.y] - r.shear_coefficients.y * tp0[r.perm.z]};
+  const float tp1x{tp1[r.perm.x] - r.shear_coefficients.x * tp1[r.perm.z]};
+  const float tp1y{tp1[r.perm.y] - r.shear_coefficients.y * tp1[r.perm.z]};
+  const float tp2x{tp2[r.perm.x] - r.shear_coefficients.x * tp2[r.perm.z]};
+  const float tp2y{tp2[r.perm.y] - r.shear_coefficients.y * tp2[r.perm.z]};
 
-  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
-  IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
-  FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
-  CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-  SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
-  OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-  POSSIBILITY OF SUCH DAMAGE.
-  */
+  // scaled baricentric coordinates
+  float u{tp2x * tp1y - tp2y * tp1x};
+  float v{tp0x * tp2y - tp0y * tp2x};
+  float w{tp1x * tp0y - tp1y * tp0x};
 
-  const point& p0 = parent_mesh->vertices[parent_mesh->vertex_indices[3*number]];
-  const point& p1 = parent_mesh->vertices[parent_mesh->vertex_indices[3*number+1]];
-  const point& p2 = parent_mesh->vertices[parent_mesh->vertex_indices[3*number+2]];
-
-  // translate vertices based on ray origin
-  point p0t = p0 - r.origin;
-  point p1t = p1 - r.origin;
-  point p2t = p2 - r.origin;
-
-  // Permute components of triangle vertices and ray direction
-  p0t = permute(p0t, r.perm.x, r.perm.y, r.perm.z);
-  p1t = permute(p1t, r.perm.x, r.perm.y, r.perm.z);
-  p2t = permute(p2t, r.perm.x, r.perm.y, r.perm.z);
-
-  // shear to align ray direction with the Y axis
-  p0t.x += r.shear_coefficients.x * p0t.z;
-  p0t.y += r.shear_coefficients.y * p0t.z;
-  p1t.x += r.shear_coefficients.x * p1t.z;
-  p1t.y += r.shear_coefficients.y * p1t.z;
-  p2t.x += r.shear_coefficients.x * p2t.z;
-  p2t.y += r.shear_coefficients.y * p2t.z;
-
-  // Compute edge function coefficients
-  float e0 = p1t.x * p2t.y - p1t.y * p2t.x;
-  float e1 = p2t.x * p0t.y - p2t.y * p0t.x;
-  float e2 = p0t.x * p1t.y - p0t.y * p1t.x;
-
-  // Fall back to double precision test at triangle edges
-  if  (e0 == 0.0f || e1 == 0.0f || e2 == 0.0f)
+  // double precision fallback
+  if (u == 0.0f || v == 0.0f || w == 0.0f)
   {
-      double p2txp1ty = (double)p2t.x * (double)p1t.y;
-      double p2typ1tx = (double)p2t.y * (double)p1t.x;
-      e0 = (float)(p2typ1tx - p2txp1ty);
-      double p0txp2ty = (double)p0t.x * (double)p2t.y;
-      double p0typ2tx = (double)p0t.y * (double)p2t.x;
-      e1 = (float)(p0typ2tx - p0txp2ty);
-      double p1txp0ty = (double)p1t.x * (double)p0t.y;
-      double p1typ0tx = (double)p1t.y * (double)p0t.x;
-      e2 = (float)(p1typ0tx - p1txp0ty);
+    double tp2x1y{double(tp2x)*double(tp1y)};
+    double tp2y1x{double(tp2y)*double(tp1x)};
+    u = float(tp2x1y - tp2y1x);
+
+    double tp0x2y{double(tp0x)*double(tp2y)};
+    double tp0y2x{double(tp0y)*double(tp2x)};
+    v = float(tp0x2y - tp0y2x);
+
+    double tp1x0y{double(tp1x)*double(tp0y)};
+    double tp1y0x{double(tp1y)*double(tp0x)};
+    w = float(tp1x0y - tp1y0x);
   }
 
-  // Perform triangle edge and determinant tests
-  if ((e0 < 0 || e1 < 0 || e2 < 0) && (e0 > 0 || e1 > 0 || e2 > 0))
+  if ((u < 0.0f || v < 0.0f || w < 0.0f) && (u > 0.0f || v > 0.0f || w > 0.0f))
     return std::nullopt;
-  float det = e0 + e1 + e2;
-  if (det == 0) return std::nullopt;
 
-  // Compute scaled hit distance to triangle and test against ray $t$ range
-  p0t.z *= r.shear_coefficients.z;
-  p1t.z *= r.shear_coefficients.z;
-  p2t.z *= r.shear_coefficients.z;
-  float tScaled = e0 * p0t.z + e1 * p1t.z + e2 * p2t.z;
-  if (det < 0 && (tScaled >= 0 || tScaled < t_max * det))
-      return std::nullopt;
-  else if (det > 0 && (tScaled <= 0 || tScaled > t_max * det))
-      return std::nullopt;
+  float det{u+v+w};
+  if (det == 0.0f)
+    return std::nullopt;
 
-  // Compute barycentric coordinates and $t$ value for triangle intersection
-  float invDet = 1 / det;
-  float t = tScaled * invDet;
+  // scaled z coordinates of vertices
+  const float tp0z{r.shear_coefficients.z * tp0[r.perm.z]};
+  const float tp1z{r.shear_coefficients.z * tp1[r.perm.z]};
+  const float tp2z{r.shear_coefficients.z * tp2[r.perm.z]};
+  const float t_scaled{u * tp0z + v * tp1z + w * tp2z};
 
-  float b0 = e0 * invDet;
-  float b1 = e1 * invDet;
-  float b2 = e2 * invDet;
+  if (std::signbit(t_scaled) || t_scaled > t_max * det)
+    return std::nullopt;
 
-  // Compute $\delta_z$ term for triangle $t$ error bounds
-  float maxZt = max_component(abs(vec3(p0t.z, p1t.z, p2t.z)));
-  float deltaZ = gamma_bound(3) * maxZt;
+  // unscaled values
+  float inv_det{1.0f / det};
+  float t{t_scaled  * inv_det};
+  float uu{u * inv_det};
+  float uv{v * inv_det};
+  float uw{w * inv_det};
 
-  // Compute $\delta_x$ and $\delta_y$ terms for triangle $t$ error bounds
-  float maxXt = max_component(abs(vec3(p0t.x, p1t.x, p2t.x)));
-  float maxYt = max_component(abs(vec3(p0t.y, p1t.y, p2t.y)));
-  float deltaX = gamma_bound(5) * (maxXt + maxZt);
-  float deltaY = gamma_bound(5) * (maxYt + maxZt);
+  // numerical error analysis
 
-  // Compute $\delta_e$ term for triangle $t$ error bounds
-  float deltaE = 2 * (gamma_bound(2) * maxXt * maxYt + deltaY * maxXt + deltaX * maxYt);
+  // avoid intersection behind ray origin (see Pharr--Jakob--Humphreys)
+  float max_zt{max_component(glm::abs(vec3{tp0z, tp1z, tp2z}))};
+  float deltaZ{gamma_bound(3) * max_zt};
+  float max_xt{max_component(glm::abs(vec3{tp0x, tp1x, tp2x}))};
+  float max_yt{max_component(glm::abs(vec3{tp0y, tp1y, tp2y}))};
+  float deltaX{gamma_bound(5) * (max_xt + max_zt)};
+  float deltaY{gamma_bound(5) * (max_yt + max_zt)};
+  float delta_bar = 2 * (gamma_bound(2) * max_xt * max_yt + deltaY * max_xt + deltaX * max_yt);
+  float max_bar = max_component(glm::abs(vec3{u, v, w}));
+  float deltaT = 3 * (gamma_bound(3) * max_bar * max_zt
+               + delta_bar * max_zt + deltaZ * max_bar) * std::abs(inv_det);
 
-  // Compute $\delta_t$ term for triangle $t$ error bounds and check _t_
-  float maxE = max_component(abs(vec3(e0, e1, e2)));
-  float deltaT = 3 * (gamma_bound(3) * maxE * maxZt +
-                 deltaE * maxZt + deltaZ * maxE) * std::abs(invDet);
   if (t <= deltaT)
     return std::nullopt;
 
-  // Compute error bounds
-  float xAbsSum = (std::abs(b0 * p0.x) + std::abs(b1 * p1.x) + std::abs(b2 * p2.x));
-  float yAbsSum = (std::abs(b0 * p0.y) + std::abs(b1 * p1.y) + std::abs(b2 * p2.y));
-  float zAbsSum = (std::abs(b0 * p0.z) + std::abs(b1 * p1.z) + std::abs(b2 * p2.z));
-  vec3 p_error = gamma_bound(7) * vec3(xAbsSum, yAbsSum, zAbsSum);
+  // error bounds
+  float x_abs{(std::abs(uu * p0.x) + std::abs(uv * p1.x) + std::abs(uw * p2.x))};
+  float y_abs{(std::abs(uu * p0.y) + std::abs(uv * p1.y) + std::abs(uw * p2.y))};
+  float z_abs{(std::abs(uu * p0.z) + std::abs(uv * p1.z) + std::abs(uw * p2.z))};
+  vec3 p_error{gamma_bound(7) * vec3{x_abs, y_abs, z_abs}};
 
-  return hit_record(this,t,p_error);
+  return hit_record{this,t,p_error};
 }

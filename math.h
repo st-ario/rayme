@@ -129,7 +129,6 @@ class normed_vec3 : private vec3
 
     // return unit vector corresponding to v
     friend normed_vec3 unit(const vec3& v);
-    friend normed_vec3 permute(const normed_vec3& v, uint8_t x, uint8_t y, uint8_t z);
 
     friend float dot(const normed_vec3& v, const normed_vec3& w);
     friend float dot(const vec3& v,        const normed_vec3& w);
@@ -311,16 +310,6 @@ inline float min_component(const vec3& v)
     return v.y;
 
   return v.z;
-}
-
-inline vec3 permute(const vec3& v, uint8_t x, uint8_t y, uint8_t z)
-{
-  return vec3{v[x], v[y], v[z]};
-}
-
-inline normed_vec3 permute(const normed_vec3& v, uint8_t x, uint8_t y, uint8_t z)
-{
-  return normed_vec3{v[x], v[y], v[z]};
 }
 
 inline normed_vec3 random_unit()

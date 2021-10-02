@@ -10,7 +10,9 @@ class diffuse_brdf
     diffuse_brdf(const std::shared_ptr<const material>& ptr_mat) : ptr_mat{ptr_mat} {};
 
     float pdf(const normed_vec3& normal, const normed_vec3& scattered);
-    color eval();
+
+    // bidirectional reflectance distribution function
+    color f_r();
     std::pair<color,normed_vec3> sample(const point& at, const normed_vec3& normal);
 
   private:

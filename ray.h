@@ -9,7 +9,7 @@ struct ray
   // vector storing 1/direction, used multiple times in hit checks
   // containes an infinity of the correct sign if the direction coordinate is 0
   const vec3 invD;
-  // utility vector for the ray-triangle intersection function
+  // utility vector storing vertices permutation, for ray-triangle intersection
   const glm::vec<3,uint8_t> perm;
   // vector storing coefficients for the ray-triangle intersection function
   const vec3 shear_coefficients;
@@ -25,18 +25,21 @@ struct ray
         return res;
       }() }
     , perm{ [&](){
-        uint8_t kz{max_dimension(abs(direction.to_vec3()))};
-        uint8_t kx{uint8_t(kz + 1)};
-        if (kx == 3) kx = 0;
-        uint8_t ky{uint8_t(kx + 1)};
-        if (ky == 3) ky = 0;
+        // calculate dimension where ray direction is maximal
+        uint8_t kz{max_dimension(glm::abs(direction.to_vec3()))};
+        uint8_t kx{uint8_t(kz + 1)}; if (kx == 3) kx = 0;
+        uint8_t ky{uint8_t(kx + 1)}; if (ky == 3) ky = 0;
+
+        // swap kx and ky to preserve the orientation of the triangle vertices
+        if (direction[kz] < 0.0f)
+          std::swap(kx,ky);
+
         return glm::vec<3,uint8_t>{kx,ky,kz};
-      }()}
+      }() }
     , shear_coefficients{ [&](){
-        vec3 d = permute(direction.to_vec3(), perm.x, perm.y, perm.z);
-        float Sx = - d.x  / d.z;
-        float Sy = - d.y  / d.z;
-        float Sz =   1.0f / d.z;
+        float Sx = direction[perm.x] / direction[perm.z];
+        float Sy = direction[perm.y] / direction[perm.z];
+        float Sz = 1.0f / direction[perm.z];
         return vec3{Sx,Sy,Sz};
       }() }
     {}
