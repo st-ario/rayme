@@ -79,8 +79,11 @@ color integrator(const ray& r, const element& world, uint16_t depth, color& thro
   auto sample{brdf.sample(hit_point,info.normal())};
 
   // sample direct light
-  size_t light_index{random_size_t(0,world_lights::lights().size()-1)};
-  color direct{direct_light(hit_point,rec.value(),info,world,light_index)};
+  color direct{0.0f,0.0f,0.0f};
+  for (size_t i = 0; i < world_lights::lights().size(); ++i)
+    direct += direct_light(hit_point,rec.value(),info,world,i);
+
+  direct /= world_lights::lights().size();
   direct *= sample.f_r / thr; // the denominator compensates for Russian Roulette
 
   // update throughput
