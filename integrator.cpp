@@ -59,6 +59,7 @@ color integrator(const ray& r, const element& world, uint16_t depth, color& thro
     if (rand > thr || thr < machine_epsilon || depth > MAX_DEPTH)
       return {0.0f,0.0f,0.0f};
 
+    // if the ray goes on, compensate for energy loss
     throughput *= 1.0f / thr;
   }
 
@@ -73,19 +74,23 @@ color integrator(const ray& r, const element& world, uint16_t depth, color& thro
   if (depth == 0 && info.ptr_mat()->emitter)
     return info.ptr_mat()->emissive_factor;
 
-  // sample direct light
-  size_t light_index{random_size_t(0,world_lights::lights().size()-1)};
-  color direct{direct_light(hit_point,rec.value(),info,world,light_index)};
-
   // sample brdf
   diffuse_brdf brdf{info.ptr_mat()};
   auto sample{brdf.sample(hit_point,info.normal())};
-  throughput *= sample.first;
 
-  ray scattered{bounce_ray(hit_point,rec->p_error(),info.normal(),sample.second)};
+  // sample direct light
+  size_t light_index{random_size_t(0,world_lights::lights().size()-1)};
+  color direct{direct_light(hit_point,rec.value(),info,world,light_index)};
+  direct *= sample.f_r / thr; // the denominator compensates for Russian Roulette
+
+  // update throughput
+  throughput *= sample.cos_angle * sample.f_r / sample.pdf;
+
+  // sample indirect light
+  ray scattered{bounce_ray(hit_point,rec->p_error(),info.normal(),sample.scatter_dir)};
   color indirect{integrator(scattered, world, depth+1, throughput)};
 
-  res += throughput * (direct + indirect);
+  res += direct + (throughput * indirect);
 
   return res;
 }
