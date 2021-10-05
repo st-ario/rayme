@@ -10,17 +10,23 @@ class hit_properties
   public:
     const bool front_face() const { return m_front_face; }
     const std::shared_ptr<const material> ptr_mat() const { return m_ptr_mat; }
-    const normed_vec3 normal() const { return m_normal; }
+    const normed_vec3 gnormal() const { return m_gnormal; }
+    const normed_vec3 snormal() const { return m_snormal; }
 
     hit_properties( bool front_face
                   , std::shared_ptr<const material> ptr_mat
-                  , normed_vec3 n
-                  ) : m_front_face{front_face}, m_ptr_mat{ptr_mat}, m_normal{n} {}
+                  , normed_vec3 gnormal
+                  , normed_vec3 snormal
+                  ) : m_front_face{front_face}
+                    , m_ptr_mat{ptr_mat}
+                    , m_gnormal{gnormal}
+                    , m_snormal{snormal} {}
 
   private:
     bool m_front_face;
     std::shared_ptr<const material> m_ptr_mat;
-    normed_vec3 m_normal;
+    normed_vec3 m_gnormal;
+    normed_vec3 m_snormal;
 };
 
 class primitive;
@@ -31,13 +37,18 @@ class hit_record
     const float t() const { return m_t; }
     const vec3 p_error() const { return m_p_error; }
 
-    hit_record(const primitive* what, float at, const vec3& p_error)
-      : m_what{what}, m_t{at}, m_p_error{p_error} {};
+    hit_record( const primitive* what
+              , float at
+              , const vec3& p_error
+              , const std::array<float,3>& uvw)
+      : m_what{what}, m_t{at}, m_p_error{p_error}, uvw{uvw} {};
 
   private:
     const primitive* m_what;
     float m_t;
     vec3  m_p_error;
+  public:
+    const std::array<float,3> uvw;
 };
 
 // hit_check: type to say whether a primitive was hit, and, if so, to store its hit_record
@@ -104,7 +115,8 @@ class primitive : public element
   public:
     point centroid;
   public:
-    virtual hit_properties get_info(const ray& r) const = 0;
+    virtual hit_properties get_info(const ray& r,
+      const std::array<float,3>& uvw)const = 0;
 };
 
 class bvh_node : public element

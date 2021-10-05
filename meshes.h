@@ -132,7 +132,8 @@ class triangle : public primitive
     }
 
     virtual hit_check hit(const ray& r, float t_max) const override;
-    virtual hit_properties get_info(const ray& r) const override;
+    virtual hit_properties get_info(const ray& r,
+      const std::array<float,3>& uvw) const override;
 
   private:
     aabb bounding_box() const;

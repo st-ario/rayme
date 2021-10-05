@@ -20,7 +20,9 @@ class diffuse_brdf
   public:
     diffuse_brdf(const std::shared_ptr<const material>& ptr_mat) : ptr_mat{ptr_mat} {};
 
-    brdf_sample sample(const point& at, const normed_vec3& normal);
+   brdf_sample sample( const point& at
+                                , const normed_vec3& gnormal
+                                , const normed_vec3& snormal) const;
 
   private:
     const std::shared_ptr<const material> ptr_mat;

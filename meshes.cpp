@@ -4,19 +4,34 @@
 
 using mat3 = glm::mat3;
 
-hit_properties triangle::get_info(const ray& r) const
+hit_properties triangle::get_info(const ray& r, const std::array<float,3>& uvw) const
 {
+  normed_vec3 gnormal{normed_vec3::absolute_y()};
+  normed_vec3 snormal{normed_vec3::absolute_y()};
+
   const point& p0 = parent_mesh->vertices[parent_mesh->vertex_indices[3*number]];
   const point& p1 = parent_mesh->vertices[parent_mesh->vertex_indices[3*number+1]];
   const point& p2 = parent_mesh->vertices[parent_mesh->vertex_indices[3*number+2]];
 
-  vec3 nonunital_candidate_normal = cross(p1-p0, p2-p0);
+  vec3 nonunital_candidate_normal{cross(p1-p0, p2-p0)};
 
-  bool front_face = dot(r.direction, nonunital_candidate_normal) < 0;
+  bool front_face{dot(r.direction, nonunital_candidate_normal) < 0};
+  gnormal = front_face ? unit(nonunital_candidate_normal) : - unit(nonunital_candidate_normal);
 
-  normed_vec3 normal = front_face ? unit(nonunital_candidate_normal) : - unit(nonunital_candidate_normal);
+  if (parent_mesh->normals.empty())
+  {
+    snormal = gnormal;
+  } else {
+    nonunital_candidate_normal =
+      uvw[0] * parent_mesh->normals[parent_mesh->vertex_indices[3*number]] +
+      uvw[1] * parent_mesh->normals[parent_mesh->vertex_indices[3*number+1]] +
+      uvw[2] * parent_mesh->normals[parent_mesh->vertex_indices[3*number+2]];
 
-  return hit_properties(front_face, parent_mesh->ptr_mat, normal);
+
+    snormal = front_face ? unit(nonunital_candidate_normal) : - unit(nonunital_candidate_normal);
+  }
+
+  return hit_properties(front_face, parent_mesh->ptr_mat, gnormal, snormal);
 }
 
 aabb triangle::bounding_box() const
@@ -73,7 +88,7 @@ std::pair<point, std::shared_ptr<const triangle>> light::random_surface_point() 
   // then return a uniformly distributed point from it
 
   // binary search to invert the CDF
-  float r0{random_float(0.0f,get_surface_area())};
+  const float r0{random_float(0.0f,get_surface_area())};
 
   size_t sel{0};
   size_t len{n_triangles};
@@ -202,5 +217,5 @@ hit_check triangle::hit(const ray& r, float t_max) const
   float z_abs{(std::abs(uu * p0.z) + std::abs(uv * p1.z) + std::abs(uw * p2.z))};
   vec3 p_error{gamma_bound(7) * vec3{x_abs, y_abs, z_abs}};
 
-  return hit_record{this,t,p_error};
+  return hit_record{this,t,p_error,{uu,uv,uw}};
 }

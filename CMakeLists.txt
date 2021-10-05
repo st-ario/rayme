@@ -17,9 +17,9 @@ add_executable(${PROJECT_NAME}
   bvh.cpp
   camera.cpp
   gltf_parser.cpp
-  image_creation.cpp
   images.cpp
   integrator.cpp
+  main.cpp
   math.cpp
   meshes.cpp
   render.cpp

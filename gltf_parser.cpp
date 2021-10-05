@@ -174,7 +174,9 @@ void apply_pointwise_transformation(const transformation& M, mesh& mesh)
   for (point& p : mesh.vertices)
     p *= M;
 
-  for (normed_vec3& n : mesh.normals); // TODO
+  for (normed_vec3& n : mesh.normals)
+    n = unit(mat3(M) * n.to_vec3());
+
   for (vec4& v : mesh.tangents); // TODO
 }
 

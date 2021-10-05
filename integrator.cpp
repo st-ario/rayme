@@ -18,23 +18,23 @@ color direct_light( const point& x
 
   vec3 nonunital_shadow_dir{target_pair.first - x};
   normed_vec3 shadow_dir{unit(nonunital_shadow_dir)};
-  float cos_angle{dot(info.normal(), shadow_dir)};
+  float cos_angle{dot(info.snormal(), shadow_dir)};
   if (cos_angle < machine_two_epsilon)
     return {0.0f,0.0f,0.0f};
 
-  ray shadow{offset_ray_origin(x,record.p_error(),info.normal(),shadow_dir),shadow_dir};
+  ray shadow{offset_ray_origin(x,record.p_error(),info.gnormal(),shadow_dir),shadow_dir};
 
   auto rec_shadow = world.hit(shadow, infinity);
 
   if (!rec_shadow)
     return {0.0f,0.0f,0.0f};
 
-  auto info_shadow{rec_shadow->what()->get_info(shadow)};
+  auto info_shadow{rec_shadow->what()->get_info(shadow,rec_shadow->uvw)};
 
   if (rec_shadow->what() != target_pair.second.get())
       return{0.0f,0.0f,0.0f};
 
-  float cos_light_angle{dot(info_shadow.normal(), -shadow.direction)};
+  float cos_light_angle{dot(info_shadow.gnormal(), -shadow.direction)};
   float projection_factor{cos_light_angle / glm::length2(nonunital_shadow_dir)};
   if (projection_factor < machine_two_epsilon)
     return {0.0f,0.0f,0.0f};
@@ -67,7 +67,7 @@ color integrator(const ray& r, const element& world, uint16_t depth, color& thro
   if (!rec)
     return {0.0f,0.0f,0.0f};
 
-  hit_properties info{rec->what()->get_info(r)};
+  hit_properties info{rec->what()->get_info(r,rec->uvw)};
   point hit_point{r.at(rec->t())};
   color res{0.0f,0.0f,0.0f};
 
@@ -76,21 +76,20 @@ color integrator(const ray& r, const element& world, uint16_t depth, color& thro
 
   // sample brdf
   diffuse_brdf brdf{info.ptr_mat()};
-  auto sample{brdf.sample(hit_point,info.normal())};
+  auto sample{brdf.sample(hit_point,info.gnormal(),info.snormal())};
 
   // sample direct light
   color direct{0.0f,0.0f,0.0f};
   for (size_t i = 0; i < world_lights::lights().size(); ++i)
     direct += direct_light(hit_point,rec.value(),info,world,i);
 
-  direct /= world_lights::lights().size();
   direct *= sample.f_r / thr; // the denominator compensates for Russian Roulette
 
   // update throughput
   throughput *= sample.cos_angle * sample.f_r / sample.pdf;
 
   // sample indirect light
-  ray scattered{bounce_ray(hit_point,rec->p_error(),info.normal(),sample.scatter_dir)};
+  ray scattered{bounce_ray(hit_point,rec->p_error(),info.gnormal(),sample.scatter_dir)};
   color indirect{integrator(scattered, world, depth+1, throughput)};
 
   res += direct + (throughput * indirect);

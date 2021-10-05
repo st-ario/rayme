@@ -2,10 +2,12 @@
 #include "ray.h"
 #include "bvh.h"
 
-brdf_sample diffuse_brdf::sample(const point& at, const normed_vec3& normal)
+brdf_sample diffuse_brdf::sample( const point& at
+                                , const normed_vec3& gnormal
+                                , const normed_vec3& snormal) const
 {
-  normed_vec3 scatter_dir{cos_weighted_random_hemisphere_unit(normal)};
-  float cos_angle{dot(normal,scatter_dir)};
+  normed_vec3 scatter_dir{cos_weighted_random_hemisphere_unit(gnormal)};
+  float cos_angle{dot(snormal,scatter_dir)};
   float pdf{cos_angle / pi};
   color f_r{ptr_mat->base_color / pi};
 
