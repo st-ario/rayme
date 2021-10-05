@@ -9,7 +9,7 @@ size_t random_size_t(size_t min, size_t max)
 {
   static thread_local std::mt19937_64 generator(std::clock()
     + std::hash<std::thread::id>()(std::this_thread::get_id()));
-  static std::uniform_int_distribution<size_t> distribution(min, max);
+  std::uniform_int_distribution<size_t> distribution(min, max);
   return distribution(generator);
 }
 
@@ -25,7 +25,7 @@ float random_float(float min, float max)
 {
   static thread_local std::mt19937_64 generator(std::clock()
     + std::hash<std::thread::id>()(std::this_thread::get_id()));
-  static std::uniform_real_distribution<float> distribution(min, max);
+  std::uniform_real_distribution<float> distribution(min, max);
   return distribution(generator);
 }
 
