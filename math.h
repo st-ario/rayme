@@ -71,8 +71,17 @@ inline float next_float_up(float f)
 {
   if (std::isinf(f) && f > 0.0f)
     return f;
-  if (f == 0.0f && std::signbit(f) == true) // if (f == -0.0f)
+  if (f == 0.0f && std::signbit(f)) // if (f == -0.0f)
     f = 0.0f;
+
+  /* alternative, to avoid denormalized results
+  // for zero and for positive denormalized floats, return the smallest normalized float
+  if (f == 0 || (!std::signbit(f) && f < std::numeric_limits<float>::min()))
+    return std::numeric_limits<float>::min();
+  // for negative denormalized floats, return 0
+  if (std::signbit(f) && f > -std::numeric_limits<float>::min())
+    return 0.0f;
+  */
 
   uint32_t bits = float_to_bits(f);
   if (f >= 0)
@@ -87,8 +96,18 @@ inline float next_float_down(float f)
 {
   if (std::isinf(f) && f < 0.0f)
     return f;
-  if (f == 0.0f && std::signbit(f) == false) // if (f == 0.0f)
+  if (f == 0.0f && std::signbit(f)) // if (f == +0.0f)
     f = -1.0f * 0.0f;
+
+  /* alternative, to avoid denormalized results
+  // for zero and for negative denormalized floats, return the negative normalized float closest
+  // to zero
+  if (f == 0 || (std::signbit(f) && f > -std::numeric_limits<float>::min()))
+    return -std::numeric_limits<float>::min();
+  // for positive denormalized floats, return 0
+  if (!std::signbit(f) && f < std::numeric_limits<float>::min())
+    return 0.0f;
+  */
 
   uint32_t bits = float_to_bits(f);
   if (f > 0)
@@ -343,9 +362,9 @@ inline glm::mat3 rotate_given_north_pole(const normed_vec3& normal)
 {
   glm::mat3 change_of_base;
 
-  if (normal.x() < machine_two_epsilon && normal.z() < machine_two_epsilon)
+  if (std::abs(normal.x()) < machine_two_epsilon && std::abs(normal.z()) < machine_two_epsilon)
   {
-    if (normal.y() > machine_two_epsilon)
+    if (normal.y() > 0.0f)
       return change_of_base;
     else
     {
@@ -353,8 +372,8 @@ inline glm::mat3 rotate_given_north_pole(const normed_vec3& normal)
                          0.0f, -1.0f, 0.0f,
                          0.0f,  0.0f, 1.0f};
     }
-  } else if (normal.y() < machine_two_epsilon && normal.z() < machine_two_epsilon) {
-    if (normal.x() > machine_two_epsilon)
+  } else if (std::abs(normal.y()) < machine_two_epsilon && std::abs(normal.z()) < machine_two_epsilon) {
+    if (normal.x() > 0.0f)
     {
       change_of_base = {  0.0f, 1.0f, 0.0f,
                          -1.0f, 0.0f, 0.0f,
@@ -384,6 +403,9 @@ inline normed_vec3 cos_weighted_random_upper_hemisphere_unit()
 {
   // picks a uniformly random point in the 2d disk and projects it to the hemisphere
 
+  // TODO check whether this is better than using sin and cos formulas with
+  // a fast trig library
+
   // random distribution on the circle (same trick as the 3d case)
   float x{standard_normal_random_float()};
   float z{standard_normal_random_float()};
@@ -391,8 +413,8 @@ inline normed_vec3 cos_weighted_random_upper_hemisphere_unit()
   x *= inverse_norm;
   z *= inverse_norm;
 
-  // random radius
-  float r{random_float()};
+  // scaled random radius
+  float r{std::sqrt(random_float())};
   x *= r;
   z *= r;
 
@@ -404,7 +426,7 @@ inline normed_vec3 cos_weighted_random_upper_hemisphere_unit()
 
 inline normed_vec3 cos_weighted_random_hemisphere_unit(const normed_vec3& normal)
 {
-  vec3 res = rotate_given_north_pole(normal) * static_cast<vec3>(cos_weighted_random_upper_hemisphere_unit());
+  vec3 res{rotate_given_north_pole(normal) * cos_weighted_random_upper_hemisphere_unit().to_vec3()};
 
   return normed_vec3(res[0],res[1],res[2]);
 }
