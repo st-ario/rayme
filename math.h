@@ -140,7 +140,10 @@ class normed_vec3 : private vec3
     float operator[](int i) const { return vec3::operator[](i); }
 
     normed_vec3 operator-() const;
-    bool operator==(const normed_vec3& v) const { return static_cast<vec3>(*this) == static_cast<vec3>(v) ;}
+    bool operator==(const normed_vec3& v) const
+    {
+      return static_cast<vec3>(*this) == static_cast<vec3>(v) ;
+    }
 
     static normed_vec3 absolute_x() { return normed_vec3{1.0f,0.0f,0.0f}; }
     static normed_vec3 absolute_y() { return normed_vec3{0.0f,1.0f,0.0f}; }
@@ -344,8 +347,8 @@ inline normed_vec3 random_unit()
 
 inline vec3 random_vec3_in_unit_disk()
 {
-  float random_radius = random_float();
-  return random_radius * random_unit();
+  float scaled_random_radius{std::sqrt(random_float())};
+  return scaled_random_radius * random_unit();
 }
 
 inline normed_vec3 random_upper_hemisphere_unit()
@@ -368,20 +371,21 @@ inline glm::mat3 rotate_given_north_pole(const normed_vec3& normal)
       return change_of_base;
     else
     {
-      change_of_base = {-1.0f,  0.0f, 0.0f,
-                         0.0f, -1.0f, 0.0f,
-                         0.0f,  0.0f, 1.0f};
+      change_of_base = {-1.0f, 0.0f, 0.0f,
+                         0.0f,-1.0f, 0.0f,
+                         0.0f, 0.0f, 1.0f};
     }
-  } else if (std::abs(normal.y()) < machine_two_epsilon && std::abs(normal.z()) < machine_two_epsilon) {
+  } else if (std::abs(normal.y()) < machine_two_epsilon
+          && std::abs(normal.z()) < machine_two_epsilon) {
     if (normal.x() > 0.0f)
     {
-      change_of_base = {  0.0f, 1.0f, 0.0f,
-                         -1.0f, 0.0f, 0.0f,
-                          0.0f, 0.0f, 1.0f};
+      change_of_base = { 0.0f,-1.0f, 0.0f,
+                         1.0f, 0.0f, 0.0f,
+                         0.0f, 0.0f, 1.0f};
     } else {
-      change_of_base = { 0.0f, -1.0f, 0.0f,
-                         1.0f,  0.0f, 0.0f,
-                         0.0f,  0.0f, 1.0f};
+      change_of_base = { 0.0f, 1.0f, 0.0f,
+                        -1.0f, 0.0f, 0.0f,
+                         0.0f, 0.0f, 1.0f};
     }
   } else {
     normed_vec3 rel_x{unit(cross(normal,normed_vec3::absolute_x()))};

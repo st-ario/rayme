@@ -110,10 +110,12 @@ class element
     virtual hit_check hit(const ray& r, float t_max) const = 0;
 };
 
+class mesh;
 class primitive : public element
 {
   public:
     point centroid;
+    std::shared_ptr<const mesh> parent_mesh;
   public:
     virtual hit_properties get_info(const ray& r,
       const std::array<float,3>& uvw)const = 0;
@@ -167,5 +169,8 @@ class bvh_tree : public element
     virtual hit_check hit(const ray& r, float t_max) const override;
 
   private:
-    std::shared_ptr<const element> recursive_build(std::vector<std::shared_ptr<const primitive>>& leaves, size_t begin, size_t end) const;
+    std::shared_ptr<const element>
+    recursive_build( std::vector<std::shared_ptr<const primitive>>& leaves
+                   , size_t begin
+                   , size_t end) const;
 };

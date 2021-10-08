@@ -97,6 +97,7 @@ class light : public mesh
     {
       std::vector<std::shared_ptr<const triangle>> triangles;
       triangles.reserve(n_triangles);
+      ptr_triangles.reserve(n_triangles);
 
       for (size_t i = 0; i < n_triangles; ++i)
       {
@@ -120,13 +121,13 @@ class light : public mesh
 class triangle : public primitive
 {
   private:
-    std::shared_ptr<const mesh> parent_mesh;
     const size_t number;
 
   public:
     triangle(const std::shared_ptr<const mesh>& parent_mesh, size_t triangle_number)
-    : parent_mesh{parent_mesh}, number{triangle_number}
+    : number{triangle_number}
     {
+      primitive::parent_mesh = parent_mesh;
       bounds = bounding_box();
       centroid = 0.5f * bounds.max() + 0.5f * bounds.min();
     }

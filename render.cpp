@@ -10,7 +10,7 @@ static color ray_color(const ray& r, const element& world)
 {
   constexpr uint16_t integration_samples_N{300};
   constexpr uint16_t depth{0};
-  return sample_bdf(r,world,integration_samples_N,depth);
+  return integrate_path(r,world,integration_samples_N,depth);
 }
 
 static void render_tile( image* picture
@@ -78,7 +78,7 @@ void render( image& picture
   for (const auto pair : cartesian_product)
   {
       ++counter;
-      std::cerr << "\x1b[2K" << "\rRemaining tiles to render: " << (num_rows * num_columns - counter);
+      std::cerr <<"\x1b[2K"<<"\rRemaining tiles to render: "<< (num_rows * num_columns - counter);
       std::flush(std::cerr);
       render_tile(&picture, tile_size, pair.first, pair.second, samples_per_pixel, &cam, &world);
   }
@@ -89,7 +89,8 @@ void render( image& picture
 
   for (const auto& pair : cartesian_product)
   {
-    future_tiles.push_back(std::async(std::launch::async, render_tile, &picture, tile_size, pair.first, pair.second, samples_per_pixel, &cam, &world));
+    future_tiles.push_back(std::async(std::launch::async, render_tile, &picture, tile_size,
+      pair.first, pair.second, samples_per_pixel, &cam, &world));
   }
 #endif
 }

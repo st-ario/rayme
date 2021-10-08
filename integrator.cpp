@@ -6,41 +6,106 @@
 #include "bdf.h"
 #include "extern/glm/glm/gtx/norm.hpp"
 
+// debug macros
+//#define NO_DIRECT 1
+//#define NO_INDIRECT 1
+//#define NO_SDLS 1
+//#define NO_BRDFDLS 1
+
 static constexpr uint16_t MAX_DEPTH{1000};
 
 color direct_light( const point& x
                   , const hit_record& record
-                  , const hit_properties& info
+                  , const diffuse_brdf& brdf
+                  , const normed_vec3& gnormal
+                  , const normed_vec3& snormal
                   , const element& world
                   , size_t L)
 {
-  auto target_pair{world_lights::lights()[L]->random_surface_point()};
+  color res{0.0f,0.0f,0.0f};
 
-  vec3 nonunital_shadow_dir{target_pair.first - x};
-  normed_vec3 shadow_dir{unit(nonunital_shadow_dir)};
-  float cos_angle{dot(info.snormal(), shadow_dir)};
-  if (cos_angle < machine_two_epsilon)
-    return {0.0f,0.0f,0.0f};
+  // Multiple importance sampling: BRDF and light source sampling
+  // Power heuristcs: beta = 2
+  float brdf_weight{0.0f};
+  float light_weight{0.0f};
+  float light_pdf{1.0f / world_lights::lights()[L]->get_surface_area()};
 
-  ray shadow{offset_ray_origin(x,record.p_error(),info.gnormal(),shadow_dir),shadow_dir};
+  auto sample{brdf.sample(x,gnormal,snormal)};
 
-  auto rec_shadow = world.hit(shadow, infinity);
+  // if the pdf of the BRDF evaluates to 0, skip the BRDF sampling at once
+  if (sample.pdf == 0.0f)
+    goto source_sampling;
 
-  if (!rec_shadow)
-    return {0.0f,0.0f,0.0f};
+  #ifdef NO_BRDFDLS
+  goto source_sampling;
+  #endif
 
-  auto info_shadow{rec_shadow->what()->get_info(shadow,rec_shadow->uvw)};
+  // BRDF sampling
+  {
+    // update sampling weight
+    #ifndef NO_SDLS
+    brdf_weight = sample.pdf * sample.pdf / (sample.pdf * sample.pdf + light_pdf * light_pdf);
+    #else
+    brdf_weight = 1.0f;
+    #endif
 
-  if (rec_shadow->what() != target_pair.second.get())
-      return{0.0f,0.0f,0.0f};
+    ray scattered{bounce_ray(x,record.p_error(),gnormal,sample.scatter_dir)};
 
-  float cos_light_angle{dot(info_shadow.gnormal(), -shadow.direction)};
-  float projection_factor{cos_light_angle / glm::length2(nonunital_shadow_dir)};
-  if (projection_factor < machine_two_epsilon)
-    return {0.0f,0.0f,0.0f};
+    auto rec_shadow{world.hit(scattered,infinity)};
+    if (!rec_shadow)
+      goto source_sampling;
 
-  vec3 emit{world_lights::lights()[L]->ptr_mat->emissive_factor};
-  color res{emit * cos_angle * projection_factor * world_lights::lights()[L]->get_surface_area()};
+    // check whether the scattered ray interacts or not with the current light
+    if (rec_shadow->what()->parent_mesh.get() != world_lights::lights()[L])
+      goto source_sampling;
+
+    // if the scattered ray hit the current light, compute its contribution
+    vec3 emit{world_lights::lights()[L]->ptr_mat->emissive_factor};
+    res += brdf_weight * sample.f_r * emit * sample.cos_angle / sample.pdf;
+
+  } // BRDF sampling
+
+source_sampling:
+  // light source sampling
+  #ifdef NO_SDLS
+  return res;
+  #endif
+  {
+    auto target_pair{world_lights::lights()[L]->random_surface_point()};
+
+    vec3 nonunital_shadow_dir{target_pair.first - x};
+    normed_vec3 shadow_dir{unit(nonunital_shadow_dir)};
+    float cos_angle{dot(snormal, shadow_dir)};
+    if (cos_angle < machine_two_epsilon)
+      return res;
+
+    ray shadow{offset_ray_origin(x,record.p_error(),gnormal,shadow_dir),shadow_dir};
+
+    auto rec_shadow = world.hit(shadow, infinity);
+
+    if (!rec_shadow)
+      return res;
+
+    auto info_shadow{rec_shadow->what()->get_info(shadow,rec_shadow->uvw)};
+
+    if (rec_shadow->what() != target_pair.second.get())
+        return res;
+
+    float cos_light_angle{dot(info_shadow.gnormal(), -shadow.direction)};
+    float projection_factor{cos_light_angle / glm::length2(nonunital_shadow_dir)};
+    if (projection_factor < machine_two_epsilon)
+      return res;
+
+    vec3 emit{world_lights::lights()[L]->ptr_mat->emissive_factor};
+
+    if (brdf_weight == 0.0f)
+      light_weight = 1.0f;
+    else {
+      light_weight = light_pdf * light_pdf / (sample.pdf * sample.pdf + light_pdf * light_pdf);
+    }
+
+    res += light_weight * sample.f_r * emit * cos_angle * projection_factor / light_pdf;
+  } // light source sampling
 
   return res;
 }
@@ -50,8 +115,9 @@ color integrator(const ray& r, const element& world, uint16_t depth, color& thro
   // assuming everything is Lambertian
   // TODO change when materials are properly dealt with
 
-  // Russian roulette
   float thr{1.0f};
+  #ifndef NO_INDIRECT
+  // Russian roulette
   if (depth > uint16_t(3))
   {
     thr = std::max(throughput.x, std::max(throughput.y, throughput.z));
@@ -62,8 +128,9 @@ color integrator(const ray& r, const element& world, uint16_t depth, color& thro
     // if the ray goes on, compensate for energy loss
     throughput *= 1.0f / thr;
   }
+  #endif
 
-  auto rec = world.hit(r, infinity);
+  auto rec{world.hit(r, infinity)};
   if (!rec)
     return {0.0f,0.0f,0.0f};
 
@@ -71,33 +138,50 @@ color integrator(const ray& r, const element& world, uint16_t depth, color& thro
   point hit_point{r.at(rec->t())};
   color res{0.0f,0.0f,0.0f};
 
+  #ifndef NO_DIRECT
   if (depth == 0 && info.ptr_mat()->emitter)
-    return info.ptr_mat()->emissive_factor;
+  #else
+  if (info.ptr_mat()->emitter)
+  #endif
+    res += info.ptr_mat()->emissive_factor;
 
-  // sample brdf
+  // pick the BRDF for the surface hit
   diffuse_brdf brdf{info.ptr_mat()};
-  auto sample{brdf.sample(hit_point,info.gnormal(),info.snormal())};
 
   // sample direct light
   color direct{0.0f,0.0f,0.0f};
+  #ifndef NO_DIRECT
   for (size_t i = 0; i < world_lights::lights().size(); ++i)
-    direct += direct_light(hit_point,rec.value(),info,world,i);
+    direct += direct_light(hit_point,rec.value(),brdf,info.gnormal(),info.snormal(),world,i);
 
-  direct *= sample.f_r / thr; // the denominator compensates for Russian Roulette
+  direct *= 1.0f / thr; // compensate for Russian Roulette
+  #endif
+
+  // sample indirect light
+
+  #ifndef NO_INDIRECT
+  // get scatter ray according to BRDF
+  auto sample{brdf.sample(hit_point,info.gnormal(),info.snormal())};
+  ray scattered{bounce_ray(hit_point,rec->p_error(),info.gnormal(),sample.scatter_dir)};
 
   // update throughput
   throughput *= sample.cos_angle * sample.f_r / sample.pdf;
 
-  // sample indirect light
-  ray scattered{bounce_ray(hit_point,rec->p_error(),info.gnormal(),sample.scatter_dir)};
+  // get indirect light contribution
   color indirect{integrator(scattered, world, depth+1, throughput)};
 
   res += direct + (throughput * indirect);
+  #else
+  res += direct;
+  #endif
 
   return res;
 }
 
-color sample_bdf(const ray& r, const element& world, uint16_t integration_samples_N, uint16_t depth)
+color integrate_path( const ray& r
+                    , const element& world
+                    , uint16_t integration_samples_N
+                    , uint16_t depth)
 {
   color res{0.0f,0.0f,0.0f};
   color throughput{1.0f,1.0f,1.0f};
