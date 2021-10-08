@@ -96,7 +96,7 @@ inline float next_float_down(float f)
 {
   if (std::isinf(f) && f < 0.0f)
     return f;
-  if (f == 0.0f && std::signbit(f)) // if (f == +0.0f)
+  if (f == 0.0f && !std::signbit(f)) // if (f == +0.0f)
     f = -1.0f * 0.0f;
 
   /* alternative, to avoid denormalized results
