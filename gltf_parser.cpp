@@ -419,11 +419,11 @@ std::vector<std::shared_ptr<mesh>> store_mesh(
         material_from_info(gltf_materials[prim.material]));
 
       if (ptr_mat->emitter)
-        res.emplace_back(std::make_shared<light>( n_vertices, n_triangles, vertex_indices
-                                                , vertices, ptr_mat, normals, tangents));
+        res.emplace_back(std::make_shared<light>( n_vertices, n_triangles, std::move(vertex_indices)
+                                                , std::move(vertices), ptr_mat, std::move(normals), std::move(tangents)));
       else
-        res.emplace_back(std::make_shared<mesh>( n_vertices, n_triangles, vertex_indices
-                                               , vertices, ptr_mat, normals, tangents));
+        res.emplace_back(std::make_shared<mesh>( n_vertices, n_triangles, std::move(vertex_indices)
+                                               , std::move(vertices), ptr_mat, std::move(normals), std::move(tangents)));
     }
     ++j;
   }

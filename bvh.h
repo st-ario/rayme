@@ -8,7 +8,7 @@ class material;
 class hit_properties
 {
   public:
-    const bool front_face() const { return m_front_face; }
+    bool front_face() const { return m_front_face; }
     const std::shared_ptr<const material> ptr_mat() const { return m_ptr_mat; }
     const normed_vec3 gnormal() const { return m_gnormal; }
     const normed_vec3 snormal() const { return m_snormal; }
@@ -34,14 +34,14 @@ class hit_record
 {
   public:
     const primitive* what() const { return m_what; }
-    const float t() const { return m_t; }
+    float t() const { return m_t; }
     const vec3 p_error() const { return m_p_error; }
 
     hit_record( const primitive* what
               , float at
               , const vec3& p_error
               , const std::array<float,3>& uvw)
-      : m_what{what}, m_t{at}, m_p_error{p_error}, uvw{uvw} {};
+      : m_what{what}, m_t{at}, m_p_error{p_error}, uvw{uvw} {}
 
   private:
     const primitive* m_what;
@@ -128,7 +128,7 @@ class bvh_node : public element
     std::shared_ptr<const element> right;
 
   public:
-    bvh_node(std::vector<std::shared_ptr<const primitive>>& primitives, size_t start, size_t end);
+    bvh_node(const std::vector<std::shared_ptr<const primitive>>& primitives, size_t start, size_t end);
 
     virtual hit_check hit(const ray& r, float t_max) const override
     {
@@ -164,7 +164,7 @@ class bvh_tree : public element
     std::shared_ptr<const element> root;
 
   public:
-    bvh_tree(std::vector<std::shared_ptr<const primitive>>& primitives);
+    explicit bvh_tree(std::vector<std::shared_ptr<const primitive>>& primitives);
 
     virtual hit_check hit(const ray& r, float t_max) const override;
 

@@ -18,6 +18,5 @@ class image
     uint16_t get_height() const;
     uint16_t get_width() const;
 
-    void write_to_ppm(std::string filename);
-    void write_to_png(std::string filename);
+    void write_to_png(const std::string& filename);
 };

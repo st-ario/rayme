@@ -21,11 +21,11 @@ class mesh : public std::enable_shared_from_this<mesh>
 
     mesh( size_t n_vertices
         , size_t n_triangles
-        , std::vector<size_t> vertex_indices
-        , std::vector<point> vertices
+        , std::vector<size_t>&& vertex_indices
+        , std::vector<point>&& vertices
         , std::shared_ptr<const material> ptr_mat
-        , std::vector<normed_vec3> normals = {}
-        , std::vector<vec4> tangents = {}) :
+        , std::vector<normed_vec3>&& normals = {}
+        , std::vector<vec4>&& tangents = {}) :
         n_vertices{n_vertices}, n_triangles{n_triangles},
         vertex_indices{vertex_indices}, vertices{vertices},
         normals{normals}, tangents{tangents}, ptr_mat{ptr_mat} {}
@@ -77,12 +77,12 @@ class light : public mesh
   public:
     light( size_t n_vertices
          , size_t n_triangles
-         , std::vector<size_t> vertex_indices
-         , std::vector<point> vertices
+         , std::vector<size_t>&& vertex_indices
+         , std::vector<point>&& vertices
          , std::shared_ptr<const material> ptr_mat
-         , std::vector<normed_vec3> normals = {}
-         , std::vector<vec4> tangents = {})
-         : mesh{n_vertices,n_triangles,vertex_indices,vertices,ptr_mat,normals,tangents}
+         , std::vector<normed_vec3>&& normals = {}
+         , std::vector<vec4>&& tangents = {})
+         : mesh{n_vertices,n_triangles,std::move(vertex_indices),std::move(vertices),ptr_mat,std::move(normals),std::move(tangents)}
          {
            world_lights::get().add(this);
          }

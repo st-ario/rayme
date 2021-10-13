@@ -19,14 +19,14 @@ bvh_tree::bvh_tree(std::vector<std::shared_ptr<const primitive>>& primitives)
   root = recursive_build(primitives, 0, primitives.size());
 }
 
-inline float surface_area(std::shared_ptr<const primitive>& leaf)
+inline float surface_area(const std::shared_ptr<const primitive>& leaf)
 {
-  return fabs(leaf->bounds.max().x - leaf->bounds.min().x)
-       * fabs(leaf->bounds.max().y - leaf->bounds.min().y)
-       * fabs(leaf->bounds.max().z - leaf->bounds.min().z);
+  return std::fabs(leaf->bounds.max().x - leaf->bounds.min().x)
+       * std::fabs(leaf->bounds.max().y - leaf->bounds.min().y)
+       * std::fabs(leaf->bounds.max().z - leaf->bounds.min().z);
 }
 
-float sah(std::vector<std::shared_ptr<const primitive>>& leaves, size_t begin, size_t end, size_t at)
+float sah(const std::vector<std::shared_ptr<const primitive>>& leaves, size_t begin, size_t end, size_t at)
 {
   float left_surface_area{0};
   float right_surface_area{0};
@@ -63,7 +63,7 @@ std::shared_ptr<const element> bvh_tree::recursive_build(std::vector<std::shared
           max_coord = leaves[j]->centroid[i];
       }
 
-      float current_span = fabs(max_coord - min_coord);
+      float current_span{std::fabs(max_coord - min_coord)};
       if (current_span > span)
       {
         span = current_span;
@@ -100,7 +100,7 @@ std::shared_ptr<const element> bvh_tree::recursive_build(std::vector<std::shared
   return new_node;
 }
 
-bvh_node::bvh_node(std::vector<std::shared_ptr<const primitive>>& leaves, size_t start, size_t end)
+bvh_node::bvh_node(const std::vector<std::shared_ptr<const primitive>>& leaves, size_t start, size_t end)
 {
   for(size_t i = start; i < end; ++i)
     bounds = surrounding_box(bounds,leaves[i]->bounds);

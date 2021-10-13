@@ -10,6 +10,11 @@ misc/
 *.glb
 *.txt
 *.bak
+*.a1
+*.s1
+*.snalyzerinfo
+*.xml
+*.cppcheck
 
 #cmake stuff
 CMakeLists.txt.user

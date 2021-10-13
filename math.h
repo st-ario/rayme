@@ -187,12 +187,6 @@ class normed_vec3 : private vec3
                                                           , uint16_t seed_z);
 };
 
-inline bool near_zero(const vec3& v)
-{
-  const float epsilon = 1e-8;
-  return (std::fabs(v.x) < epsilon) && (std::fabs(v.y) < epsilon) && (std::fabs(v.z) < epsilon);
-}
-
 inline float epsilon_clamp(float value)
 {
   if (std::fabs(value) < machine_two_epsilon)
