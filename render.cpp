@@ -6,42 +6,84 @@
 
 #include <future>
 
-static color ray_color(const ray& r, const element& world)
+color ray_color( const ray& r
+               , const element& world
+               , uint16_t pixel_x
+               , uint16_t pixel_y
+               , uint16_t sample)
 {
-  constexpr uint16_t integration_samples_N{300};
+  constexpr uint16_t integration_samples_N{128};
   constexpr uint16_t depth{0};
-  return integrate_path(r,world,integration_samples_N,depth);
+  return integrate_path(r,world,integration_samples_N,depth,pixel_x,pixel_y,sample);
 }
 
-static void render_tile( image* picture
-                       , uint8_t tile_size
-                       , uint16_t row
-                       , uint16_t column
-                       , uint16_t samples_per_pixel
-                       , const camera* cam
-                       , const bvh_tree* world)
+float mitchell_netravali (float x)
+{
+  // spline parameters configuration
+  constexpr static float b{1.0f / 3.0f};
+  constexpr static float c{1.0f / 3.0f};
+
+  // Mitchell--Netravali filter formula (https://en.wikipedia.org/wiki/Mitchell%E2%80%93Netravali_filters)
+  x = std::abs(2 * x);
+
+  if (x > 1)
+    return ((-b - 6.0f * c) * x*x*x
+      + (6.0f * b + 30.0f * c) * x*x
+      + (-12.0f * b - 48.0f * c) * x
+      + (8.0f * b + 24.0f * c)) / 6.f;
+  else
+    return ((12.0f - 9.0f * b - 6.0f * c) * x*x*x
+      + (-18.0f + 12.0f * b + 6.0f * c) * x*x
+      + (6.0f - 2.0f * b)) / 6.f;
+
+}
+
+float filter(const std::array<float,2>& pair)
+{
+  return mitchell_netravali(4.0f * (pair[0] - 0.5f)) * mitchell_netravali(4.0f * (pair[1] - 0.5f));
+}
+
+void render_tile( image* picture
+                , uint8_t tile_size
+                , uint16_t row
+                , uint16_t column
+                , uint16_t samples_per_pixel
+                , const camera* cam
+                , const bvh_tree* world)
 {
   color pixel_color(0,0,0);
   const uint16_t h_offset = column * tile_size;
   const uint16_t v_offset = row * tile_size;
 
+  // weight for pixel reconstruction
+  float total_weight{0.0f};
+
   for (uint16_t x = 0; x < tile_size; ++x)
   {
-    if (h_offset + x > picture->get_width() - 1)
+    uint16_t pixel_x{uint16_t(h_offset + x)};
+    if (pixel_x > picture->get_width() - 1)
       break;
     for (uint16_t y = 0; y < tile_size; ++y)
     {
-      if (v_offset + y > picture->get_height() - 1)
+      uint16_t pixel_y{uint16_t(v_offset + y)};
+      if (pixel_y > picture->get_height() - 1)
         break;
+
       pixel_color = {0,0,0};
+      total_weight = 0.0f;
+
       for (uint16_t s = 0; s < samples_per_pixel; ++s)
       {
-        ray r{cam->get_ray(h_offset + x, v_offset + y)};
-        //ray r{cam->get_stochastic_ray(h_offset + x, v_offset + y)};
-        pixel_color += ray_color(r, *world);
+        auto r_pair{cam->get_stochastic_ray(pixel_x, pixel_y, s)};
+        ray r{r_pair.first};
+        std::array<float,2> center_offset{r_pair.second};
+
+        auto filter_weight{filter(center_offset)};
+        total_weight += filter_weight;
+        pixel_color += filter_weight * ray_color(r, *world, pixel_x, pixel_y, s);
       }
-      pixel_color = pixel_color / static_cast<float>(samples_per_pixel);
-      gamma_correct(pixel_color,2.2f);
+      pixel_color = pixel_color / total_weight;
+      gamma_correct(pixel_color,3.f);
 
       picture->pixels[v_offset + y][h_offset + x] = pixel_color;
     }

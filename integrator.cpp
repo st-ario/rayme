@@ -20,7 +20,10 @@ color direct_light( const point& x
                   , const normed_vec3& gnormal
                   , const normed_vec3& snormal
                   , const element& world
-                  , size_t L)
+                  , size_t L
+                  , uint16_t pixel_x
+                  , uint16_t pixel_y
+                  , uint16_t rng_offset)
 {
   color res{0.0f,0.0f,0.0f};
 
@@ -30,7 +33,7 @@ color direct_light( const point& x
   float light_weight{0.0f};
   float light_pdf{1.0f / world_lights::lights()[L]->get_surface_area()};
 
-  auto sample{brdf.sample(x,gnormal,snormal)};
+  auto sample{brdf.sample(x,gnormal,snormal,pixel_x,pixel_y,rng_offset)};
 
   // if the pdf of the BRDF evaluates to 0, skip the BRDF sampling at once
   if (sample.pdf == 0.0f)
@@ -71,7 +74,11 @@ source_sampling:
   return res;
   #endif
   {
-    auto target_pair{world_lights::lights()[L]->random_surface_point()};
+    // constant offset for seeds, to avoid correlating the random surface point with the brdf sample
+    constexpr static uint8_t RNG_DECORR{7};
+
+    auto target_pair{world_lights::lights()[L]->random_surface_point(pixel_x + RNG_DECORR,
+      pixel_y + RNG_DECORR, rng_offset)};
 
     vec3 nonunital_shadow_dir{target_pair.first - x};
     normed_vec3 shadow_dir{unit(nonunital_shadow_dir)};
@@ -110,7 +117,13 @@ source_sampling:
   return res;
 }
 
-color integrator(const ray& r, const element& world, uint16_t depth, color& throughput)
+color integrator( const ray& r
+                , const element& world
+                , uint16_t depth
+                , color& throughput
+                , uint16_t pixel_x
+                , uint16_t pixel_y
+                , uint16_t sample_id)
 {
   // assuming everything is Lambertian
   // TODO change when materials are properly dealt with
@@ -121,7 +134,7 @@ color integrator(const ray& r, const element& world, uint16_t depth, color& thro
   if (depth > uint16_t(3))
   {
     thr = std::max(throughput.x, std::max(throughput.y, throughput.z));
-    float rand{random_float()};
+    float rand{random_float(pixel_x, pixel_y, sample_id + depth)};
     if (rand > thr || thr < machine_epsilon || depth > MAX_DEPTH)
       return {0.0f,0.0f,0.0f};
 
@@ -149,10 +162,15 @@ color integrator(const ray& r, const element& world, uint16_t depth, color& thro
   diffuse_brdf brdf{info.ptr_mat()};
 
   // sample direct light
+
+  // constant offset for seeds, to avoid correlating the direct light sample with the brdf sample
+  constexpr static uint8_t RNG_DECORR{13};
+
   color direct{0.0f,0.0f,0.0f};
   #ifndef NO_DIRECT
   for (size_t i = 0; i < world_lights::lights().size(); ++i)
-    direct += direct_light(hit_point,rec.value(),brdf,info.gnormal(),info.snormal(),world,i);
+    direct += direct_light(hit_point,rec.value(),brdf,info.gnormal(),info.snormal(),world,i,
+      pixel_x + RNG_DECORR, pixel_y + RNG_DECORR, sample_id + depth);
 
   direct *= 1.0f / thr; // compensate for Russian Roulette
   #endif
@@ -161,14 +179,14 @@ color integrator(const ray& r, const element& world, uint16_t depth, color& thro
 
   #ifndef NO_INDIRECT
   // get scatter ray according to BRDF
-  auto sample{brdf.sample(hit_point,info.gnormal(),info.snormal())};
+  auto sample{brdf.sample(hit_point,info.gnormal(),info.snormal(),pixel_x,pixel_y,sample_id+depth)};
   ray scattered{bounce_ray(hit_point,rec->p_error(),info.gnormal(),sample.scatter_dir)};
 
   // update throughput
   throughput *= sample.cos_angle * sample.f_r / sample.pdf;
 
   // get indirect light contribution
-  color indirect{integrator(scattered, world, depth+1, throughput)};
+  color indirect{integrator(scattered, world, depth+1, throughput, pixel_x, pixel_y, sample_id)};
 
   res += direct + (throughput * indirect);
   #else
@@ -181,7 +199,10 @@ color integrator(const ray& r, const element& world, uint16_t depth, color& thro
 color integrate_path( const ray& r
                     , const element& world
                     , uint16_t integration_samples_N
-                    , uint16_t depth)
+                    , uint16_t depth
+                    , uint16_t pixel_x
+                    , uint16_t pixel_y
+                    , uint16_t sample_id)
 {
   color res{0.0f,0.0f,0.0f};
   color throughput{1.0f,1.0f,1.0f};
@@ -189,7 +210,7 @@ color integrate_path( const ray& r
   for (uint16_t i = 0; i < integration_samples_N; ++i)
   {
     throughput = color{1.0f,1.0f,1.0f};
-    res += integrator(r,world,depth,throughput);
+    res += integrator(r,world,depth,throughput,pixel_x,pixel_y,sample_id);
   }
 
   res /= integration_samples_N;

@@ -17,7 +17,9 @@ class camera
           );
 
     ray get_ray(uint16_t pixel_x, uint16_t pixel_y) const;
-    ray get_stochastic_ray(uint16_t pixel_x, uint16_t pixel_y) const;
+    // returns a ray and its random offset in the interval [0,1)
+    std::pair<ray,std::array<float,2>>
+      get_stochastic_ray(uint16_t pixel_x, uint16_t pixel_y, uint16_t z) const;
 
     float get_aspect_ratio() const;
     void  set_aspect_ratio(float ratio);

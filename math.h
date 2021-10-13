@@ -23,13 +23,16 @@ static constexpr float machine_epsilon = std::numeric_limits<float>::epsilon() *
 static constexpr float machine_two_epsilon = std::numeric_limits<float>::epsilon();
 static constexpr float max_float = std::numeric_limits<float>::max();
 static constexpr float pi{3.141592653f};
+static constexpr float pihalf{pi/2.0f};
+static constexpr float pi_over_four{pi/4.0f};
 static constexpr float two_pi{2.0f*pi};
 
 // Utility Functions
 
 size_t random_size_t(size_t min, size_t max);
-float random_float();
-float random_float(float min, float max);
+float random_float(uint16_t x, uint16_t y, uint16_t z);
+float random_float(float min, float max, uint16_t x, uint16_t y, uint16_t z);
+std::array<float,2> random_float_pair(uint16_t x, uint16_t y, uint16_t z);
 float standard_normal_random_float();
 
 float fast_inverse_sqrt(float x);
@@ -171,11 +174,17 @@ class normed_vec3 : private vec3
     // return uniformly distributed vector on the unit sphere
     friend normed_vec3 random_unit();
     // return a random unit vector in the absolute upper hemisphere weighted by the cosine of the
-    // angle formed wrt the north pole
-    friend normed_vec3 cos_weighted_random_upper_hemisphere_unit();
+    // angle formed wrt the north pole;
+    // the three arguments are used for the rng
+    friend normed_vec3
+      cos_weighted_random_upper_hemisphere_unit(uint16_t seed_x, uint16_t seed_y, uint16_t seed_z);
     // return a random unit vector in the upper hemisphere having the argument as north pole,
-    // weighted by the cosine of the angle formed wrt the argument
-    friend normed_vec3 cos_weighted_random_hemisphere_unit(const normed_vec3& normal);
+    // weighted by the cosine of the angle formed wrt the argument;
+    // the three extra arguments are used for the rng
+    friend normed_vec3 cos_weighted_random_hemisphere_unit( const normed_vec3& normal
+                                                          , uint16_t seed_x
+                                                          , uint16_t seed_y
+                                                          , uint16_t seed_z);
 };
 
 inline bool near_zero(const vec3& v)
@@ -195,9 +204,6 @@ inline vec3 epsilon_clamp(const vec3& v)
 {
   return vec3{epsilon_clamp(v.x),epsilon_clamp(v.y),epsilon_clamp(v.z)};
 }
-
-// return uniformly distributed vector inside the unit disk
-vec3 random_vec3_in_unit_disk();
 
 inline normed_vec3 unit(const vec3& v)
 {
@@ -334,6 +340,7 @@ inline float min_component(const vec3& v)
   return v.z;
 }
 
+/*
 inline normed_vec3 random_unit()
 {
   // computed normalizing standard Gaussians for each coordinate
@@ -345,12 +352,6 @@ inline normed_vec3 random_unit()
   return normed_vec3(rx*inverse_norm,ry*inverse_norm,rz*inverse_norm);
 }
 
-inline vec3 random_vec3_in_unit_disk()
-{
-  float scaled_random_radius{std::sqrt(random_float())};
-  return scaled_random_radius * random_unit();
-}
-
 inline normed_vec3 random_upper_hemisphere_unit()
 {
   normed_vec3 res = random_unit();
@@ -359,6 +360,7 @@ inline normed_vec3 random_upper_hemisphere_unit()
 
   return res;
 }
+*/
 
 // return some rotation sending the north pole of the unit sphere to the argument
 inline glm::mat3 rotate_given_north_pole(const normed_vec3& normal)
@@ -396,31 +398,45 @@ inline glm::mat3 rotate_given_north_pole(const normed_vec3& normal)
   return change_of_base;
 }
 
+/*
 inline normed_vec3 random_hemisphere_unit(const normed_vec3& normal)
 {
   vec3 res = rotate_given_north_pole(normal) * static_cast<vec3>(random_upper_hemisphere_unit());
 
   return normed_vec3(res[0],res[1],res[2]);
 }
+*/
 
-inline normed_vec3 cos_weighted_random_upper_hemisphere_unit()
+inline normed_vec3
+cos_weighted_random_upper_hemisphere_unit(uint16_t seed_x, uint16_t seed_y, uint16_t seed_z)
 {
   // picks a uniformly random point in the 2d disk and projects it to the hemisphere
 
-  // TODO check whether this is better than using sin and cos formulas with
-  // a fast trig library
+  // concentric disk sampling
 
-  // random distribution on the circle (same trick as the 3d case)
-  float x{standard_normal_random_float()};
-  float z{standard_normal_random_float()};
-  float inverse_norm{fast_inverse_sqrt(x*x + z*z)};
-  x *= inverse_norm;
-  z *= inverse_norm;
+  // map [0,1]^2 into [-1,1]^2
+  auto rnd_pair{random_float_pair(seed_x,seed_y,seed_z)};
+  float x{2.0f * rnd_pair[0] - 1.0f};
+  float z{2.0f * rnd_pair[1] - 1.0f};
 
-  // scaled random radius
-  float r{std::sqrt(random_float())};
-  x *= r;
-  z *= r;
+  // edge case
+  if(x == 0.0f && z == 0.0f)
+    return normed_vec3{0.0f,1.0f,0.0f};
+
+  float angle{0.0f};
+  float radius{0.0f};
+
+  // concentric mapping formula
+  if (std::abs(x) > std::abs(z))
+  {
+    radius = x;
+    angle = pi_over_four * (z / x);
+  } else {
+    radius = z;
+    angle = pihalf - pi_over_four * (x / z);
+  }
+  x = radius * std::cos(angle);
+  z = radius * std::sin(angle);
 
   // projection
   float y{std::sqrt(1.0f - x*x - z*z)};
@@ -428,9 +444,14 @@ inline normed_vec3 cos_weighted_random_upper_hemisphere_unit()
   return normed_vec3{x, y, z};
 }
 
-inline normed_vec3 cos_weighted_random_hemisphere_unit(const normed_vec3& normal)
+inline normed_vec3
+cos_weighted_random_hemisphere_unit( const normed_vec3& normal
+                                   , uint16_t seed_x
+                                   , uint16_t seed_y
+                                   , uint16_t seed_z)
 {
-  vec3 res{rotate_given_north_pole(normal) * cos_weighted_random_upper_hemisphere_unit().to_vec3()};
+  vec3 res{rotate_given_north_pole(normal)
+    * cos_weighted_random_upper_hemisphere_unit(seed_x, seed_y, seed_z).to_vec3()};
 
   return normed_vec3(res[0],res[1],res[2]);
 }

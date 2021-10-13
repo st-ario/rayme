@@ -15,7 +15,7 @@ int main(int argc, char* argv[])
 
   bvh_tree scene_tree{primitives};
 
-  constexpr uint16_t samples_per_pixel{1};
+  constexpr uint16_t samples_per_pixel{4};
 
   image picture(cam->get_image_width(),cam->get_image_height());
   render(picture, samples_per_pixel, *cam, scene_tree);

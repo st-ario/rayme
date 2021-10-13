@@ -8,8 +8,9 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(CMAKE_CXX_FLAGS "-O3")
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O3")
+##set(CMAKE_CXX_FLAGS_DEBUG "-g -gdwarf-4 -fvar-tracking-assignments -O3")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
-## set(GCC_WARNING_FLAGS "-Wall -Wextra")
+## set(GCC_WARNING_FLAGS "-Wall -Wextra -Wno-deprecated -fno-elide-type -fdiagnostics-show-template-tree -Wall -Werror -Wextra -Wpedantic -Wvla -Wextra-semi -Wnull-dereference -Wswitch-enum -Wduplicated-cond -Wduplicated-branches -Wsuggest-override  -Wfloat-conversion")
 set(GCC_WARNING_FLAGS "")
 
 add_executable(${PROJECT_NAME}
@@ -24,6 +25,8 @@ add_executable(${PROJECT_NAME}
   meshes.cpp
   render.cpp
   extern/simdjson/singleheader/simdjson.cpp
+  1d_samples/hardcoded_1d_rng.cpp
+  2d_samples/hardcoded_2d_rng.cpp
   )
 
 #####    DOWNLOAD ALL THE SUBMODULES

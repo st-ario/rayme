@@ -5,6 +5,11 @@
 #include <thread>
 #include <time.h>
 
+//#define STATIC_RANDOM 1
+#ifdef STATIC_RANDOM
+#include "rng.h"
+#endif
+
 size_t random_size_t(size_t min, size_t max)
 {
   static thread_local std::mt19937_64 generator(std::clock()
@@ -13,29 +18,54 @@ size_t random_size_t(size_t min, size_t max)
   return distribution(generator);
 }
 
-float random_float()
+float random_float(uint16_t x, uint16_t y, uint16_t z)
 {
+  #ifdef STATIC_RANDOM
+  uint32_t hash{uint32_t(x + 2069*y)}; // simple hash: yx in base 2069 (prime)
+  hash %= N_RNG_SAMPLES;
+  uint16_t sample{uint16_t(z % SIZE_RNG_SAMPLES)};
+  return (*samples_1d[hash])[sample];
+  #else
   static thread_local std::mt19937_64 generator(std::clock()
     + std::hash<std::thread::id>()(std::this_thread::get_id()));
-  static std::uniform_real_distribution<float> distribution(0.0, 1.0);
+  static std::uniform_real_distribution<float> distribution(0.0f, 1.0f);
   return distribution(generator);
+  #endif
 }
 
-float random_float(float min, float max)
+std::array<float,2> random_float_pair(uint16_t x, uint16_t y, uint16_t z)
 {
+  #ifdef STATIC_RANDOM
+  uint32_t hash{uint32_t(x + 2069*y)}; // simple hash: yx in base 2069 (prime)
+  hash %= N_RNG_SAMPLES;
+  uint16_t sample{uint16_t(z % SIZE_RNG_SAMPLES)};
+  return (*samples_2d[hash])[sample];
+  #else
+  return std::array<float,2>{random_float(x,y,z), random_float(x,y,z)};
+  #endif
+}
+
+float random_float(float min, float max, uint16_t x, uint16_t y, uint16_t z)
+{
+  #ifdef STATIC_RANDOM
+  return min + random_float(x,y,z) * max;
+  #else
   static thread_local std::mt19937_64 generator(std::clock()
     + std::hash<std::thread::id>()(std::this_thread::get_id()));
   std::uniform_real_distribution<float> distribution(min, max);
   return distribution(generator);
+  #endif
 }
 
+/*
 float standard_normal_random_float()
 {
   static thread_local std::mt19937_64 generator(std::clock()
     + std::hash<std::thread::id>()(std::this_thread::get_id()));
-  static std::normal_distribution<float> distribution(0,1);
+  static std::normal_distribution<float> distribution(0.0f,1.0f);
   return distribution(generator);
 }
+*/
 
 float fast_inverse_sqrt(float x) // https://en.wikipedia.org/wiki/Fast_inverse_square_root
 {
@@ -114,16 +144,6 @@ namespace base64
 } // namespace base64
 
 // vectors utility functions
-
-vec3 random_vec3()
-{
-  return vec3(random_float(), random_float(), random_float());
-}
-
-vec3 random_vec3(float min, float max)
-{
-  return vec3(random_float(min,max), random_float(min,max), random_float(min,max));
-}
 
 normed_vec3 reflect(const normed_vec3& incident, const normed_vec3& normal)
 {

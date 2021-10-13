@@ -88,8 +88,9 @@ class light : public mesh
          }
 
     // return a uniformly distributed random point on the surface of the mesh, and a pointer
-    // to the primitive containing it
-    std::pair<point, std::shared_ptr<const triangle>> random_surface_point() const;
+    // to the primitive containing it; the three arguments are used for the rng
+    std::pair<point, std::shared_ptr<const triangle>>
+      random_surface_point(uint16_t seed_x, uint16_t seed_y, uint16_t seed_z) const;
 
     float get_surface_area() const { return surface_area; }
 
