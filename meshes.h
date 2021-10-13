@@ -1,12 +1,12 @@
 #pragma once
 
 #include "bvh.h"
+#include "materials.h"
 #include "extern/glm/glm/vec4.hpp"
 
 using vec4 = glm::vec4;
 
 class triangle;
-class material;
 
 class mesh : public std::enable_shared_from_this<mesh>
 {
@@ -17,18 +17,18 @@ class mesh : public std::enable_shared_from_this<mesh>
     std::vector<point> vertices;
     std::vector<normed_vec3> normals;
     std::vector<vec4> tangents;
-    std::shared_ptr<const material> ptr_mat;
+    std::unique_ptr<const material> ptr_mat;
 
     mesh( size_t n_vertices
         , size_t n_triangles
         , std::vector<size_t>&& vertex_indices
         , std::vector<point>&& vertices
-        , std::shared_ptr<const material> ptr_mat
+        , std::unique_ptr<const material>&& ptr_mat
         , std::vector<normed_vec3>&& normals = {}
         , std::vector<vec4>&& tangents = {}) :
         n_vertices{n_vertices}, n_triangles{n_triangles},
         vertex_indices{vertex_indices}, vertices{vertices},
-        normals{normals}, tangents{tangents}, ptr_mat{ptr_mat} {}
+        normals{normals}, tangents{tangents}, ptr_mat{std::move(ptr_mat)} {}
 
     virtual std::vector<std::shared_ptr<const triangle>> get_triangles() const
     {
@@ -50,7 +50,7 @@ class world_lights
   friend class light;
   friend void parse_gltf( const std::string& filename
                         , std::vector<std::shared_ptr<const primitive>>& primitives
-                        , std::shared_ptr<camera>& cam
+                        , std::unique_ptr<camera>& cam
                         , uint16_t image_height);
 
   public:
@@ -79,17 +79,17 @@ class light : public mesh
          , size_t n_triangles
          , std::vector<size_t>&& vertex_indices
          , std::vector<point>&& vertices
-         , std::shared_ptr<const material> ptr_mat
+         , std::unique_ptr<const material>&& ptr_mat
          , std::vector<normed_vec3>&& normals = {}
          , std::vector<vec4>&& tangents = {})
-         : mesh{n_vertices,n_triangles,std::move(vertex_indices),std::move(vertices),ptr_mat,std::move(normals),std::move(tangents)}
+         : mesh{n_vertices,n_triangles,std::move(vertex_indices),std::move(vertices),std::move(ptr_mat),std::move(normals),std::move(tangents)}
          {
            world_lights::get().add(this);
          }
 
     // return a uniformly distributed random point on the surface of the mesh, and a pointer
     // to the primitive containing it; the three arguments are used for the rng
-    std::pair<point, std::shared_ptr<const triangle>>
+    std::pair<point, const triangle*>
       random_surface_point(uint16_t seed_x, uint16_t seed_y, uint16_t seed_z) const;
 
     float get_surface_area() const { return surface_area; }

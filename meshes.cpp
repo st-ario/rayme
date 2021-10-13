@@ -31,7 +31,7 @@ hit_properties triangle::get_info(const ray& r, const std::array<float,3>& uvw) 
     snormal = front_face ? unit(nonunital_candidate_normal) : - unit(nonunital_candidate_normal);
   }
 
-  return hit_properties(front_face, parent_mesh->ptr_mat, gnormal, snormal);
+  return hit_properties(front_face, parent_mesh->ptr_mat.get(), gnormal, snormal);
 }
 
 aabb triangle::bounding_box() const
@@ -82,7 +82,7 @@ void world_lights::compute_light_areas()
     light->compute_surface_area();
 }
 
-std::pair<point, std::shared_ptr<const triangle>>
+std::pair<point, const triangle*>
 light::random_surface_point(uint16_t seed_x, uint16_t seed_y, uint16_t seed_z) const
 {
   // select a triangle with a PDF weighted by the surface of each triangle using the inversion method
@@ -122,7 +122,7 @@ light::random_surface_point(uint16_t seed_x, uint16_t seed_y, uint16_t seed_z) c
   point res{p0};
   res += (1.0f - r1) * (p1-p0) + (r1 * rnd_pair[1]) * (p2-p0);
 
-  return std::make_pair(res,ptr_triangles[sel]);
+  return std::make_pair(res,ptr_triangles[sel].get());
 }
 
 hit_check triangle::hit(const ray& r, float t_max) const

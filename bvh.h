@@ -9,12 +9,12 @@ class hit_properties
 {
   public:
     bool front_face() const { return m_front_face; }
-    const std::shared_ptr<const material> ptr_mat() const { return m_ptr_mat; }
+    const material* ptr_mat() const { return m_ptr_mat; }
     const normed_vec3 gnormal() const { return m_gnormal; }
     const normed_vec3 snormal() const { return m_snormal; }
 
     hit_properties( bool front_face
-                  , std::shared_ptr<const material> ptr_mat
+                  , const material* ptr_mat
                   , normed_vec3 gnormal
                   , normed_vec3 snormal
                   ) : m_front_face{front_face}
@@ -24,7 +24,7 @@ class hit_properties
 
   private:
     bool m_front_face;
-    std::shared_ptr<const material> m_ptr_mat;
+    const material* m_ptr_mat;
     normed_vec3 m_gnormal;
     normed_vec3 m_snormal;
 };

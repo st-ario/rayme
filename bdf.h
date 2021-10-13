@@ -18,7 +18,7 @@ struct brdf_sample
 class diffuse_brdf
 {
   public:
-    explicit diffuse_brdf(const std::shared_ptr<const material>& ptr_mat) : ptr_mat{ptr_mat} {}
+    explicit diffuse_brdf(const material* ptr_mat) : ptr_mat{ptr_mat} {}
 
    brdf_sample sample( const point& at
                      , const normed_vec3& gnormal
@@ -28,5 +28,5 @@ class diffuse_brdf
                      , uint16_t seed_z) const;
 
   private:
-    const std::shared_ptr<const material> ptr_mat;
+    const material* ptr_mat;
 };

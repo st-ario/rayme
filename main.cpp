@@ -8,7 +8,7 @@ int main(int argc, char* argv[])
   constexpr uint16_t image_height{800};
 
   std::vector<std::shared_ptr<const primitive>> primitives;
-  std::shared_ptr<camera> cam;
+  std::unique_ptr<camera> cam;
 
   std::string filename{argv[1]};
   parse_gltf(filename, primitives, cam, image_height);

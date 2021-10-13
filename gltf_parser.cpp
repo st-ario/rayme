@@ -14,7 +14,7 @@ struct gltf_node
   std::vector<std::shared_ptr<gltf_node>> children;
   std::weak_ptr<gltf_node> parent;
   std::vector<std::shared_ptr<mesh>> m_mesh;
-  std::shared_ptr<camera> cam;
+  std::unique_ptr<camera> cam;
   std::shared_ptr<transformation> transform;
 };
 
@@ -415,15 +415,15 @@ std::vector<std::shared_ptr<mesh>> store_mesh(
         }
       }
 
-      std::shared_ptr<const material> ptr_mat = std::make_shared<const material>(
+      std::unique_ptr<const material> ptr_mat = std::make_unique<const material>(
         material_from_info(gltf_materials[prim.material]));
 
       if (ptr_mat->emitter)
         res.emplace_back(std::make_shared<light>( n_vertices, n_triangles, std::move(vertex_indices)
-                                                , std::move(vertices), ptr_mat, std::move(normals), std::move(tangents)));
+                                                , std::move(vertices), std::move(ptr_mat), std::move(normals), std::move(tangents)));
       else
         res.emplace_back(std::make_shared<mesh>( n_vertices, n_triangles, std::move(vertex_indices)
-                                               , std::move(vertices), ptr_mat, std::move(normals), std::move(tangents)));
+                                               , std::move(vertices), std::move(ptr_mat), std::move(normals), std::move(tangents)));
     }
     ++j;
   }
@@ -495,7 +495,7 @@ void process_tree( std::shared_ptr<gltf_node>& relative_root
                  , const std::vector<accessor>& accessors
                  , const std::vector<gltf_material>& gltf_materials
                  , std::vector<std::shared_ptr<const primitive>>& primitives
-                 , std::shared_ptr<camera>& cam
+                 , std::unique_ptr<camera>& cam
                  , uint16_t image_height)
 {
   for (int child_index : relative_root->children_indices)
@@ -578,9 +578,9 @@ void process_tree( std::shared_ptr<gltf_node>& relative_root
     // process camera
     if (current_raw_node.has_camera)
     {
-      current_node->cam = std::make_shared<camera>(store_camera(current_raw_node.camera,doc,image_height));
+      current_node->cam = std::make_unique<camera>(store_camera(current_raw_node.camera,doc,image_height));
       apply_camera_transformations(*current_node);
-      cam = current_node->cam;
+      cam = std::move(current_node->cam);
     }
 
     relative_root->children.push_back(current_node);
@@ -589,7 +589,7 @@ void process_tree( std::shared_ptr<gltf_node>& relative_root
 
 void parse_gltf( const std::string& filename
                , std::vector<std::shared_ptr<const primitive>>& primitives
-               , std::shared_ptr<camera>& cam
+               , std::unique_ptr<camera>& cam
                , uint16_t image_height)
 {
   simdjson::ondemand::parser parser;

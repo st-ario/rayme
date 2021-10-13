@@ -95,7 +95,7 @@ source_sampling:
 
     auto info_shadow{rec_shadow->what()->get_info(shadow,rec_shadow->uvw)};
 
-    if (rec_shadow->what() != target_pair.second.get())
+    if (rec_shadow->what() != target_pair.second)
         return res;
 
     float cos_light_angle{dot(info_shadow.gnormal(), -shadow.direction)};
