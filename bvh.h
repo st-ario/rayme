@@ -117,18 +117,17 @@ class primitive : public element
     point centroid;
     std::shared_ptr<const mesh> parent_mesh;
   public:
-    virtual hit_properties get_info(const ray& r,
-      const std::array<float,3>& uvw)const = 0;
+    virtual hit_properties get_info(const ray& r, const std::array<float,3>& uvw)const = 0;
 };
 
 class bvh_node : public element
 {
   public:
-    std::shared_ptr<const element> left;
-    std::shared_ptr<const element> right;
+    std::unique_ptr<const element> left;
+    std::unique_ptr<const element> right;
 
   public:
-    bvh_node(const std::vector<std::shared_ptr<const primitive>>& primitives, size_t start, size_t end);
+    bvh_node(const std::vector<std::unique_ptr<const primitive>>& primitives, size_t start, size_t end);
 
     virtual hit_check hit(const ray& r, float t_max) const override
     {
@@ -164,13 +163,13 @@ class bvh_tree : public element
     std::shared_ptr<const element> root;
 
   public:
-    explicit bvh_tree(std::vector<std::shared_ptr<const primitive>>& primitives);
+    explicit bvh_tree(std::vector<std::unique_ptr<const primitive>>& primitives);
 
     virtual hit_check hit(const ray& r, float t_max) const override;
 
   private:
-    std::shared_ptr<const element>
-    recursive_build( std::vector<std::shared_ptr<const primitive>>& leaves
+    std::unique_ptr<const element>
+    recursive_build( std::vector<std::unique_ptr<const primitive>>& leaves
                    , size_t begin
                    , size_t end) const;
 };

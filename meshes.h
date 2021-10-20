@@ -30,13 +30,13 @@ class mesh : public std::enable_shared_from_this<mesh>
         vertex_indices{vertex_indices}, vertices{vertices},
         normals{normals}, tangents{tangents}, ptr_mat{std::move(ptr_mat)} {}
 
-    virtual std::vector<std::shared_ptr<const triangle>> get_triangles() const
+    virtual std::vector<std::unique_ptr<const triangle>> get_triangles() const
     {
-      std::vector<std::shared_ptr<const triangle>> triangles;
+      std::vector<std::unique_ptr<const triangle>> triangles;
       triangles.reserve(n_triangles);
 
       for (size_t i = 0; i < n_triangles; ++i)
-        triangles.push_back(std::make_shared<const triangle>(shared_from_this(), i));
+        triangles.push_back(std::make_unique<const triangle>(shared_from_this(), i));
 
       return triangles;
     }
@@ -49,7 +49,7 @@ class world_lights
 {
   friend class light;
   friend void parse_gltf( const std::string& filename
-                        , std::vector<std::shared_ptr<const primitive>>& primitives
+                        , std::vector<std::unique_ptr<const primitive>>& primitives
                         , std::unique_ptr<camera>& cam
                         , uint16_t image_height);
 
@@ -94,17 +94,17 @@ class light : public mesh
 
     float get_surface_area() const { return surface_area; }
 
-    virtual std::vector<std::shared_ptr<const triangle>> get_triangles() const override
+    virtual std::vector<std::unique_ptr<const triangle>> get_triangles() const override
     {
-      std::vector<std::shared_ptr<const triangle>> triangles;
+      std::vector<std::unique_ptr<const triangle>> triangles;
       triangles.reserve(n_triangles);
       ptr_triangles.reserve(n_triangles);
 
       for (size_t i = 0; i < n_triangles; ++i)
       {
-        auto t{std::make_shared<const triangle>(shared_from_this(), i)};
-        triangles.push_back(t);
-        ptr_triangles.push_back(t);
+        auto t{std::make_unique<const triangle>(shared_from_this(), i)};
+        ptr_triangles.push_back(t.get());
+        triangles.emplace_back(std::move(t));
       }
 
       return triangles;
@@ -114,7 +114,7 @@ class light : public mesh
     float surface_area{0.0f};
     std::vector<float> triangles_areas;
     std::vector<float> triangles_cdf;
-    mutable std::vector<std::shared_ptr<const triangle>> ptr_triangles;
+    mutable std::vector<const triangle*> ptr_triangles;
 
     void compute_surface_area();
 };

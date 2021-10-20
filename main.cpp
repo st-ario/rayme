@@ -7,7 +7,7 @@ int main(int argc, char* argv[])
 {
   constexpr uint16_t image_height{800};
 
-  std::vector<std::shared_ptr<const primitive>> primitives;
+  std::vector<std::unique_ptr<const primitive>> primitives;
   std::unique_ptr<camera> cam;
 
   std::string filename{argv[1]};

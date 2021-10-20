@@ -494,7 +494,7 @@ void process_tree( std::shared_ptr<gltf_node>& relative_root
                  , const std::vector<buffer_view>& views
                  , const std::vector<accessor>& accessors
                  , const std::vector<gltf_material>& gltf_materials
-                 , std::vector<std::shared_ptr<const primitive>>& primitives
+                 , std::vector<std::unique_ptr<const primitive>>& primitives
                  , std::unique_ptr<camera>& cam
                  , uint16_t image_height)
 {
@@ -571,7 +571,7 @@ void process_tree( std::shared_ptr<gltf_node>& relative_root
       for (auto& x : current_node->m_mesh)
       {
         for (auto& tri : x->get_triangles())
-          primitives.emplace_back(static_cast<std::shared_ptr<const triangle>>(tri));
+          primitives.emplace_back(static_cast<std::unique_ptr<const triangle>>(std::move(tri)));
       }
     }
 
@@ -588,7 +588,7 @@ void process_tree( std::shared_ptr<gltf_node>& relative_root
 }
 
 void parse_gltf( const std::string& filename
-               , std::vector<std::shared_ptr<const primitive>>& primitives
+               , std::vector<std::unique_ptr<const primitive>>& primitives
                , std::unique_ptr<camera>& cam
                , uint16_t image_height)
 {

@@ -122,7 +122,7 @@ light::random_surface_point(uint16_t seed_x, uint16_t seed_y, uint16_t seed_z) c
   point res{p0};
   res += (1.0f - r1) * (p1-p0) + (r1 * rnd_pair[1]) * (p2-p0);
 
-  return std::make_pair(res,ptr_triangles[sel].get());
+  return std::make_pair(res,ptr_triangles[sel]);
 }
 
 hit_check triangle::hit(const ray& r, float t_max) const
