@@ -13,7 +13,7 @@ struct gltf_node
   std::vector<int> children_indices;
   std::vector<std::shared_ptr<gltf_node>> children;
   std::weak_ptr<gltf_node> parent;
-  std::vector<std::shared_ptr<mesh>> m_mesh;
+  std::vector<mesh*> m_mesh;
   std::unique_ptr<camera> cam;
   std::shared_ptr<transformation> transform;
 };
@@ -245,7 +245,7 @@ void apply_camera_transformations(gltf_node& node)
     apply_camera_transformations(*p_p, *(node.cam));
 }
 
-std::vector<std::shared_ptr<mesh>> store_mesh(
+std::vector<mesh*> store_mesh(
                   int index
                 , simdjson::ondemand::document& doc
                 , const std::vector<gltf_buffer>& buffers
@@ -253,7 +253,7 @@ std::vector<std::shared_ptr<mesh>> store_mesh(
                 , const std::vector<accessor>& accessors
                 , const std::vector<gltf_material>& gltf_materials)
 {
-  std::vector<std::shared_ptr<mesh>> res;
+  std::vector<mesh*> res;
 
   simdjson::ondemand::array document_meshes = doc["meshes"];
   int j = 0;
@@ -419,11 +419,19 @@ std::vector<std::shared_ptr<mesh>> store_mesh(
         material_from_info(gltf_materials[prim.material]));
 
       if (ptr_mat->emitter)
-        res.emplace_back(std::make_shared<light>( n_vertices, n_triangles, std::move(vertex_indices)
-                                                , std::move(vertices), std::move(ptr_mat), std::move(normals), std::move(tangents)));
+        res.push_back(light::get_light( n_vertices , n_triangles
+                                      , std::move(vertex_indices)
+                                      , std::move(vertices)
+                                      , std::move(ptr_mat)
+                                      , std::move(normals)
+                                      , std::move(tangents)));
       else
-        res.emplace_back(std::make_shared<mesh>( n_vertices, n_triangles, std::move(vertex_indices)
-                                               , std::move(vertices), std::move(ptr_mat), std::move(normals), std::move(tangents)));
+        res.push_back(mesh::get_mesh( n_vertices, n_triangles
+                                    , std::move(vertex_indices)
+                                    , std::move(vertices)
+                                    , std::move(ptr_mat)
+                                    , std::move(normals)
+                                    , std::move(tangents)));
     }
     ++j;
   }

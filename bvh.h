@@ -115,7 +115,7 @@ class primitive : public element
 {
   public:
     point centroid;
-    std::shared_ptr<const mesh> parent_mesh;
+    const mesh* parent_mesh;
   public:
     virtual hit_properties get_info(const ray& r, const std::array<float,3>& uvw)const = 0;
 };
@@ -160,7 +160,7 @@ class bvh_node : public element
 class bvh_tree : public element
 {
   private:
-    std::shared_ptr<const element> root;
+    std::unique_ptr<const element> root;
 
   public:
     explicit bvh_tree(std::vector<std::unique_ptr<const primitive>>& primitives);

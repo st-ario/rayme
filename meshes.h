@@ -8,7 +8,7 @@ using vec4 = glm::vec4;
 
 class triangle;
 
-class mesh : public std::enable_shared_from_this<mesh>
+class mesh
 {
   public:
     const size_t n_vertices;
@@ -19,6 +19,40 @@ class mesh : public std::enable_shared_from_this<mesh>
     std::vector<vec4> tangents;
     std::unique_ptr<const material> ptr_mat;
 
+    static mesh* get_mesh( size_t n_vertices
+                         , size_t n_triangles
+                         , std::vector<size_t>&& vertex_indices
+                         , std::vector<point>&& vertices
+                         , std::unique_ptr<const material>&& ptr_mat
+                         , std::vector<normed_vec3>&& normals = {}
+                         , std::vector<vec4>&& tangents = {})
+    {
+      // meshes have static lifespan
+      static std::vector<std::unique_ptr<mesh>> mesh_instances;
+
+      std::unique_ptr<mesh> instance_ptr{
+        new mesh( n_vertices, n_triangles
+                , std::move(vertex_indices)
+                , std::move(vertices)
+                , std::move(ptr_mat)
+                , std::move(normals)
+                , std::move(tangents))};
+      mesh_instances.emplace_back(std::move(instance_ptr));
+      return mesh_instances.back().get();
+    }
+
+    virtual std::vector<std::unique_ptr<const triangle>> get_triangles() const
+    {
+      std::vector<std::unique_ptr<const triangle>> triangles;
+      triangles.reserve(n_triangles);
+
+      for (size_t i = 0; i < n_triangles; ++i)
+        triangles.push_back(std::make_unique<const triangle>(this, i));
+
+      return triangles;
+    }
+
+  protected:
     mesh( size_t n_vertices
         , size_t n_triangles
         , std::vector<size_t>&& vertex_indices
@@ -29,17 +63,6 @@ class mesh : public std::enable_shared_from_this<mesh>
         n_vertices{n_vertices}, n_triangles{n_triangles},
         vertex_indices{vertex_indices}, vertices{vertices},
         normals{normals}, tangents{tangents}, ptr_mat{std::move(ptr_mat)} {}
-
-    virtual std::vector<std::unique_ptr<const triangle>> get_triangles() const
-    {
-      std::vector<std::unique_ptr<const triangle>> triangles;
-      triangles.reserve(n_triangles);
-
-      for (size_t i = 0; i < n_triangles; ++i)
-        triangles.push_back(std::make_unique<const triangle>(shared_from_this(), i));
-
-      return triangles;
-    }
 };
 
 // singleton for all the lights in the scene
@@ -59,40 +82,49 @@ class world_lights
     world_lights& operator=(const world_lights&) = delete;
     world_lights& operator=(world_lights&&) = delete;
 
-    static const std::vector<light*>& lights() { return get().lights_vector; }
+    static const std::vector<std::unique_ptr<light>>& lights() { return get().lights_vector; }
 
   private:
     world_lights() = default;
 
     static world_lights& get() { static world_lights static_instance; return static_instance; }
-    void add(light* l) { lights_vector.push_back(l); }
+    void add(std::unique_ptr<light>&& l) { lights_vector.emplace_back(std::move(l)); }
     static void compute_light_areas();
 
-    std::vector<light*> lights_vector;
+    std::vector<std::unique_ptr<light>> lights_vector;
 };
 
 class light : public mesh
 {
   friend class world_lights;
-  public:
-    light( size_t n_vertices
-         , size_t n_triangles
-         , std::vector<size_t>&& vertex_indices
-         , std::vector<point>&& vertices
-         , std::unique_ptr<const material>&& ptr_mat
-         , std::vector<normed_vec3>&& normals = {}
-         , std::vector<vec4>&& tangents = {})
-         : mesh{n_vertices,n_triangles,std::move(vertex_indices),std::move(vertices),std::move(ptr_mat),std::move(normals),std::move(tangents)}
-         {
-           world_lights::get().add(this);
-         }
 
+  public:
     // return a uniformly distributed random point on the surface of the mesh, and a pointer
     // to the primitive containing it; the three arguments are used for the rng
     std::pair<point, const triangle*>
       random_surface_point(uint16_t seed_x, uint16_t seed_y, uint16_t seed_z) const;
 
     float get_surface_area() const { return surface_area; }
+
+    static light* get_light( size_t n_vertices
+                           , size_t n_triangles
+                           , std::vector<size_t>&& vertex_indices
+                           , std::vector<point>&& vertices
+                           , std::unique_ptr<const material>&& ptr_mat
+                           , std::vector<normed_vec3>&& normals = {}
+                           , std::vector<vec4>&& tangents = {})
+    {
+      std::unique_ptr<light> instance_ptr{
+        new light( n_vertices, n_triangles
+                 , std::move(vertex_indices)
+                 , std::move(vertices)
+                 , std::move(ptr_mat)
+                 , std::move(normals)
+                 , std::move(tangents))
+      };
+      world_lights::get().add(std::move(instance_ptr));
+      return world_lights::lights().back().get();
+    }
 
     virtual std::vector<std::unique_ptr<const triangle>> get_triangles() const override
     {
@@ -102,7 +134,7 @@ class light : public mesh
 
       for (size_t i = 0; i < n_triangles; ++i)
       {
-        auto t{std::make_unique<const triangle>(shared_from_this(), i)};
+        auto t{std::make_unique<const triangle>(this, i)};
         ptr_triangles.push_back(t.get());
         triangles.emplace_back(std::move(t));
       }
@@ -111,6 +143,8 @@ class light : public mesh
     }
 
   private:
+    using mesh::mesh;
+
     float surface_area{0.0f};
     std::vector<float> triangles_areas;
     std::vector<float> triangles_cdf;
@@ -121,11 +155,8 @@ class light : public mesh
 
 class triangle : public primitive
 {
-  private:
-    const size_t number;
-
   public:
-    triangle(const std::shared_ptr<const mesh>& parent_mesh, size_t triangle_number)
+    triangle(const mesh* parent_mesh, size_t triangle_number)
     : number{triangle_number}
     {
       primitive::parent_mesh = parent_mesh;
@@ -138,5 +169,6 @@ class triangle : public primitive
       const std::array<float,3>& uvw) const override;
 
   private:
+    const size_t number;
     aabb bounding_box() const;
 };

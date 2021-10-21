@@ -59,7 +59,7 @@ color direct_light( const point& x
       goto source_sampling;
 
     // check whether the scattered ray interacts or not with the current light
-    if (rec_shadow->what()->parent_mesh.get() != world_lights::lights()[L])
+    if (rec_shadow->what()->parent_mesh != world_lights::lights()[L].get())
       goto source_sampling;
 
     // if the scattered ray hit the current light, compute its contribution
