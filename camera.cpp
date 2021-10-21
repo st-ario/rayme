@@ -2,6 +2,7 @@
 #include "transformations.h"
 #include "extern/glm/glm/gtx/norm.hpp"
 #include "extern/glm/glm/mat3x3.hpp"
+#include "rng.h"
 
 camera::camera( float yfov_in_radians
               , float znear
@@ -31,9 +32,10 @@ ray camera::get_ray(uint16_t pixel_x, uint16_t pixel_y) const
 }
 
 std::pair<ray,std::array<float,2>>
-camera::get_stochastic_ray(uint16_t pixel_x, uint16_t pixel_y, uint16_t z) const
+camera::get_stochastic_ray(uint16_t pixel_x, uint16_t pixel_y) const
 {
-  auto rnd_pair{random_float_pair(pixel_x, pixel_y, z)};
+  auto rnd_pair{random_float_pair(pixel_x, pixel_y, N_RNG_SAMPLES - 1)};
+
   vec3 nonunital_rel_direction{rel_upper_left_corner
                               + vec3{   pixel_x + rnd_pair[0]
                                     , -(pixel_y + rnd_pair[1])

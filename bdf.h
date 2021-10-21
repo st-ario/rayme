@@ -23,9 +23,9 @@ class diffuse_brdf
    brdf_sample sample( const point& at
                      , const normed_vec3& gnormal
                      , const normed_vec3& snormal
-                     , uint16_t seed_x
-                     , uint16_t seed_y
-                     , uint16_t seed_z) const;
+                     , uint16_t pixel_x
+                     , uint16_t pixel_y
+                     , uint16_t seed) const;
 
   private:
     const material* ptr_mat;

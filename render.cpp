@@ -6,18 +6,22 @@
 
 #include <future>
 
+// debug macros
+//#define SINGLE_SAMPLE_PP 1
+
 color ray_color( const ray& r
                , const element& world
                , uint16_t pixel_x
                , uint16_t pixel_y
                , uint16_t sample)
 {
-  constexpr uint16_t integration_samples_N{128};
+  constexpr uint16_t integration_samples_N{32};
   constexpr uint16_t depth{0};
   return integrate_path(r,world,integration_samples_N,depth,pixel_x,pixel_y,sample);
 }
 
-float mitchell_netravali (float x)
+#ifndef SINGLE_SAMPLE_PP
+float mitchell_netravali(float x)
 {
   // spline parameters configuration
   constexpr static float b{1.0f / 3.0f};
@@ -38,10 +42,28 @@ float mitchell_netravali (float x)
 
 }
 
+float blackman_harris(float x)
+{
+  // Blackman–Harris window (https://en.wikipedia.org/wiki/Window_function#Blackman%E2%80%93Harris_window)
+  // assuming x in [0,1]
+  constexpr static float a0{0.35875f};
+  constexpr static float a1{0.48829f};
+  constexpr static float a2{0.14128f};
+  constexpr static float a3{0.01168f};
+  constexpr static float four_pi{4.0f * pi};
+  constexpr static float six_pi{6.0f * pi};
+
+  return a0 - a1 * std::cos(two_pi  * x)
+            + a2 * std::cos(four_pi * x)
+            - a3 * std::cos(six_pi  * x);
+}
+
 float filter(const std::array<float,2>& pair)
 {
-  return mitchell_netravali(4.0f * (pair[0] - 0.5f)) * mitchell_netravali(4.0f * (pair[1] - 0.5f));
+  //return mitchell_netravali(4.0f * (pair[0] - 0.5f)) * mitchell_netravali(4.0f * (pair[1] - 0.5f));
+  return blackman_harris(pair[0]) * blackman_harris(pair[1]);
 }
+#endif
 
 void render_tile( image* picture
                 , uint8_t tile_size
@@ -55,8 +77,10 @@ void render_tile( image* picture
   const uint16_t h_offset = column * tile_size;
   const uint16_t v_offset = row * tile_size;
 
+  #ifndef SINGLE_SAMPLE_PP
   // weight for pixel reconstruction
   float total_weight{0.0f};
+  #endif
 
   for (uint16_t x = 0; x < tile_size; ++x)
   {
@@ -70,19 +94,30 @@ void render_tile( image* picture
         break;
 
       pixel_color = {0,0,0};
+
+      #ifndef SINGLE_SAMPLE_PP
       total_weight = 0.0f;
 
       for (uint16_t s = 0; s < samples_per_pixel; ++s)
+      #endif
       {
-        auto r_pair{cam->get_stochastic_ray(pixel_x, pixel_y, s)};
+        auto r_pair{cam->get_stochastic_ray(pixel_x, pixel_y)};
         ray r{r_pair.first};
         std::array<float,2> center_offset{r_pair.second};
 
+        #ifndef SINGLE_SAMPLE_PP
         auto filter_weight{filter(center_offset)};
         total_weight += filter_weight;
         pixel_color += filter_weight * ray_color(r, *world, pixel_x, pixel_y, s);
+        #else
+        pixel_color += ray_color(r, *world, pixel_x, pixel_y, 0);
+        #endif
+
       }
+      #ifndef SINGLE_SAMPLE_PP
       pixel_color = pixel_color / total_weight;
+      #endif
+
       gamma_correct(pixel_color,2.2f);
 
       picture->pixels[v_offset + y][h_offset + x] = pixel_color;

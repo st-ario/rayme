@@ -115,7 +115,12 @@ light::random_surface_point(uint16_t seed_x, uint16_t seed_y, uint16_t seed_z) c
   // uniform distribution on a triangle
   // u = 1 - sqrt(rand0)
   // v = sqrt(rand0) * rand1
-  auto rnd_pair{random_float_pair(seed_x,seed_y,seed_z)};
+
+  std::array<float,2> rnd_pair{ random_float(seed_x,seed_y,seed_z)
+                              , random_float(seed_x,seed_y ,seed_z)};
+  // it's better not to use random_float_pair() for this one, as the improvement is negligible and
+  // definitely not worth the hassle of avoiding seed conflicts with other functions calling
+  // random_float_pair() from the same thread
   auto r1{std::sqrt(rnd_pair[0])};
 
   // uv to world

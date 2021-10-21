@@ -74,11 +74,7 @@ source_sampling:
   return res;
   #endif
   {
-    // constant offset for seeds, to avoid correlating the random surface point with the brdf sample
-    constexpr static uint8_t RNG_DECORR{7};
-
-    auto target_pair{world_lights::lights()[L]->random_surface_point(pixel_x + RNG_DECORR,
-      pixel_y + RNG_DECORR, rng_offset)};
+    auto target_pair{world_lights::lights()[L]->random_surface_point(pixel_x, pixel_y, rng_offset)};
 
     vec3 nonunital_shadow_dir{target_pair.first - x};
     normed_vec3 shadow_dir{unit(nonunital_shadow_dir)};
@@ -163,14 +159,13 @@ color integrator( const ray& r
 
   // sample direct light
 
-  // constant offset for seeds, to avoid correlating the direct light sample with the brdf sample
-  constexpr static uint8_t RNG_DECORR{13};
-
   color direct{0.0f,0.0f,0.0f};
   #ifndef NO_DIRECT
+  static constexpr uint16_t seed_offset{3}; // avoids using the same sample pool for direct and
+                                         // indirect light sampling
   for (size_t i = 0; i < world_lights::lights().size(); ++i)
     direct += direct_light(hit_point,rec.value(),brdf,info.gnormal(),info.snormal(),world,i,
-      pixel_x + RNG_DECORR, pixel_y + RNG_DECORR, sample_id + depth);
+      pixel_x, pixel_y, sample_id + depth + seed_offset);
 
   direct *= 1.0f / thr; // compensate for Russian Roulette
   #endif

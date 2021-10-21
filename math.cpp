@@ -5,9 +5,10 @@
 #include <thread>
 #include <time.h>
 
-//#define STATIC_RANDOM 1
+#define STATIC_RANDOM 1
 #ifdef STATIC_RANDOM
 #include "rng.h"
+#include <unordered_map>
 #endif
 
 size_t random_size_t(size_t min, size_t max)
@@ -20,26 +21,39 @@ size_t random_size_t(size_t min, size_t max)
 
 float random_float(uint16_t x, uint16_t y, uint16_t z)
 {
-  #ifdef STATIC_RANDOM
-  uint32_t hash{uint32_t(x + 2069*y)}; // simple hash: yx in base 2069 (prime)
-  hash %= N_RNG_SAMPLES;
-  uint16_t sample{uint16_t(z % SIZE_RNG_SAMPLES)};
-  return (*samples_1d[hash])[sample];
-  #else
   static thread_local std::mt19937_64 generator(std::clock()
     + std::hash<std::thread::id>()(std::this_thread::get_id()));
   static std::uniform_real_distribution<float> distribution(0.0f, 1.0f);
   return distribution(generator);
-  #endif
 }
 
 std::array<float,2> random_float_pair(uint16_t x, uint16_t y, uint16_t z)
 {
   #ifdef STATIC_RANDOM
-  uint32_t hash{uint32_t(x + 2069*y)}; // simple hash: yx in base 2069 (prime)
-  hash %= N_RNG_SAMPLES;
-  uint16_t sample{uint16_t(z % SIZE_RNG_SAMPLES)};
-  return (*samples_2d[hash])[sample];
+  static thread_local std::unordered_map<uint64_t,size_t> indices;
+  static thread_local size_t shuffle_filter{random_size_t(0,SIZE_RNG_SAMPLES-1)};
+  uint64_t hash{uint64_t(x) | (uint64_t(y) << 16) | (uint64_t(z) << 32)};
+
+  if (indices.find(hash) == indices.end())
+    indices[hash] = 0;
+  else
+    indices[hash] += 1;
+
+  uint16_t sample{uint16_t(hash % N_RNG_SAMPLES)};
+  /* the following is too slow;
+  // for now, if the index exceeds SIZE_RNG_SAMPLES increments, it cycles back
+  // it should be fine like this
+  // TODO test for how many times a wraparound actually happens
+  uint16_t offset{uint16_t(indices[hash] / SIZE_RNG_SAMPLES)};
+
+  if (offset > 0)
+  {
+    sample += offset;
+    sample %= N_RNG_SAMPLES;
+  }
+  */
+
+  return (*samples_2d[sample])[(indices[hash] % SIZE_RNG_SAMPLES) ^ uint16_t(shuffle_filter)];
   #else
   return std::array<float,2>{random_float(x,y,z), random_float(x,y,z)};
   #endif
@@ -47,25 +61,11 @@ std::array<float,2> random_float_pair(uint16_t x, uint16_t y, uint16_t z)
 
 float random_float(float min, float max, uint16_t x, uint16_t y, uint16_t z)
 {
-  #ifdef STATIC_RANDOM
-  return min + random_float(x,y,z) * max;
-  #else
   static thread_local std::mt19937_64 generator(std::clock()
     + std::hash<std::thread::id>()(std::this_thread::get_id()));
   std::uniform_real_distribution<float> distribution(min, max);
   return distribution(generator);
-  #endif
 }
-
-/*
-float standard_normal_random_float()
-{
-  static thread_local std::mt19937_64 generator(std::clock()
-    + std::hash<std::thread::id>()(std::this_thread::get_id()));
-  static std::normal_distribution<float> distribution(0.0f,1.0f);
-  return distribution(generator);
-}
-*/
 
 float fast_inverse_sqrt(float x) // https://en.wikipedia.org/wiki/Fast_inverse_square_root
 {

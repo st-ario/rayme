@@ -177,14 +177,14 @@ class normed_vec3 : private vec3
     // angle formed wrt the north pole;
     // the three arguments are used for the rng
     friend normed_vec3
-      cos_weighted_random_upper_hemisphere_unit(uint16_t seed_x, uint16_t seed_y, uint16_t seed_z);
+      cos_weighted_random_upper_hemisphere_unit(uint16_t pixel_x, uint16_t pixel_y, uint16_t seed);
     // return a random unit vector in the upper hemisphere having the argument as north pole,
     // weighted by the cosine of the angle formed wrt the argument;
     // the three extra arguments are used for the rng
     friend normed_vec3 cos_weighted_random_hemisphere_unit( const normed_vec3& normal
-                                                          , uint16_t seed_x
-                                                          , uint16_t seed_y
-                                                          , uint16_t seed_z);
+                                                          , uint16_t pixel_x
+                                                          , uint16_t pixel_y
+                                                          , uint16_t seed);
 };
 
 inline float epsilon_clamp(float value)
@@ -402,14 +402,14 @@ inline normed_vec3 random_hemisphere_unit(const normed_vec3& normal)
 */
 
 inline normed_vec3
-cos_weighted_random_upper_hemisphere_unit(uint16_t seed_x, uint16_t seed_y, uint16_t seed_z)
+cos_weighted_random_upper_hemisphere_unit(uint16_t pixel_x, uint16_t pixel_y, uint16_t seed)
 {
   // picks a uniformly random point in the 2d disk and projects it to the hemisphere
 
   // concentric disk sampling
 
   // map [0,1]^2 into [-1,1]^2
-  auto rnd_pair{random_float_pair(seed_x,seed_y,seed_z)};
+  auto rnd_pair{random_float_pair(pixel_x,pixel_y,seed)};
   float x{2.0f * rnd_pair[0] - 1.0f};
   float z{2.0f * rnd_pair[1] - 1.0f};
 
@@ -440,12 +440,12 @@ cos_weighted_random_upper_hemisphere_unit(uint16_t seed_x, uint16_t seed_y, uint
 
 inline normed_vec3
 cos_weighted_random_hemisphere_unit( const normed_vec3& normal
-                                   , uint16_t seed_x
-                                   , uint16_t seed_y
-                                   , uint16_t seed_z)
+                                   , uint16_t pixel_x
+                                   , uint16_t pixel_y
+                                   , uint16_t seed)
 {
   vec3 res{rotate_given_north_pole(normal)
-    * cos_weighted_random_upper_hemisphere_unit(seed_x, seed_y, seed_z).to_vec3()};
+    * cos_weighted_random_upper_hemisphere_unit(pixel_x, pixel_y, seed).to_vec3()};
 
   return normed_vec3(res[0],res[1],res[2]);
 }

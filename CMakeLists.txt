@@ -25,7 +25,6 @@ add_executable(${PROJECT_NAME}
   meshes.cpp
   render.cpp
   extern/simdjson/singleheader/simdjson.cpp
-  1d_samples/hardcoded_1d_rng.cpp
   2d_samples/hardcoded_2d_rng.cpp
   )
 
