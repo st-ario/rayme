@@ -15,9 +15,8 @@ color ray_color( const ray& r
                , uint16_t pixel_y
                , uint16_t sample)
 {
-  constexpr uint16_t integration_samples_N{32};
   constexpr uint16_t depth{0};
-  return integrate_path(r,world,integration_samples_N,depth,pixel_x,pixel_y,sample);
+  return integrate_path(r,world,depth,pixel_x,pixel_y,sample);
 }
 
 #ifndef SINGLE_SAMPLE_PP

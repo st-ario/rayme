@@ -193,7 +193,6 @@ color integrator( const ray& r
 
 color integrate_path( const ray& r
                     , const element& world
-                    , uint16_t integration_samples_N
                     , uint16_t depth
                     , uint16_t pixel_x
                     , uint16_t pixel_y
@@ -202,12 +201,7 @@ color integrate_path( const ray& r
   color res{0.0f,0.0f,0.0f};
   color throughput{1.0f,1.0f,1.0f};
 
-  for (uint16_t i = 0; i < integration_samples_N; ++i)
-  {
-    throughput = color{1.0f,1.0f,1.0f};
-    res += integrator(r,world,depth,throughput,pixel_x,pixel_y,sample_id);
-  }
+  res += integrator(r,world,depth,throughput,pixel_x,pixel_y,sample_id);
 
-  res /= integration_samples_N;
   return res;
 }
