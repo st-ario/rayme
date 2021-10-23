@@ -2,6 +2,9 @@
 
 #include "materials.h"
 
+//debug macros
+//#define LAMBERTIAN_DIFFUSE 1
+
 class ray;
 
 struct brdf_sample
@@ -18,9 +21,20 @@ struct brdf_sample
 class diffuse_brdf
 {
   public:
+    #ifdef LAMBERTIAN_DIFFUSE
     explicit diffuse_brdf(const material* ptr_mat) : ptr_mat{ptr_mat} {}
+    #else
+    explicit diffuse_brdf(const material* ptr_mat) : ptr_mat{ptr_mat}
+    {
+      sigma_squared = ptr_mat->roughness_factor * ptr_mat->roughness_factor;
+    }
+    #endif
 
+   #ifdef LAMBERTIAN_DIFFUSE
    brdf_sample sample( const point& at
+   #else
+   brdf_sample sample( const ray& r_incoming
+   #endif
                      , const normed_vec3& gnormal
                      , const normed_vec3& snormal
                      , uint16_t pixel_x
@@ -29,4 +43,9 @@ class diffuse_brdf
 
   private:
     const material* ptr_mat;
+    #ifndef LAMBERTIAN_DIFFUSE
+    float sigma_squared;
+    const float A{1.0f - sigma_squared / (2.0f * (sigma_squared + 0.33f))};
+    const float B{0.45f * sigma_squared / (sigma_squared + 0.09f)};
+    #endif
 };
