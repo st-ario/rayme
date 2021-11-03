@@ -15,9 +15,7 @@
 static constexpr uint16_t MAX_DEPTH{1000};
 
 color direct_light( const point& x
-                  #ifndef LAMBERTIAN_DIFFUSE
                   , const ray& r_incoming
-                  #endif
                   , const hit_record& record
                   , const diffuse_brdf& brdf
                   , const normed_vec3& gnormal
@@ -36,11 +34,7 @@ color direct_light( const point& x
   float light_weight{0.0f};
   float light_pdf{1.0f / world_lights::lights()[L]->get_surface_area()};
 
-  #ifdef LAMBERTIAN_DIFFUSE
-  auto sample{brdf.sample(x,gnormal,snormal,pixel_x,pixel_y,rng_offset)};
-  #else
   auto sample{brdf.sample(r_incoming,gnormal,snormal,pixel_x,pixel_y,rng_offset)};
-  #endif
 
   // if the pdf of the BRDF evaluates to 0, skip the BRDF sampling at once
   if (sample.pdf == 0.0f)
@@ -71,7 +65,7 @@ color direct_light( const point& x
 
     // if the scattered ray hit the current light, compute its contribution
     vec3 emit{world_lights::lights()[L]->ptr_mat->emissive_factor};
-    res += brdf_weight * sample.f_r * emit * sample.cos_angle / sample.pdf;
+    res += brdf_weight * sample.f_r * emit * dot(sample.scatter_dir,snormal) / sample.pdf;
 
   } // BRDF sampling
 
@@ -171,11 +165,7 @@ color integrator( const ray& r
   static constexpr uint16_t seed_offset{3}; // avoids using the same sample pool for direct and
                                             // indirect light sampling
   for (size_t i = 0; i < world_lights::lights().size(); ++i)
-    #ifdef LAMBERTIAN_DIFFUSE
-    direct += direct_light(hit_point,rec.value(),brdf,info.gnormal(),info.snormal(),world,i,
-    #else
     direct += direct_light(hit_point,r,rec.value(),brdf,info.gnormal(),info.snormal(),world,i,
-    #endif
       pixel_x, pixel_y, sample_id + depth + seed_offset);
 
   direct *= 1.0f / thr; // compensate for Russian Roulette
@@ -185,15 +175,11 @@ color integrator( const ray& r
 
   #ifndef NO_INDIRECT
   // get scatter ray according to BRDF
-  #ifdef LAMBERTIAN_DIFFUSE
-  auto sample{brdf.sample(hit_point,info.gnormal(),info.snormal(),pixel_x,pixel_y,sample_id+depth)};
-  #else
   auto sample{brdf.sample(r,info.gnormal(),info.snormal(),pixel_x,pixel_y,sample_id+depth)};
-  #endif
   ray scattered{bounce_ray(hit_point,rec->p_error(),info.gnormal(),sample.scatter_dir)};
 
   // update throughput
-  throughput *= sample.cos_angle * sample.f_r / sample.pdf;
+  throughput *= dot(scattered.direction,info.snormal()) * sample.f_r / sample.pdf;
 
   // get indirect light contribution
   color indirect{integrator(scattered, world, depth+1, throughput, pixel_x, pixel_y, sample_id)};

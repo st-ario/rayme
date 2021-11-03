@@ -12,29 +12,24 @@ struct brdf_sample
   const float pdf;
   const color f_r;
   const normed_vec3 scatter_dir;
-  const float cos_angle;
 
-  brdf_sample(float pdf, color f_r, normed_vec3 scatter_dir, float cos_angle) :
-    pdf{pdf}, f_r{f_r}, scatter_dir{scatter_dir}, cos_angle{cos_angle} {}
+  brdf_sample(float pdf, color f_r, normed_vec3 scatter_dir) :
+    pdf{pdf}, f_r{f_r}, scatter_dir{scatter_dir} {}
 };
 
 class diffuse_brdf
 {
   public:
-    #ifdef LAMBERTIAN_DIFFUSE
-    explicit diffuse_brdf(const material* ptr_mat) : ptr_mat{ptr_mat} {}
-    #else
     explicit diffuse_brdf(const material* ptr_mat) : ptr_mat{ptr_mat}
+    #ifdef LAMBERTIAN_DIFFUSE
+    {}
+    #else
     {
       sigma_squared = ptr_mat->roughness_factor * ptr_mat->roughness_factor;
     }
     #endif
 
-   #ifdef LAMBERTIAN_DIFFUSE
-   brdf_sample sample( const point& at
-   #else
    brdf_sample sample( const ray& r_incoming
-   #endif
                      , const normed_vec3& gnormal
                      , const normed_vec3& snormal
                      , uint16_t pixel_x

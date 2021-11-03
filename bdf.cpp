@@ -2,11 +2,7 @@
 #include "ray.h"
 #include "bvh.h"
 
-#ifdef LAMBERTIAN_DIFFUSE
-brdf_sample diffuse_brdf::sample( const point& at
-#else
 brdf_sample diffuse_brdf::sample( const ray& r_incoming
-#endif
                                 , const normed_vec3& gnormal
                                 , const normed_vec3& snormal
                                 , uint16_t pixel_x
@@ -19,7 +15,7 @@ brdf_sample diffuse_brdf::sample( const ray& r_incoming
   float pdf{cos_angle / pi};
   color f_r{ptr_mat->base_color / pi};
 
-  return brdf_sample(pdf,f_r,scatter_dir,cos_angle);
+  return brdf_sample(pdf,f_r,scatter_dir);
   #else
   float cos_outgoing{epsilon_clamp(dot(snormal,scatter_dir))};
   float cos_incoming{epsilon_clamp(dot(-r_incoming.direction,snormal))};
@@ -41,6 +37,6 @@ brdf_sample diffuse_brdf::sample( const ray& r_incoming
   color f_r{ptr_mat->base_color / pi * (A + B * std::max(0.0f,cos_difference)
     * sin_alpha * tan_beta)};
 
-  return brdf_sample(pdf,f_r,scatter_dir,cos_outgoing);
+  return brdf_sample(pdf,f_r,scatter_dir);
   #endif
 }
