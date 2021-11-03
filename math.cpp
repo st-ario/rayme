@@ -34,6 +34,16 @@ static inline uint64_t xoroshiro_rotl(const uint64_t x, int k)
   return (x << k) | (x >> (64 - k));
 }
 
+#ifdef STD_RNG
+uint32_t random_uint32_t()
+{
+  static thread_local std::mt19937_64 generator(std::clock()
+    + std::hash<std::thread::id>()(std::this_thread::get_id()));
+  std::uniform_int_distribution<uint32_t> distribution(0,std::numeric_limits<uint32_t>::max());
+  return distribution(generator);
+}
+#endif
+
 uint32_t random_uint32_t(uint16_t x, uint16_t y, uint16_t z)
 {
   #ifdef XORSHIFT_RANDOM
@@ -78,10 +88,7 @@ uint32_t random_uint32_t(uint16_t x, uint16_t y, uint16_t z)
 
   return res;
   #elif defined(STD_RNG)
-  static thread_local std::mt19937_64 generator(std::clock()
-    + std::hash<std::thread::id>()(std::this_thread::get_id()));
-  std::uniform_int_distribution<uint32_t> distribution(0);
-  return distribution(generator);
+  return random_uint32_t();
   #endif
 }
 
@@ -111,6 +118,16 @@ uint32_t random_uint32_t(uint16_t x, uint16_t y, uint16_t z, uint32_t range)
   return m >> 32;
 }
 
+#ifdef STD_RNG
+float random_float()
+{
+  static thread_local std::mt19937_64 generator(std::clock()
+    + std::hash<std::thread::id>()(std::this_thread::get_id()));
+  static std::uniform_real_distribution<float> distribution(0.0f, 1.0f);
+  return distribution(generator);
+}
+#endif
+
 float random_float(uint16_t x, uint16_t y, uint16_t z)
 {
   #if defined(XORSHIFT_RANDOM) || defined(XOROSHIRO128PLUS_RANDOM)
@@ -125,10 +142,7 @@ float random_float(uint16_t x, uint16_t y, uint16_t z)
   // shift the result to make it concentrated in [0,1)
   return res - 1.0f;
   #elif defined(STD_RNG)
-  static thread_local std::mt19937_64 generator(std::clock()
-    + std::hash<std::thread::id>()(std::this_thread::get_id()));
-  static std::uniform_real_distribution<float> distribution(0.0f, 1.0f);
-  return distribution(generator);
+  return random_float();
   #endif
 }
 
