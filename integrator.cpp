@@ -11,13 +11,18 @@
 //#define NO_INDIRECT 1
 //#define NO_SDLS 1
 //#define NO_BRDFDLS 1
+//#define NO_RR 1
 
+#ifndef NO_RR
 static constexpr uint16_t MAX_DEPTH{1000};
+#else
+static constexpr uint16_t MAX_DEPTH{10};
+#endif
 
 color direct_light( const point& x
                   , const ray& r_incoming
                   , const hit_record& record
-                  , const diffuse_brdf& brdf
+                  , const composite_brdf& brdf
                   , const normed_vec3& gnormal
                   , const normed_vec3& snormal
                   , const element& world
@@ -127,10 +132,11 @@ color integrator( const ray& r
                 , uint16_t pixel_y
                 , uint16_t sample_id)
 {
-  float thr{1.0f};
   #ifndef NO_INDIRECT
+  #ifndef NO_RR
+  float thr{1.0f};
   // Russian roulette
-  if (depth > uint16_t(3))
+  if (depth > uint16_t(4))
   {
     thr = std::max(throughput.x, std::max(throughput.y, throughput.z));
     float rand{random_float(pixel_x, pixel_y, sample_id + depth)};
@@ -140,6 +146,10 @@ color integrator( const ray& r
     // if the ray goes on, compensate for energy loss
     throughput *= 1.0f / thr;
   }
+  #else
+  if (depth > MAX_DEPTH)
+    return color{0.0f};
+  #endif
   #endif
 
   auto rec{world.hit(r, infinity)};
@@ -159,7 +169,7 @@ color integrator( const ray& r
 
   // pick the BRDF for the surface hit
   normed_vec3 snormal{info.snormal()};
-  diffuse_brdf brdf{info.ptr_mat(),&snormal};
+  composite_brdf brdf{info.ptr_mat(),&snormal};
 
   // sample direct light
 
@@ -171,7 +181,9 @@ color integrator( const ray& r
     direct += direct_light(hit_point,r,rec.value(),brdf,info.gnormal(),info.snormal(),world,i,
       pixel_x, pixel_y, sample_id + depth + seed_offset);
 
+  #ifndef NO_RR
   direct *= 1.0f / thr; // compensate for Russian Roulette
+  #endif
   #endif
 
   // sample indirect light

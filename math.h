@@ -209,7 +209,6 @@ inline normed_vec3 unit(const vec3& v)
 uint8_t max_dimension(const vec3& v);
 float max_component(const vec3& v);
 
-normed_vec3 reflect(const normed_vec3& incident, const normed_vec3& normal);
 normed_vec3 refract(const normed_vec3& incident, const normed_vec3& normal,
                     float refractive_indices_ratio);
 
@@ -357,7 +356,7 @@ inline normed_vec3 random_upper_hemisphere_unit()
 }
 */
 
-// return some rotation sending the north pole of the unit sphere to the argument
+// return some rotation sending the north pole of the absolute unit sphere to the argument
 inline glm::mat3 rotate_given_north_pole(const normed_vec3& normal)
 {
   glm::mat3 change_of_base;

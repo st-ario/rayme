@@ -131,10 +131,10 @@ class ggx_brdf : public brdf
 
     float D(const vec3& loc_h) const;
     float Lambda(const vec3& loc_wo) const;
-    float G1(const vec3& loc_wo) const;
-    float G2(const vec3& loc_wo, const vec3& loc_wi) const;
+    float G1(const vec3& loc_wo, const vec3& loc_wm) const;
+    float G2(const vec3& loc_wo, const vec3& loc_wi, const vec3& loc_wm) const;
     float D_wo(const vec3& loc_h, const vec3& loc_wo) const;
-    vec3  sample_halfvector(const vec3& loc_wo, const std::array<float,2>& rnd) const;
+    normed_vec3 sample_halfvector(const vec3& loc_wo, const std::array<float,2>& rnd) const;
 
   protected:
     // multi-scatter methods
@@ -145,7 +145,7 @@ class ggx_brdf : public brdf
               , const std::array<std::array<float,2>,32>& Eavg_table) const;
 };
 
-class metal_brdf: public ggx_brdf
+class metal_brdf : public ggx_brdf
 {
   public:
     using ggx_brdf::ggx_brdf;
@@ -177,4 +177,39 @@ class dielectric_brdf: public ggx_brdf
     float E_spec(const normed_vec3& wi) const;
     float fresnel( const normed_vec3& wo
                  , const normed_vec3& wi) const;
+};
+
+class composite_brdf
+{
+  public:
+    composite_brdf(const material* ptr_mat, const normed_vec3* normal)
+    : ptr_mat{ptr_mat}, normal{normal} {}
+
+    brdf_sample sample( const normed_vec3& wo
+                      , uint16_t pixel_x
+                      , uint16_t pixel_y
+                      , uint16_t seed) const
+    {
+      if (ptr_mat->metallic_factor == 0)
+      {
+        if (ptr_mat->roughness_factor == 1)
+        {
+          diffuse_brdf diffuse{ptr_mat,normal};
+          return diffuse.sample(wo,pixel_x,pixel_y,seed);
+        } else {
+          dielectric_brdf dielectric{ptr_mat,normal};
+          return dielectric.sample(wo,pixel_x,pixel_y,seed);
+        }
+      } else if (ptr_mat->metallic_factor == 1) {
+        metal_brdf metal{ptr_mat,normal};
+        return metal.sample(wo,pixel_x,pixel_y,seed);
+      } else {
+        std::cerr << "ERROR: currently the metallic-dielectric mix is not supported\n";
+        exit(1);
+      }
+    }
+
+  private:
+    const material* ptr_mat;
+    const normed_vec3* normal;
 };

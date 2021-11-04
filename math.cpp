@@ -19,12 +19,12 @@
 #include <bitset>
 #endif
 
-#define XOROSHIRO128PLUS_RANDOM 1
+//#define XOROSHIRO128PLUS_RANDOM 1
 #ifdef XOROSHIRO128PLUS_RANDOM
 #include <bitset>
 #endif
 
-//#define STD_RNG 1
+#define STD_RNG 1
 #ifdef STD_RNG
 #include <random>
 #endif
@@ -280,14 +280,6 @@ namespace base64
 } // namespace base64
 
 // vectors utility functions
-
-normed_vec3 reflect(const normed_vec3& incident, const normed_vec3& normal)
-{
-  vec3 i = incident.to_vec3();
-  vec3 n = normal.to_vec3();
-
-  return unit(i - 2 * dot(i,n) * n);
-}
 
 normed_vec3 refract(const normed_vec3& incident, const normed_vec3& normal, float refractive_indices_ratio)
 {

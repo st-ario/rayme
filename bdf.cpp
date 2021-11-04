@@ -35,7 +35,7 @@ inline float ggx_brdf::D(const vec3& loc_h) const
   if (loc_h.z > 0)
   {
 
-    float k{1.0f + loc_h.z * (alpha_squared - 1.0f)};
+    float k{1.0f + loc_h.z * loc_h.z * (alpha_squared - 1.0f)};
     return alpha_squared / (pi * k * k);
   }
   return 0.0f;
@@ -44,23 +44,24 @@ inline float ggx_brdf::D(const vec3& loc_h) const
 inline float ggx_brdf::Lambda(const vec3& loc_wo) const
 {
   float z_squared{loc_wo.z * loc_wo.z};
-  float k{alpha_squared * (1.0f - z_squared) / (z_squared)};
+  float k{alpha_squared * (1.0f - z_squared) / z_squared};
   return 0.5f * (-1.0f + std::sqrt(1.0f + k));
 }
 
-inline float ggx_brdf::G1(const vec3& loc_wo) const
+inline float ggx_brdf::G1(const vec3& loc_wo, const vec3& loc_wm) const
 {
-  return 1.0f / (1.0f + Lambda(loc_wo));
+  if (dot(loc_wo,loc_wm) > 0.0f)
+    return 1.0f / (1.0f + Lambda(loc_wo));
+
+  return 0.0f;
 }
 
-inline float ggx_brdf::G2(const vec3& loc_wo, const vec3& loc_wi) const
+inline float ggx_brdf::G2(const vec3& loc_wo, const vec3& loc_wi, const vec3& loc_wm) const
 {
   // Height-Correlated Masking and Shadowing
-  if (loc_wi.z > 0.0f && loc_wo.z > 0.0f)
-  {
-    return 1.0f /
-      (1.0f + Lambda(loc_wi) + Lambda(loc_wo));
-  }
+
+  if (dot(loc_wi,loc_wm) > 0.0f && dot(loc_wo,loc_wm) > 0.0f)
+    return 1.0f / (1.0f + Lambda(loc_wi) + Lambda(loc_wo));
 
   return 0.0f;
 }
@@ -68,13 +69,13 @@ inline float ggx_brdf::G2(const vec3& loc_wo, const vec3& loc_wi) const
 inline float ggx_brdf::D_wo(const vec3& loc_h, const vec3& loc_wo) const
 {
   float vdoth{dot(loc_wo,loc_h)};
-  if (vdoth > 0.0f)
-    return G1(loc_wo) * vdoth * D(loc_h) / loc_wo.z;
+  if (vdoth > 0.0f && loc_wo.z > 0.0f)
+    return G1(loc_wo, loc_h) * vdoth * D(loc_h) / loc_wo.z;
 
   return 0.0f;
 }
 
-vec3 ggx_brdf::sample_halfvector(const vec3& loc_wo, const std::array<float,2>& rnd) const
+normed_vec3 ggx_brdf::sample_halfvector(const vec3& loc_wo, const std::array<float,2>& rnd) const
 {
   // Heitz, Sampling the GGX Distribution of Visible Normals
   // Journal of Computer Graphics Techniques Vol. 7, No. 4, 2018
@@ -101,9 +102,7 @@ vec3 ggx_brdf::sample_halfvector(const vec3& loc_wo, const std::array<float,2>& 
   // transforming the normal back to the ellipsoid configuration
   vec3 Ne{vec3(alpha * Nh.x, alpha * Nh.y, std::max(0.0f, Nh.z))};
 
-  // WARNING Ne should be normalized before returning; not done here as it will be normalized
-  // in any case after getting to world coordinates in sample_dir()
-  return Ne;
+  return unit(Ne);
 }
 
 normed_vec3 ggx_brdf::sample_dir( const normed_vec3& wo
@@ -112,33 +111,43 @@ normed_vec3 ggx_brdf::sample_dir( const normed_vec3& wo
                                 , uint16_t seed) const
 {
   vec3 loc_wo{to_local * wo.to_vec3()};
-  vec3 h{sample_halfvector(loc_wo,random_float_pair(pixel_x,pixel_y,seed))};
-  h = to_world * h;
+  normed_vec3 loc_h{sample_halfvector(loc_wo,random_float_pair(pixel_x,pixel_y,seed))};
+  vec3 loc_wi{(2.0f * dot(loc_wo,loc_h)) * loc_h - loc_wo};
 
-  return unit(h);
+  return unit(to_world * loc_wi);
 }
 
 inline float ggx_brdf::pdf( const normed_vec3& wo
                           , const normed_vec3& wi) const
 {
-  vec3 h{glm::normalize(wi.to_vec3() + wo.to_vec3())};
-  float wodoth{dot(wo,h)};
-  h = to_local * h;
-  vec3 loc_wo{to_local * wo.to_vec3()};
+  if (dot(wo,*normal) > 0 && dot(wi,*normal) > 0)
+  {
+    vec3 h{glm::normalize(wi.to_vec3() + wo.to_vec3())};
+    float wodoth{dot(wo,h)};
+    h = to_local * h;
+    vec3 loc_wo{to_local * wo.to_vec3()};
 
-  return D_wo(h,loc_wo) / (4.0f * wodoth);
+    return D_wo(h,loc_wo) / (4.0f * wodoth);
+  }
+
+  return 0.0f;
 }
 
 inline color ggx_brdf::f_r( const normed_vec3& wo
                           , const normed_vec3& wi) const
 {
-  vec3 h{glm::normalize(wi.to_vec3() + wo.to_vec3())};
-  vec3 loc_wi{to_local * wi.to_vec3()};
-  vec3 loc_wo{to_local * wo.to_vec3()};
+  if (dot(wo,*normal) > 0 && dot(wi,*normal) > 0)
+  {
+    vec3 loc_wi{to_local * wi.to_vec3()};
+    vec3 loc_wo{to_local * wo.to_vec3()};
+    vec3 loc_h{glm::normalize(loc_wi + loc_wo)};
 
-  float res{G2(loc_wo,loc_wi) * D(to_local * h) / (4.0f * std::abs(loc_wo.z * loc_wi.z))};
+    float res{G2(loc_wo,loc_wi,loc_h) * D(loc_h) / (4.0f * loc_wo.z * loc_wi.z)};
 
-  return color{res};
+    return color{res};
+  }
+
+  return color{0.0f};
 }
 
 inline color ggx_brdf::MSF(const color& F0) const
@@ -161,9 +170,10 @@ color metal_brdf::f_r( const normed_vec3& wo
                      , const normed_vec3& wi) const
 {
   auto pow5 = [](float x){ return (x * x) * (x * x) * x; };
-  float wodoth{0.5f * dot(wi,wo)};
+  vec3 h{glm::normalize(wi.to_vec3() + wo.to_vec3())};
+  float wodoth{dot(wo,h)};
   color fresnel{
-    ptr_mat->base_color + (color{1.0f} - ptr_mat->base_color) * (1.0f - std::abs(pow5(wodoth)))
+    ptr_mat->base_color + (color{1.0f} - ptr_mat->base_color) * pow5(1.0f - std::abs(wodoth))
   };
 
   return fresnel * ggx_brdf::f_r(wo, wi)
@@ -182,7 +192,8 @@ float dielectric_brdf::E_spec(const normed_vec3& wo) const
 {
   static constexpr float F_avg{0.089497712f};
   float E_o{ms_lookup(std::array<float,2>{dot(*normal,wo),alpha},ggx_E)};
-  return (F_avg * E_o + MSF(color{0.04f}).x * (1.0f - E_o)); // TODO try just 0.04f instead of MSF
+  //return (F_avg * E_o + MSF(color{0.04f}).x * (1.0f - E_o)); // TODO try just 0.04f instead of MSF
+  return (F_avg * E_o + 0.04f * (1.0f - E_o));
 }
 
 color dielectric_brdf::f_r( const normed_vec3& wo
@@ -195,7 +206,8 @@ color dielectric_brdf::f_r( const normed_vec3& wo
   color F_dms{A1 * tau * tau * (rho * rho) / (color{1.0f} - tau * rho)};
 
   return fr * ggx_brdf::f_r(wo,wi)
-         + MSF(color{0.04f}) * f_ms(wo, wi, ggx_E, ggx_Eavg) // TODO try just 0.04f instead of MSF
+         //+ MSF(color{0.04f}) * f_ms(wo, wi, ggx_E, ggx_Eavg) // TODO try just 0.04f instead of MSF
+         + 0.04f * f_ms(wo, wi, ggx_E, ggx_Eavg)
          + (base.f_r(wo,wi) + F_dms * f_ms(wo, wi, on_E, on_Eavg))
          * (1.0f - E_spec(wo));
 }
