@@ -34,7 +34,7 @@ color direct_light( const point& x
   float light_weight{0.0f};
   float light_pdf{1.0f / world_lights::lights()[L]->get_surface_area()};
 
-  auto sample{brdf.sample(r_incoming,gnormal,snormal,pixel_x,pixel_y,rng_offset)};
+  auto sample{brdf.sample(r_incoming,pixel_x,pixel_y,rng_offset)};
 
   // if the pdf of the BRDF evaluates to 0, skip the BRDF sampling at once
   if (sample.pdf == 0.0f)
@@ -156,7 +156,8 @@ color integrator( const ray& r
     res += info.ptr_mat()->emissive_factor;
 
   // pick the BRDF for the surface hit
-  diffuse_brdf brdf{info.ptr_mat()};
+  normed_vec3 snormal{info.snormal()};
+  diffuse_brdf brdf{info.ptr_mat(),&snormal};
 
   // sample direct light
 
@@ -175,7 +176,7 @@ color integrator( const ray& r
 
   #ifndef NO_INDIRECT
   // get scatter ray according to BRDF
-  auto sample{brdf.sample(r,info.gnormal(),info.snormal(),pixel_x,pixel_y,sample_id+depth)};
+  auto sample{brdf.sample(r,pixel_x,pixel_y,sample_id+depth)};
   ray scattered{bounce_ray(hit_point,rec->p_error(),info.gnormal(),sample.scatter_dir)};
 
   // update throughput

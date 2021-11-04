@@ -26,6 +26,7 @@ static constexpr float pi{3.141592653f};
 static constexpr float pihalf{pi/2.0f};
 static constexpr float pi_over_four{pi/4.0f};
 static constexpr float two_pi{2.0f*pi};
+static constexpr float invpi{1.0f/pi};
 
 // Utility Functions
 

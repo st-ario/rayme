@@ -2,41 +2,29 @@
 #include "ray.h"
 #include "bvh.h"
 
-brdf_sample diffuse_brdf::sample( const ray& r_incoming
-                                , const normed_vec3& gnormal
-                                , const normed_vec3& snormal
-                                , uint16_t pixel_x
-                                , uint16_t pixel_y
-                                , uint16_t seed) const
+color diffuse_brdf::f_r( const normed_vec3& minus_wo
+                       , const normed_vec3& wi) const
 {
-  normed_vec3 scatter_dir{cos_weighted_random_hemisphere_unit(gnormal, pixel_x, pixel_y, seed)};
   #ifdef LAMBERTIAN_DIFFUSE
-  float cos_angle{dot(snormal,scatter_dir)};
-  float pdf{cos_angle / pi};
-  color f_r{ptr_mat->base_color / pi};
-
-  return brdf_sample(pdf,f_r,scatter_dir);
+  return color{ptr_mat->base_color * invpi};
   #else
-  float cos_outgoing{epsilon_clamp(dot(snormal,scatter_dir))};
-  float cos_incoming{epsilon_clamp(dot(-r_incoming.direction,snormal))};
-  float sin_outgoing{epsilon_clamp(std::sqrt(1.0f - cos_outgoing * cos_outgoing))};
-  float sin_incoming{epsilon_clamp(std::sqrt(1.0f - cos_incoming * cos_incoming))};
-  float cos_difference{cos_incoming * cos_outgoing + sin_incoming * sin_outgoing};
-  float pdf{cos_outgoing / pi};
+  float cos_wi{clamp(dot(*normal,wi),0.0f,1.0f)};
+  float cos_wo{clamp(dot(-minus_wo,*normal),0.0f,1.0f)};
+  float sin_wi{epsilon_clamp(std::sqrt(1.0f - cos_wi * cos_wi))};
+  float sin_wo{epsilon_clamp(std::sqrt(1.0f - cos_wo * cos_wo))};
+  float cos_difference{cos_wo * cos_wi + sin_wo * sin_wi};
 
   float sin_alpha;
   float tan_beta;
-  if (cos_incoming < cos_outgoing)
+  if (cos_wo < cos_wi)
   {
-    sin_alpha = sin_incoming;
-    tan_beta = sin_outgoing / cos_outgoing;
+    sin_alpha = sin_wo;
+    tan_beta = sin_wi / (machine_two_epsilon + cos_wi);
   } else {
-    sin_alpha = sin_outgoing;
-    tan_beta = sin_incoming / cos_incoming;
+    sin_alpha = sin_wi;
+    tan_beta = sin_wo / (machine_two_epsilon + cos_wo);
   }
-  color f_r{ptr_mat->base_color / pi * (A + B * std::max(0.0f,cos_difference)
-    * sin_alpha * tan_beta)};
-
-  return brdf_sample(pdf,f_r,scatter_dir);
+  return color{ptr_mat->base_color * invpi
+                * (A + B * std::max(0.0f,cos_difference) * sin_alpha * tan_beta)};
   #endif
 }
