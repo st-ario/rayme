@@ -79,9 +79,14 @@ source_sampling:
 
     vec3 nonunital_shadow_dir{target_pair.first - x};
     normed_vec3 shadow_dir{unit(nonunital_shadow_dir)};
-    float cos_angle{dot(snormal, shadow_dir)};
+
+    // important: to evaluate whether or not the point is illuminated use the geometric normal
+    float cos_angle{dot(gnormal, shadow_dir)};
     if (cos_angle < machine_two_epsilon)
       return res;
+
+    // use the shading normal for the shading computations
+    cos_angle = dot(snormal,shadow_dir);
 
     ray shadow{offset_ray_origin(x,record.p_error(),gnormal,shadow_dir),shadow_dir};
 
@@ -95,7 +100,7 @@ source_sampling:
     if (rec_shadow->what() != target_pair.second)
         return res;
 
-    float cos_light_angle{dot(info_shadow.gnormal(), -shadow.direction)};
+    float cos_light_angle{dot(info_shadow.snormal(), -shadow.direction)};
     float projection_factor{cos_light_angle / glm::length2(nonunital_shadow_dir)};
     if (projection_factor < machine_two_epsilon)
       return res;
@@ -122,9 +127,6 @@ color integrator( const ray& r
                 , uint16_t pixel_y
                 , uint16_t sample_id)
 {
-  // assuming everything is Diffuse
-  // TODO change when materials are properly dealt with
-
   float thr{1.0f};
   #ifndef NO_INDIRECT
   // Russian roulette

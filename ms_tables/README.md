@@ -1,0 +1,1 @@
+Multi-Scatter energy compensation tables, adapted from [Benoit Mayaux's blog page](https://patapom.com/blog/BRDF/MSBRDFEnergyCompensation)
