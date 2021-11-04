@@ -150,6 +150,7 @@ inline color ggx_brdf::f_r( const normed_vec3& wo
   return color{0.0f};
 }
 
+#ifndef NO_MS
 inline color ggx_brdf::MSF(const color& F0) const
 {
   return F0 * (color{0.04f} + F0 * (color{0.66f} + color{0.3f} * F0));
@@ -166,6 +167,15 @@ float ggx_brdf::f_ms( const normed_vec3& wo
   return (1.0f - E_i) * (1.0f - E_o) / std::max(0.001f, (pi - E_avg));
 }
 
+float dielectric_brdf::E_spec(const normed_vec3& wo) const
+{
+  static constexpr float F_avg{0.089497712f};
+  float E_o{ms_lookup(std::array<float,2>{dot(*normal,wo),alpha},ggx_E)};
+  //return (F_avg * E_o + MSF(color{0.04f}).x * (1.0f - E_o)); // TODO try just 0.04f instead of MSF
+  return (F_avg * E_o + 0.04f * (1.0f - E_o));
+}
+#endif
+
 color metal_brdf::f_r( const normed_vec3& wo
                      , const normed_vec3& wi) const
 {
@@ -177,7 +187,11 @@ color metal_brdf::f_r( const normed_vec3& wo
   };
 
   return fresnel * ggx_brdf::f_r(wo, wi)
+        #ifdef NO_MS
+        ;
+        #else
          + MSF(ptr_mat->base_color) * f_ms(wo, wi, ggx_E, ggx_Eavg);
+         #endif
 }
 
 inline float dielectric_brdf::fresnel( const normed_vec3& wo
@@ -188,28 +202,27 @@ inline float dielectric_brdf::fresnel( const normed_vec3& wo
   return 0.04f + 0.96f * pow5(1.0f - std::abs(wodoth));
 }
 
-float dielectric_brdf::E_spec(const normed_vec3& wo) const
-{
-  static constexpr float F_avg{0.089497712f};
-  float E_o{ms_lookup(std::array<float,2>{dot(*normal,wo),alpha},ggx_E)};
-  //return (F_avg * E_o + MSF(color{0.04f}).x * (1.0f - E_o)); // TODO try just 0.04f instead of MSF
-  return (F_avg * E_o + 0.04f * (1.0f - E_o));
-}
 
 color dielectric_brdf::f_r( const normed_vec3& wo
                           , const normed_vec3& wi) const
 {
+  #ifndef NO_MS
   static constexpr float A1{8.854467355133801f};
   static constexpr float tau{0.28430405702379613f};
-  float fr{fresnel(wo,wi)};
   color rho{ptr_mat->base_color};
   color F_dms{A1 * tau * tau * (rho * rho) / (color{1.0f} - tau * rho)};
+  #endif
+  float fr{fresnel(wo,wi)};
 
   return fr * ggx_brdf::f_r(wo,wi)
+         #ifdef NO_MS
+         + (1.0f - fr) * base.f_r(wo,wi);
+         #else
          //+ MSF(color{0.04f}) * f_ms(wo, wi, ggx_E, ggx_Eavg) // TODO try just 0.04f instead of MSF
          + 0.04f * f_ms(wo, wi, ggx_E, ggx_Eavg)
          + (base.f_r(wo,wi) + F_dms * f_ms(wo, wi, on_E, on_Eavg))
          * (1.0f - E_spec(wo));
+         #endif
 }
 
 normed_vec3 dielectric_brdf::sample_dir( const normed_vec3& wo
@@ -217,20 +230,31 @@ normed_vec3 dielectric_brdf::sample_dir( const normed_vec3& wo
                                        , uint16_t pixel_y
                                        , uint16_t seed) const
 {
-  // sample specular distribution with probability E_spec and diffuse with prob 1-E_spec
   float rnd{random_float(pixel_x,pixel_y,seed)};
+  #ifndef NO_MS
+  // sample specular distribution with probability E_spec and diffuse with prob 1-E_spec
   float k{E_spec(wo)};
 
   if (rnd < k)
     return ggx_brdf::sample_dir(wo,pixel_x,pixel_y,seed);
 
   return base.sample_dir(wo,pixel_x,pixel_y,seed);
+  #else
+  if (rnd < 0.5f)
+    return ggx_brdf::sample_dir(wo,pixel_x,pixel_y,seed);
+
+  return base.sample_dir(wo,pixel_x,pixel_y,seed);
+  #endif
 }
 
 inline float dielectric_brdf::pdf( const normed_vec3& wo
                                  , const normed_vec3& wi) const
 {
+  #ifdef NO_MS
+  return 0.5f * ggx_brdf::pdf(wo,wi) + 0.5f * base.pdf(wo,wi);
+  #else
   float k{E_spec(wi)};
 
   return k * ggx_brdf::pdf(wo,wi) + (1.0f - k) * base.pdf(wo,wi);
+  #endif
 }

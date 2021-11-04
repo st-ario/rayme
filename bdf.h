@@ -7,6 +7,7 @@
 
 //debug macros
 //#define LAMBERTIAN_DIFFUSE 1
+#define NO_MS 1
 
 struct brdf_sample
 {
@@ -136,6 +137,7 @@ class ggx_brdf : public brdf
     float D_wo(const vec3& loc_h, const vec3& loc_wo) const;
     normed_vec3 sample_halfvector(const vec3& loc_wo, const std::array<float,2>& rnd) const;
 
+  #ifndef NO_MS
   protected:
     // multi-scatter methods
     color MSF(const color& F0) const;
@@ -143,6 +145,7 @@ class ggx_brdf : public brdf
               , const normed_vec3& wi
               , const std::array<std::pair<std::array<float,2>,float>,1024>& E_table
               , const std::array<std::array<float,2>,32>& Eavg_table) const;
+  #endif
 };
 
 class metal_brdf : public ggx_brdf
@@ -174,7 +177,9 @@ class dielectric_brdf: public ggx_brdf
   private:
     const diffuse_brdf base;
 
+    #ifndef NO_MS
     float E_spec(const normed_vec3& wi) const;
+    #endif
     float fresnel( const normed_vec3& wo
                  , const normed_vec3& wi) const;
 };
