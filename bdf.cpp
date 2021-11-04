@@ -3,14 +3,14 @@
 #include "bvh.h"
 #include "ms_tables/ms_tables.h"
 
-color diffuse_brdf::f_r( const normed_vec3& minus_wo
+color diffuse_brdf::f_r( const normed_vec3& wo
                        , const normed_vec3& wi) const
 {
   #ifdef LAMBERTIAN_DIFFUSE
   return color{ptr_mat->base_color * invpi};
   #else
   float cos_wi{clamp(dot(*normal,wi),0.0f,1.0f)};
-  float cos_wo{clamp(dot(-minus_wo,*normal),0.0f,1.0f)};
+  float cos_wo{clamp(dot(wo,*normal),0.0f,1.0f)};
   float sin_wi{epsilon_clamp(std::sqrt(1.0f - cos_wi * cos_wi))};
   float sin_wo{epsilon_clamp(std::sqrt(1.0f - cos_wo * cos_wo))};
   float cos_difference{cos_wo * cos_wi + sin_wo * sin_wi};
@@ -106,35 +106,35 @@ vec3 ggx_brdf::sample_halfvector(const vec3& loc_wo, const std::array<float,2>& 
   return Ne;
 }
 
-normed_vec3 ggx_brdf::sample_dir( const ray& r_minus_wo
+normed_vec3 ggx_brdf::sample_dir( const normed_vec3& wo
                                 , uint16_t pixel_x
                                 , uint16_t pixel_y
                                 , uint16_t seed) const
 {
-  vec3 loc_wo{to_local * -r_minus_wo.direction.to_vec3()};
+  vec3 loc_wo{to_local * wo.to_vec3()};
   vec3 h{sample_halfvector(loc_wo,random_float_pair(pixel_x,pixel_y,seed))};
   h = to_world * h;
 
   return unit(h);
 }
 
-inline float ggx_brdf::pdf( const normed_vec3& minus_wo
+inline float ggx_brdf::pdf( const normed_vec3& wo
                           , const normed_vec3& wi) const
 {
-  vec3 h{glm::normalize(wi.to_vec3() - minus_wo.to_vec3())};
-  float wodoth{dot(-minus_wo,h)};
+  vec3 h{glm::normalize(wi.to_vec3() + wo.to_vec3())};
+  float wodoth{dot(wo,h)};
   h = to_local * h;
-  vec3 wo{to_local * -minus_wo.to_vec3()};
+  vec3 loc_wo{to_local * wo.to_vec3()};
 
-  return D_wo(h,wo) / (4.0f * wodoth);
+  return D_wo(h,loc_wo) / (4.0f * wodoth);
 }
 
-inline color ggx_brdf::f_r( const normed_vec3& minus_wo
+inline color ggx_brdf::f_r( const normed_vec3& wo
                           , const normed_vec3& wi) const
 {
-  vec3 h{glm::normalize(wi.to_vec3() - minus_wo.to_vec3())};
+  vec3 h{glm::normalize(wi.to_vec3() + wo.to_vec3())};
   vec3 loc_wi{to_local * wi.to_vec3()};
-  vec3 loc_wo{to_local * -minus_wo.to_vec3()};
+  vec3 loc_wo{to_local * wo.to_vec3()};
 
   float res{G2(loc_wo,loc_wi) * D(to_local * h) / (4.0f * std::abs(loc_wo.z * loc_wi.z))};
 
@@ -146,35 +146,35 @@ inline color ggx_brdf::MSF(const color& F0) const
   return F0 * (color{0.04f} + F0 * (color{0.66f} + color{0.3f} * F0));
 }
 
-float ggx_brdf::f_ms( const normed_vec3& minus_wo
+float ggx_brdf::f_ms( const normed_vec3& wo
                     , const normed_vec3& wi
                     , const std::array<std::pair<std::array<float,2>,float>,1024>& E_table
                     , const std::array<std::array<float,2>,32>& Eavg_table) const
 {
   float E_i{ms_lookup(std::array<float,2>{dot(*normal,wi),alpha},E_table)};
-  float E_o{ms_lookup(std::array<float,2>{dot(*normal,-minus_wo),alpha},E_table)};
+  float E_o{ms_lookup(std::array<float,2>{dot(*normal,wo),alpha},E_table)};
   float E_avg{ms_lookup(alpha,Eavg_table)};
   return (1.0f - E_i) * (1.0f - E_o) / std::max(0.001f, (pi - E_avg));
 }
 
-color metal_brdf::f_r( const normed_vec3& minus_wo
+color metal_brdf::f_r( const normed_vec3& wo
                      , const normed_vec3& wi) const
 {
   auto pow5 = [](float x){ return (x * x) * (x * x) * x; };
-  float wodoth{0.5f * dot(wi,-minus_wo)};
+  float wodoth{0.5f * dot(wi,wo)};
   color fresnel{
     ptr_mat->base_color + (color{1.0f} - ptr_mat->base_color) * (1.0f - std::abs(pow5(wodoth)))
   };
 
-  return fresnel * ggx_brdf::f_r(minus_wo, wi)
-         + MSF(ptr_mat->base_color) * f_ms(minus_wo, wi, ggx_E, ggx_Eavg);
+  return fresnel * ggx_brdf::f_r(wo, wi)
+         + MSF(ptr_mat->base_color) * f_ms(wo, wi, ggx_E, ggx_Eavg);
 }
 
-inline float dielectric_brdf::fresnel( const normed_vec3& minus_wo
+inline float dielectric_brdf::fresnel( const normed_vec3& wo
                                      , const normed_vec3& wi) const
 {
   auto pow5 = [](float x){ return (x * x) * (x * x) * x; };
-  float wodoth{0.5f * dot(wi,-minus_wo)};
+  float wodoth{0.5f * dot(wi,wo)};
   return 0.04f + 0.96f * pow5(1.0f - std::abs(wodoth));
 }
 
@@ -185,40 +185,40 @@ float dielectric_brdf::E_spec(const normed_vec3& wo) const
   return (F_avg * E_o + MSF(color{0.04f}).x * (1.0f - E_o)); // TODO try just 0.04f instead of MSF
 }
 
-color dielectric_brdf::f_r( const normed_vec3& minus_wo
+color dielectric_brdf::f_r( const normed_vec3& wo
                           , const normed_vec3& wi) const
 {
   static constexpr float A1{8.854467355133801f};
   static constexpr float tau{0.28430405702379613f};
-  float fr{fresnel(minus_wo,wi)};
+  float fr{fresnel(wo,wi)};
   color rho{ptr_mat->base_color};
   color F_dms{A1 * tau * tau * (rho * rho) / (color{1.0f} - tau * rho)};
 
-  return fr * ggx_brdf::f_r(minus_wo,wi)
-         + MSF(color{0.04f}) * f_ms(minus_wo, wi, ggx_E, ggx_Eavg) // TODO try just 0.04f instead of MSF
-         + (base.f_r(minus_wo,wi) + F_dms * f_ms(minus_wo, wi, on_E, on_Eavg))
-         * (1.0f - E_spec(-minus_wo));
+  return fr * ggx_brdf::f_r(wo,wi)
+         + MSF(color{0.04f}) * f_ms(wo, wi, ggx_E, ggx_Eavg) // TODO try just 0.04f instead of MSF
+         + (base.f_r(wo,wi) + F_dms * f_ms(wo, wi, on_E, on_Eavg))
+         * (1.0f - E_spec(wo));
 }
 
-normed_vec3 dielectric_brdf::sample_dir( const ray& r_minus_wo
+normed_vec3 dielectric_brdf::sample_dir( const normed_vec3& wo
                                        , uint16_t pixel_x
                                        , uint16_t pixel_y
                                        , uint16_t seed) const
 {
   // sample specular distribution with probability E_spec and diffuse with prob 1-E_spec
   float rnd{random_float(pixel_x,pixel_y,seed)};
-  float k{E_spec(- r_minus_wo.direction)};
+  float k{E_spec(wo)};
 
   if (rnd < k)
-    return ggx_brdf::sample_dir(r_minus_wo,pixel_x,pixel_y,seed);
+    return ggx_brdf::sample_dir(wo,pixel_x,pixel_y,seed);
 
-  return base.sample_dir(r_minus_wo,pixel_x,pixel_y,seed);
+  return base.sample_dir(wo,pixel_x,pixel_y,seed);
 }
 
-inline float dielectric_brdf::pdf( const normed_vec3& minus_wo
+inline float dielectric_brdf::pdf( const normed_vec3& wo
                                  , const normed_vec3& wi) const
 {
   float k{E_spec(wi)};
 
-  return k * ggx_brdf::pdf(minus_wo,wi) + (1.0f - k) * base.pdf(minus_wo,wi);
+  return k * ggx_brdf::pdf(wo,wi) + (1.0f - k) * base.pdf(wo,wi);
 }

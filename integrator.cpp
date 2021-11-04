@@ -7,7 +7,7 @@
 #include "extern/glm/glm/gtx/norm.hpp"
 
 // debug macros
-//#define NO_DIRECT 1
+#define NO_DIRECT 1
 //#define NO_INDIRECT 1
 //#define NO_SDLS 1
 //#define NO_BRDFDLS 1
@@ -34,7 +34,7 @@ color direct_light( const point& x
   float light_weight{0.0f};
   float light_pdf{1.0f / world_lights::lights()[L]->get_surface_area()};
 
-  auto sample{brdf.sample(r_incoming,pixel_x,pixel_y,rng_offset)};
+  auto sample{brdf.sample(-r_incoming.direction,pixel_x,pixel_y,rng_offset)};
 
   // if the pdf of the BRDF evaluates to 0, skip the BRDF sampling at once
   if (sample.pdf == 0.0f)
@@ -178,7 +178,7 @@ color integrator( const ray& r
 
   #ifndef NO_INDIRECT
   // get scatter ray according to BRDF
-  auto sample{brdf.sample(r,pixel_x,pixel_y,sample_id+depth)};
+  auto sample{brdf.sample(-r.direction,pixel_x,pixel_y,sample_id+depth)};
   ray scattered{bounce_ray(hit_point,rec->p_error(),info.gnormal(),sample.scatter_dir)};
 
   // update throughput
