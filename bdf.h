@@ -59,7 +59,11 @@ class diffuse_brdf : public brdf
     #ifdef LAMBERTIAN_DIFFUSE
     {}
     #else
-    , sigma_squared{ptr_mat->roughness_factor * ptr_mat->roughness_factor}
+    // Oren--Nayar's sigma (angular standard deviation) in principle takes values in [0,pi/2],
+    // but physically most of the values don't make sense; the common cap seems to be at around 0.3
+    // with rare exceptions up to 0.5; heuristic multiplicative factor
+    // (try different values at a later stage)
+    , sigma_squared{0.13f * ptr_mat->roughness_factor * ptr_mat->roughness_factor}
     , A{1.0f - sigma_squared / (2.0f * (sigma_squared + 0.33f))}
     , B{0.45f * sigma_squared / (sigma_squared + 0.09f)} {}
     #endif
