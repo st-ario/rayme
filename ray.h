@@ -21,7 +21,7 @@ struct ray
     , invD{ [&]{
         vec3 res;
         for (int i = 0; i < 3; ++i)
-          res[i] = (direction[i] != 0.0f) ? (1.0f / direction[i]) : (direction[i] * infinity);
+          res[i] = (direction[i] != 0.0f) ? (1.0f / direction[i]) : (std::signbit(direction[i]) ? -infinity : infinity);
         return res;
       }() }
     , perm{ [&](){

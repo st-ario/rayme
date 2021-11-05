@@ -433,7 +433,7 @@ cos_weighted_random_upper_hemisphere_unit(uint16_t pixel_x, uint16_t pixel_y, ui
   z = radius * std::sin(angle);
 
   // projection
-  float y{std::sqrt(1.0f - x*x - z*z)};
+  float y{std::sqrt(1.0f - clamp(x*x - z*z, 0.0f, 1.0f))}; // clamping to avoid NaNs due to rounding
 
   return normed_vec3{x, y, z};
 }
