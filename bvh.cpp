@@ -21,9 +21,9 @@ bvh_tree::bvh_tree(std::vector<std::unique_ptr<const primitive>>& primitives)
 
 inline float surface_area(const std::unique_ptr<const primitive>& leaf)
 {
-  return std::fabs(leaf->bounds.max().x - leaf->bounds.min().x)
-       * std::fabs(leaf->bounds.max().y - leaf->bounds.min().y)
-       * std::fabs(leaf->bounds.max().z - leaf->bounds.min().z);
+  auto v{glm::abs(leaf->bounds.max() - leaf->bounds.min())};
+
+  return v.x * v.y * v.z;
 }
 
 float sah(const std::vector<std::unique_ptr<const primitive>>& leaves, size_t begin, size_t end, size_t at)
@@ -44,8 +44,15 @@ bvh_tree::recursive_build( std::vector<std::unique_ptr<const primitive>>& leaves
                          , size_t end) const
 {
   if (begin + 1 == end)
-  {
     return std::move(leaves[begin]);
+
+  if (begin + 2 == end)
+  {
+    std::unique_ptr<bvh_node> new_node = std::make_unique<bvh_node>(leaves, begin, end);
+    new_node->left = recursive_build(leaves, begin, begin+1);
+    new_node->right = recursive_build(leaves, begin+1, end);
+
+    return new_node;
   }
 
   // pick splitting axis with the largest extension
@@ -58,7 +65,7 @@ bvh_tree::recursive_build( std::vector<std::unique_ptr<const primitive>>& leaves
       float min_coord{infinity};
       float max_coord{-infinity};
 
-      for (size_t j = begin+1; j < end; ++j)
+      for (size_t j = begin; j < end; ++j)
       {
         if (leaves[j]->centroid[i] < min_coord)
           min_coord = leaves[j]->centroid[i];
@@ -79,29 +86,52 @@ bvh_tree::recursive_build( std::vector<std::unique_ptr<const primitive>>& leaves
   std::sort(leaves.begin()+begin, leaves.begin()+end,
             [=]( const std::unique_ptr<const primitive>& leaf1
                , const std::unique_ptr<const primitive>& leaf2)
-            {
-              //if (!leaf1)
-              //  return true;
-              //if (!leaf2)
-              //  return false;
-              return leaf1->centroid[axis] < leaf2->centroid[axis];
-            });
+            { return leaf1->centroid[axis] < leaf2->centroid[axis]; });
 
   // split at the point minimizing the SAH
   size_t split_at = end;
   float sah_split = infinity;
-  for (size_t at = begin+1; at < end; ++at)
+
+  // binning method
+  constexpr uint n_bins{16u};
+  std::array<size_t,n_bins> bins_counter;
+  bins_counter.fill(0u);
+
+  float range{leaves[end-1]->centroid[axis] - leaves[begin]->centroid[axis]};
+
+  if (range != 0)
   {
-    float current_sah = sah(leaves, begin, end, at);
-    if (current_sah < sah_split)
+    // populate the bins according to the centroid coordinate
+    for (size_t i = begin; i < end; ++i)
     {
-      split_at = at;
-      sah_split = current_sah;
+      // M = N * (centroid - lower_bound) / (upper_bound - lower_bound)
+      int M = n_bins * (leaves[i]->centroid[axis] - leaves[begin]->centroid[axis]) / range;
+      if (M == n_bins) --M;
+      bins_counter[M] += 1;
     }
+
+    // pick the splitting bin
+    size_t cumulative_count{0u};
+    for (uint i = 0; i < n_bins - 1; ++i)
+    {
+      if (bins_counter[i] == 0)
+        continue;
+      cumulative_count += bins_counter[i];
+      float current_sah = sah(leaves, begin, end, begin + cumulative_count);
+      if (current_sah < sah_split)
+      {
+        split_at = begin + cumulative_count;
+        sah_split = current_sah;
+      }
+    }
+  } else {
+    // all the primitives in the current range have the same centroid, split in the middle
+    split_at = begin + ((end - begin) / 2);
   }
 
   // create a new node
   std::unique_ptr<bvh_node> new_node = std::make_unique<bvh_node>(leaves, begin, end);
+
   new_node->left = recursive_build(leaves, begin, split_at);
   new_node->right = recursive_build(leaves, split_at, end);
 
