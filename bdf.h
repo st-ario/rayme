@@ -63,6 +63,8 @@ class diffuse_brdf : public brdf
     // but physically most of the values don't make sense; the common cap seems to be at around 0.3
     // with rare exceptions up to 0.5; heuristic multiplicative factor
     // (try different values at a later stage)
+    // IMPORTANT: the energy compensation tables for the diffuse multi-scatter depend on this
+    // choice, if the multiplicative factor is changed they have to be recomputed
     , sigma_squared{0.13f * ptr_mat->roughness_factor * ptr_mat->roughness_factor}
     , A{1.0f - sigma_squared / (2.0f * (sigma_squared + 0.33f))}
     , B{0.45f * sigma_squared / (sigma_squared + 0.09f)} {}
@@ -184,8 +186,7 @@ class dielectric_brdf: public ggx_brdf
     #ifndef NO_MS
     float E_spec(const normed_vec3& wi) const;
     #endif
-    float fresnel( const normed_vec3& wo
-                 , const normed_vec3& wi) const;
+    float fresnel(float cos_angle) const;
 };
 
 class composite_brdf
@@ -201,6 +202,11 @@ class composite_brdf
     {
       if (ptr_mat->metallic_factor == 0)
       {
+        if (ptr_mat->roughness_factor == 0)
+        {
+          std::cerr << "ERROR: currently perfectly smooth surfaces are not supported\n";
+          exit(1);
+        }
         if (ptr_mat->roughness_factor == 1)
         {
           diffuse_brdf diffuse{ptr_mat,normal};

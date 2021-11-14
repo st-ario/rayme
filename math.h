@@ -167,18 +167,11 @@ class normed_vec3 : private vec3
     friend vec3 cross(const vec3& v,        const normed_vec3& w);
     friend vec3 cross(const normed_vec3& v, const vec3& w);
 
-    // return a uniformly distributed random unit vector in the absolute upper hemisphere
-    friend normed_vec3 random_upper_hemisphere_unit();
-    // return a uniformly distributed random unit vector in the hemisphere having the argument as
-    // north pole
-    friend normed_vec3 random_hemisphere_unit(const normed_vec3& normal);
-    // return uniformly distributed vector on the unit sphere
-    friend normed_vec3 random_unit();
     // return a random unit vector in the absolute upper hemisphere weighted by the cosine of the
     // angle formed wrt the north pole;
     // the three arguments are used for the rng
     friend normed_vec3
-      cos_weighted_random_upper_hemisphere_unit(uint16_t pixel_x, uint16_t pixel_y, uint16_t seed);
+    cos_weighted_random_upper_hemisphere_unit(uint16_t pixel_x, uint16_t pixel_y, uint16_t seed);
     // return a random unit vector in the upper hemisphere having the argument as north pole,
     // weighted by the cosine of the angle formed wrt the argument;
     // the three extra arguments are used for the rng
@@ -334,28 +327,6 @@ inline float min_component(const vec3& v)
   return v.z;
 }
 
-/*
-inline normed_vec3 random_unit()
-{
-  // computed normalizing standard Gaussians for each coordinate
-  // to get the uniform distribution on the surface
-  float rx = standard_normal_random_float();
-  float ry = standard_normal_random_float();
-  float rz = standard_normal_random_float();
-  float inverse_norm = fast_inverse_sqrt(rx*rx + ry*ry + rz*rz);
-  return normed_vec3(rx*inverse_norm,ry*inverse_norm,rz*inverse_norm);
-}
-
-inline normed_vec3 random_upper_hemisphere_unit()
-{
-  normed_vec3 res = random_unit();
-  if (random_unit().y() < 0)
-    return normed_vec3(res.x(), - res.y(), res.z());
-
-  return res;
-}
-*/
-
 // return some rotation sending the north pole of the absolute unit sphere to the argument
 inline glm::mat3 rotate_given_north_pole(const normed_vec3& normal)
 {
@@ -392,15 +363,6 @@ inline glm::mat3 rotate_given_north_pole(const normed_vec3& normal)
   return change_of_base;
 }
 
-/*
-inline normed_vec3 random_hemisphere_unit(const normed_vec3& normal)
-{
-  vec3 res = rotate_given_north_pole(normal) * static_cast<vec3>(random_upper_hemisphere_unit());
-
-  return normed_vec3(res[0],res[1],res[2]);
-}
-*/
-
 inline normed_vec3
 cos_weighted_random_upper_hemisphere_unit(uint16_t pixel_x, uint16_t pixel_y, uint16_t seed)
 {
@@ -433,7 +395,9 @@ cos_weighted_random_upper_hemisphere_unit(uint16_t pixel_x, uint16_t pixel_y, ui
   z = radius * std::sin(angle);
 
   // projection
-  float y{std::sqrt(1.0f - clamp(x*x - z*z, 0.0f, 1.0f))}; // clamping to avoid NaNs due to rounding
+  // clamping to avoid NaNs due to rounding
+  // square difference formula to reduce rounding errors
+  float y{std::sqrt(1.0f - clamp((x-z)*(x+z), 0.0f, 1.0f))};
 
   return normed_vec3{x, y, z};
 }

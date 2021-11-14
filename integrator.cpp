@@ -41,6 +41,10 @@ color direct_light( const point& x
 
   auto sample{brdf.sample(-r_incoming.direction,pixel_x,pixel_y,rng_offset)};
 
+  // if the pdf of the BRDF evaluates to 0, skip the BRDF sampling at once
+  if (sample.pdf == 0.0f)
+    goto source_sampling;
+
   #ifdef NO_BRDFDLS
   goto source_sampling;
   #endif
@@ -49,10 +53,7 @@ color direct_light( const point& x
   {
     // update sampling weight
     #ifndef NO_SDLS
-    if (sample.pdf != 0.0f)
-      brdf_weight = sample.pdf * sample.pdf / (sample.pdf * sample.pdf + light_pdf * light_pdf);
-    else
-      brdf_weight = 1.0f / (1.0f + light_pdf * light_pdf);
+    brdf_weight = sample.pdf * sample.pdf / (sample.pdf * sample.pdf + light_pdf * light_pdf);
     #else
     brdf_weight = 1.0f;
     #endif
@@ -70,10 +71,7 @@ color direct_light( const point& x
     // if the scattered ray hit the current light, compute its contribution
     vec3 emit{world_lights::lights()[L]->ptr_mat->emissive_factor};
 
-    if (sample.pdf != 0.0f)
-      res += brdf_weight * sample.f_r * emit * dot(sample.scatter_dir,snormal) / sample.pdf;
-    else
-      res += brdf_weight * sample.f_r * emit * dot(sample.scatter_dir,snormal);
+    res += brdf_weight * sample.f_r * emit * dot(sample.scatter_dir,snormal) / sample.pdf;
 
   } // BRDF sampling
 
@@ -194,14 +192,16 @@ color integrator( const ray& r
   #ifndef NO_INDIRECT
   // get scatter ray according to BRDF
   auto sample{brdf.sample(-r.direction,pixel_x,pixel_y,sample_id+depth)};
+  if (sample.pdf == 0.0f)
+  {
+    res += direct;
+    return res;
+  }
+
   ray scattered{bounce_ray(hit_point,rec->p_error(),info.gnormal(),sample.scatter_dir)};
 
   // update throughput
-  if (sample.pdf != 0.0f)
-    throughput *= dot(scattered.direction,info.snormal()) * sample.f_r / sample.pdf;
-  else
-    // delta distribution
-    throughput *= dot(scattered.direction,info.snormal()) * sample.f_r;
+  throughput *= dot(scattered.direction,info.snormal()) * sample.f_r / sample.pdf;
 
   // get indirect light contribution
   color indirect{integrator(scattered, world, depth+1, throughput, pixel_x, pixel_y, sample_id)};

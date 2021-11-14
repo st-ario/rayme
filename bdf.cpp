@@ -9,10 +9,10 @@ color diffuse_brdf::f_r( const normed_vec3& wo
   #ifdef LAMBERTIAN_DIFFUSE
   return color{ptr_mat->base_color * invpi};
   #else
-  float cos_wi{clamp(dot(*normal,wi),0.0f,1.0f)};
-  float cos_wo{clamp(dot(wo,*normal),0.0f,1.0f)};
-  float sin_wi{epsilon_clamp(std::sqrt(1.0f - cos_wi * cos_wi))};
-  float sin_wo{epsilon_clamp(std::sqrt(1.0f - cos_wo * cos_wo))};
+  float cos_wi{dot(*normal,wi)};
+  float cos_wo{dot(wo,*normal)};
+  float sin_wi{std::sqrt(1.0f - clamp(cos_wi * cos_wi,0.0,1.0))};
+  float sin_wo{std::sqrt(1.0f - clamp(cos_wo * cos_wo,0.0,1.0))};
   float cos_difference{cos_wo * cos_wi + sin_wo * sin_wi};
 
   float sin_alpha;
@@ -32,11 +32,11 @@ color diffuse_brdf::f_r( const normed_vec3& wo
 
 inline float ggx_brdf::D(const vec3& loc_h) const
 {
-  if (loc_h.z > 0)
+  if (loc_h.z > 0.0f)
   {
-
     float k{1.0f + loc_h.z * loc_h.z * (alpha_squared - 1.0f)};
-    return alpha_squared / (pi * k * k);
+    if (k != 0.0f)
+      return alpha_squared / (pi * k * k);
   }
   return 0.0f;
 }
@@ -50,20 +50,20 @@ inline float ggx_brdf::Lambda(const vec3& loc_wo) const
 
 inline float ggx_brdf::G1(const vec3& loc_wo, const vec3& loc_wm) const
 {
-  if (dot(loc_wo,loc_wm) > 0.0f)
-    return 1.0f / (1.0f + Lambda(loc_wo));
+  if (dot(loc_wo,loc_wm) < 0.0f)
+    return 0.0f;
 
-  return 0.0f;
+  return 1.0f / (1.0f + Lambda(loc_wo));
 }
 
 inline float ggx_brdf::G2(const vec3& loc_wo, const vec3& loc_wi, const vec3& loc_wm) const
 {
   // Height-Correlated Masking and Shadowing
 
-  if (dot(loc_wi,loc_wm) > 0.0f && dot(loc_wo,loc_wm) > 0.0f)
-    return 1.0f / (1.0f + Lambda(loc_wi) + Lambda(loc_wo));
+  if (dot(loc_wi,loc_wm) < 0.0f || dot(loc_wo,loc_wm) < 0.0f)
+    return 0.0;
 
-  return 0.0f;
+  return 1.0f / (1.0f + Lambda(loc_wi) + Lambda(loc_wo));
 }
 
 inline float ggx_brdf::D_wo(const vec3& loc_h, const vec3& loc_wo) const
@@ -179,14 +179,19 @@ float dielectric_brdf::E_spec(const normed_vec3& wo) const
 color metal_brdf::f_r( const normed_vec3& wo
                      , const normed_vec3& wi) const
 {
+  color rho{ggx_brdf::f_r(wo,wi)};
+  if (rho == color(0.0f))
+    return color(0.0f);
+
   auto pow5 = [](float x){ return (x * x) * (x * x) * x; };
   vec3 h{glm::normalize(wi.to_vec3() + wo.to_vec3())};
-  float wodoth{dot(wo,h)};
   color fresnel{
-    ptr_mat->base_color + (color{1.0f} - ptr_mat->base_color) * pow5(1.0f - std::abs(wodoth))
+    // no need to take abs of the dot product, as ggx_brdf::fr() already checked they are in the
+    // same hemisphere
+    ptr_mat->base_color + (color{1.0f} - ptr_mat->base_color) * pow5(1.0f - dot(wo,h))
   };
 
-  return fresnel * ggx_brdf::f_r(wo, wi)
+  return fresnel * rho;
         #ifdef NO_MS
         ;
         #else
@@ -194,35 +199,52 @@ color metal_brdf::f_r( const normed_vec3& wo
          #endif
 }
 
-inline float dielectric_brdf::fresnel( const normed_vec3& wo
-                                     , const normed_vec3& wi) const
+inline float dielectric_brdf::fresnel(float cos_angle) const
 {
+  // TODO measure performance difference between exact and approximated formula
+  float g{std::sqrt(1.25f + cos_angle * cos_angle)};
+  float gmc{g-cos_angle};
+  float gpc{g+cos_angle};
+  float auxup{cos_angle*(gpc) - 1.0f};
+  float auxdn{cos_angle*(gmc) + 1.0f};
+  float x{1.0f + (auxup * auxup) / (auxdn * auxdn)};
+  return 0.5f * (gmc * gmc) * x / (gpc * gpc);
+  /*
   auto pow5 = [](float x){ return (x * x) * (x * x) * x; };
-  float wodoth{0.5f * dot(wi,wo)};
-  return 0.04f + 0.96f * pow5(1.0f - std::abs(wodoth));
+  //return 0.04f + 0.96f * pow5(1.0f - clamp(cos_angle,0.0f,1.0f));
+  return 0.04f + 0.96f * pow5(1.0f - cos_angle);
+  */
 }
 
 
 color dielectric_brdf::f_r( const normed_vec3& wo
                           , const normed_vec3& wi) const
 {
-  #ifndef NO_MS
-  static constexpr float A1{8.854467355133801f};
-  static constexpr float tau{0.28430405702379613f};
-  color rho{ptr_mat->base_color};
-  color F_dms{A1 * tau * tau * (rho * rho) / (color{1.0f} - tau * rho)};
-  #endif
-  float fr{fresnel(wo,wi)};
+  float ndotl{dot(*normal,wi)};
+  float ndotv{dot(*normal,wo)};
+  if (ndotl > 0 && ndotv > 0)
+  {
+    #ifndef NO_MS
+    static constexpr float A1{8.854467355133801f};
+    static constexpr float tau{0.28430405702379613f};
+    color rho{ptr_mat->base_color};
+    color F_dms{A1 * tau * tau * (rho * rho) / (color{1.0f} - tau * rho)};
+    #endif
+    vec3 h{glm::normalize(wo.to_vec3()+wi.to_vec3())};
+    float ldoth{dot(wi,h)};
 
-  return fr * ggx_brdf::f_r(wo,wi)
-         #ifdef NO_MS
-         + (1.0f - fr) * base.f_r(wo,wi);
-         #else
-         //+ MSF(color{0.04f}) * f_ms(wo, wi, ggx_E, ggx_Eavg) // TODO try just 0.04f instead of MSF
-         + 0.04f * f_ms(wo, wi, ggx_E, ggx_Eavg)
-         + (base.f_r(wo,wi) + F_dms * f_ms(wo, wi, on_E, on_Eavg))
-         * (1.0f - E_spec(wo));
-         #endif
+    return fresnel(ldoth) * ggx_brdf::f_r(wo,wi)
+           #ifdef NO_MS
+           + (1.0f - fresnel(ndotl)) * (1.0f - fresnel(ndotv)) * base.f_r(wo,wi);
+           #else
+           //+ MSF(color{0.04f}) * f_ms(wo, wi, ggx_E, ggx_Eavg) // TODO try just 0.04f instead of MSF
+           + 0.04f * f_ms(wo, wi, ggx_E, ggx_Eavg)
+           + (base.f_r(wo,wi) + F_dms * f_ms(wo, wi, on_E, on_Eavg))
+           * (1.0f - E_spec(wo));
+           #endif
+  }
+
+  return color{0.0f};
 }
 
 normed_vec3 dielectric_brdf::sample_dir( const normed_vec3& wo
