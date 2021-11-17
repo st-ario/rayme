@@ -3,6 +3,7 @@
 *.bin
 .directory
 .vscode/
+.cache/
 build/
 misc/
 *.sh
