@@ -7,7 +7,7 @@
 #include "extern/glm/glm/gtx/norm.hpp"
 
 // debug macros
-#define NO_DIRECT 1
+//#define NO_DIRECT 1
 //#define NO_INDIRECT 1
 //#define NO_SDLS 1
 //#define NO_BRDFDLS 1
@@ -22,7 +22,7 @@ static constexpr uint16_t MAX_DEPTH{10};
 color direct_light( const point& x
                   , const ray& r_incoming
                   , const hit_record& record
-                  , const composite_brdf& brdf
+                  , const composite_brdf& b
                   , const normed_vec3& gnormal
                   , const normed_vec3& snormal
                   , const element& world
@@ -39,10 +39,12 @@ color direct_light( const point& x
   float light_weight{0.0f};
   float light_pdf{1.0f / world_lights::lights()[L]->get_surface_area()};
 
-  auto sample{brdf.sample(-r_incoming.direction,pixel_x,pixel_y,rng_offset)};
+  // get scatter direction for BRDF sampliing
+  normed_vec3 scatter_dir{b.sample_dir(-r_incoming.direction,pixel_x,pixel_y,rng_offset)};
+  float brdf_pdf{b.pdf(-r_incoming.direction,scatter_dir)};
 
   // if the pdf of the BRDF evaluates to 0, skip the BRDF sampling at once
-  if (sample.pdf == 0.0f)
+  if (brdf_pdf == 0.0f)
     goto source_sampling;
 
   #ifdef NO_BRDFDLS
@@ -53,12 +55,12 @@ color direct_light( const point& x
   {
     // update sampling weight
     #ifndef NO_SDLS
-    brdf_weight = sample.pdf * sample.pdf / (sample.pdf * sample.pdf + light_pdf * light_pdf);
+    brdf_weight = brdf_pdf * brdf_pdf / (brdf_pdf * brdf_pdf + light_pdf * light_pdf);
     #else
     brdf_weight = 1.0f;
     #endif
 
-    ray scattered{bounce_ray(x,record.p_error(),gnormal,sample.scatter_dir)};
+    ray scattered{bounce_ray(x,record.p_error(),gnormal,scatter_dir)};
 
     auto rec_shadow{world.hit(scattered,infinity)};
     if (!rec_shadow)
@@ -71,8 +73,7 @@ color direct_light( const point& x
     // if the scattered ray hit the current light, compute its contribution
     vec3 emit{world_lights::lights()[L]->ptr_mat->emissive_factor};
 
-    res += brdf_weight * sample.f_r * emit * dot(sample.scatter_dir,snormal) / sample.pdf;
-
+    res += brdf_weight * emit * b.estimator(-r_incoming.direction,scatter_dir);
   } // BRDF sampling
 
 source_sampling:
@@ -106,6 +107,7 @@ source_sampling:
     if (rec_shadow->what() != target_pair.second)
         return res;
 
+    // TODO check for geometric/shadowing normal artifacts
     float cos_light_angle{dot(info_shadow.snormal(), -shadow.direction)};
     float projection_factor{cos_light_angle / glm::length2(nonunital_shadow_dir)};
     if (projection_factor < machine_two_epsilon)
@@ -116,10 +118,14 @@ source_sampling:
     if (brdf_weight == 0.0f)
       light_weight = 1.0f;
     else {
-      light_weight = light_pdf * light_pdf / (sample.pdf * sample.pdf + light_pdf * light_pdf);
+      light_weight = light_pdf * light_pdf / (brdf_pdf * brdf_pdf + light_pdf * light_pdf);
     }
 
-    res += light_weight * sample.f_r * emit * cos_angle * projection_factor / light_pdf;
+    // the role of wo and wi is inverted since we are following the shadow ray
+    // (relevant for those brdfs that break symmetry)
+    color f_r{b.f_r(shadow_dir,-r_incoming.direction)};
+
+    res += light_weight * emit * projection_factor * f_r * cos_angle / light_pdf;
   } // light source sampling
 
   return res;
@@ -170,7 +176,7 @@ color integrator( const ray& r
 
   // pick the BRDF for the surface hit
   normed_vec3 snormal{info.snormal()};
-  composite_brdf brdf{info.ptr_mat(),&snormal};
+  composite_brdf b{info.ptr_mat(),&snormal};
 
   // sample direct light
 
@@ -179,7 +185,7 @@ color integrator( const ray& r
   static constexpr uint16_t seed_offset{3}; // avoids using the same sample pool for direct and
                                             // indirect light sampling
   for (size_t i = 0; i < world_lights::lights().size(); ++i)
-    direct += direct_light(hit_point,r,rec.value(),brdf,info.gnormal(),info.snormal(),world,i,
+    direct += direct_light(hit_point,r,rec.value(),b,info.gnormal(),info.snormal(),world,i,
       pixel_x, pixel_y, sample_id + depth + seed_offset);
 
   #ifndef NO_RR
@@ -190,18 +196,13 @@ color integrator( const ray& r
   // sample indirect light
 
   #ifndef NO_INDIRECT
-  // get scatter ray according to BRDF
-  auto sample{brdf.sample(-r.direction,pixel_x,pixel_y,sample_id+depth)};
-  if (sample.pdf == 0.0f)
-  {
-    res += direct;
-    return res;
-  }
 
-  ray scattered{bounce_ray(hit_point,rec->p_error(),info.gnormal(),sample.scatter_dir)};
+  // get scatter ray according to BRDF
+  normed_vec3 scatter_dir{b.sample_dir(-r.direction,pixel_x,pixel_y,sample_id+depth)};
+  ray scattered{bounce_ray(hit_point,rec->p_error(),info.gnormal(),scatter_dir)};
 
   // update throughput
-  throughput *= dot(scattered.direction,info.snormal()) * sample.f_r / sample.pdf;
+  throughput *= b.estimator(-r.direction,scatter_dir);
 
   // get indirect light contribution
   color indirect{integrator(scattered, world, depth+1, throughput, pixel_x, pixel_y, sample_id)};

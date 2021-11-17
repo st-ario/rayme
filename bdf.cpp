@@ -1,33 +1,38 @@
 #include "bdf.h"
 #include "ray.h"
 #include "bvh.h"
-#include "ms_tables/ms_tables.h"
 
 color diffuse_brdf::f_r( const normed_vec3& wo
                        , const normed_vec3& wi) const
 {
-  #ifdef LAMBERTIAN_DIFFUSE
-  return color{ptr_mat->base_color * invpi};
-  #else
-  float cos_wi{dot(*normal,wi)};
-  float cos_wo{dot(wo,*normal)};
-  float sin_wi{std::sqrt(1.0f - clamp(cos_wi * cos_wi,0.0,1.0))};
-  float sin_wo{std::sqrt(1.0f - clamp(cos_wo * cos_wo,0.0,1.0))};
-  float cos_difference{cos_wo * cos_wi + sin_wo * sin_wi};
-
-  float sin_alpha;
-  float tan_beta;
-  if (cos_wo < cos_wi)
+  float ndotl{dot(*normal,wi)};
+  float ndotv{dot(*normal,wo)};
+  if (ndotl > 0 && ndotv > 0)
   {
-    sin_alpha = sin_wo;
-    tan_beta = sin_wi / (machine_two_epsilon + cos_wi);
-  } else {
-    sin_alpha = sin_wi;
-    tan_beta = sin_wo / (machine_two_epsilon + cos_wo);
+    #ifdef LAMBERTIAN_DIFFUSE
+    return color{ptr_mat->base_color * invpi};
+    #else
+    float cos_wi{dot(*normal,wi)};
+    float cos_wo{dot(wo,*normal)};
+    float sin_wi{std::sqrt(1.0f - clamp(cos_wi * cos_wi,0.0,1.0))};
+    float sin_wo{std::sqrt(1.0f - clamp(cos_wo * cos_wo,0.0,1.0))};
+    float cos_difference{cos_wo * cos_wi + sin_wo * sin_wi};
+
+    float sin_alpha;
+    float tan_beta;
+    if (cos_wo < cos_wi)
+    {
+      sin_alpha = sin_wo;
+      tan_beta = sin_wi / (machine_two_epsilon + cos_wi);
+    } else {
+      sin_alpha = sin_wi;
+      tan_beta = sin_wo / (machine_two_epsilon + cos_wo);
+    }
+    return color{ptr_mat->base_color * invpi
+                  * (A + B * std::max(0.0f,cos_difference) * sin_alpha * tan_beta)};
+    #endif
   }
-  return color{ptr_mat->base_color * invpi
-                * (A + B * std::max(0.0f,cos_difference) * sin_alpha * tan_beta)};
-  #endif
+  return color{0.0f};
 }
 
 inline float ggx_brdf::D(const vec3& loc_h) const
@@ -39,31 +44,6 @@ inline float ggx_brdf::D(const vec3& loc_h) const
       return alpha_squared / (pi * k * k);
   }
   return 0.0f;
-}
-
-inline float ggx_brdf::Lambda(const vec3& loc_wo) const
-{
-  float z_squared{loc_wo.z * loc_wo.z};
-  float k{alpha_squared * (1.0f - z_squared) / z_squared};
-  return 0.5f * (-1.0f + std::sqrt(1.0f + k));
-}
-
-inline float ggx_brdf::G1(const vec3& loc_wo, const vec3& loc_wm) const
-{
-  if (dot(loc_wo,loc_wm) < 0.0f)
-    return 0.0f;
-
-  return 1.0f / (1.0f + Lambda(loc_wo));
-}
-
-inline float ggx_brdf::G2(const vec3& loc_wo, const vec3& loc_wi, const vec3& loc_wm) const
-{
-  // Height-Correlated Masking and Shadowing
-
-  if (dot(loc_wi,loc_wm) < 0.0f || dot(loc_wo,loc_wm) < 0.0f)
-    return 0.0;
-
-  return 1.0f / (1.0f + Lambda(loc_wi) + Lambda(loc_wo));
 }
 
 inline float ggx_brdf::D_wo(const vec3& loc_h, const vec3& loc_wo) const
@@ -151,52 +131,36 @@ inline color ggx_brdf::f_r( const normed_vec3& wo
 }
 
 #ifndef NO_MS
-inline color ggx_brdf::MSF(const color& F0) const
+// TODO template to optimize the dielectric case
+inline color ggx_brdf::MSFresnel(const color& F0) const
 {
   return F0 * (color{0.04f} + F0 * (color{0.66f} + color{0.3f} * F0));
 }
 
-float ggx_brdf::f_ms( const normed_vec3& wo
-                    , const normed_vec3& wi
-                    , const std::array<std::pair<std::array<float,2>,float>,1024>& E_table
-                    , const std::array<std::array<float,2>,32>& Eavg_table) const
-{
-  float E_i{ms_lookup(std::array<float,2>{dot(*normal,wi),alpha},E_table)};
-  float E_o{ms_lookup(std::array<float,2>{dot(*normal,wo),alpha},E_table)};
-  float E_avg{ms_lookup(alpha,Eavg_table)};
-  return (1.0f - E_i) * (1.0f - E_o) / std::max(0.001f, (pi - E_avg));
-}
-
-float dielectric_brdf::E_spec(const normed_vec3& wo) const
+float dielectric_brdf::E_spec(const normed_vec3& w) const
 {
   static constexpr float F_avg{0.089497712f};
-  float E_o{ms_lookup(std::array<float,2>{dot(*normal,wo),alpha},ggx_E)};
-  //return (F_avg * E_o + MSF(color{0.04f}).x * (1.0f - E_o)); // TODO try just 0.04f instead of MSF
-  return (F_avg * E_o + 0.04f * (1.0f - E_o));
+  float E_o{ms_lookup_E(std::array<float,2>{alpha, dot(*normal,w)},ggx_E)};
+  return (F_avg * E_o + MSFresnel(color{0.04f}).x * (1.0f - E_o));
 }
 #endif
 
 color metal_brdf::f_r( const normed_vec3& wo
                      , const normed_vec3& wi) const
 {
-  color rho{ggx_brdf::f_r(wo,wi)};
-  if (rho == color(0.0f))
-    return color(0.0f);
-
-  auto pow5 = [](float x){ return (x * x) * (x * x) * x; };
-  vec3 h{glm::normalize(wi.to_vec3() + wo.to_vec3())};
-  color fresnel{
-    // no need to take abs of the dot product, as ggx_brdf::fr() already checked they are in the
-    // same hemisphere
-    ptr_mat->base_color + (color{1.0f} - ptr_mat->base_color) * pow5(1.0f - dot(wo,h))
-  };
-
-  return fresnel * rho;
-        #ifdef NO_MS
-        ;
-        #else
-         + MSF(ptr_mat->base_color) * f_ms(wo, wi, ggx_E, ggx_Eavg);
-         #endif
+  float ndotl{dot(*normal,wi)};
+  float ndotv{dot(*normal,wo)};
+  if (ndotl > 0 && ndotv > 0)
+  {
+    vec3 wh{glm::normalize(wo.to_vec3()+wi.to_vec3())};
+    return ggx_brdf::f_r(wo,wi) * fresnel(dot(wo,wh))
+    #ifdef NO_MS
+    ;
+    #else
+    + MSFresnel(ptr_mat->base_color) * ggx_brdf::f_ms(wo,wi,ggx_E,ggx_Eavg);
+    #endif
+  }
+  return color{0.0f};
 }
 
 inline float dielectric_brdf::fresnel(float cos_angle) const
@@ -216,7 +180,6 @@ inline float dielectric_brdf::fresnel(float cos_angle) const
   */
 }
 
-
 color dielectric_brdf::f_r( const normed_vec3& wo
                           , const normed_vec3& wi) const
 {
@@ -225,23 +188,26 @@ color dielectric_brdf::f_r( const normed_vec3& wo
   if (ndotl > 0 && ndotv > 0)
   {
     #ifndef NO_MS
+    // no energy loss for current diffuse
+    /*
     static constexpr float A1{8.854467355133801f};
     static constexpr float tau{0.28430405702379613f};
     color rho{ptr_mat->base_color};
     color F_dms{A1 * tau * tau * (rho * rho) / (color{1.0f} - tau * rho)};
+    */
     #endif
     vec3 h{glm::normalize(wo.to_vec3()+wi.to_vec3())};
     float ldoth{dot(wi,h)};
 
     return fresnel(ldoth) * ggx_brdf::f_r(wo,wi)
-           #ifdef NO_MS
-           + (1.0f - fresnel(ndotl)) * (1.0f - fresnel(ndotv)) * base.f_r(wo,wi);
-           #else
-           //+ MSF(color{0.04f}) * f_ms(wo, wi, ggx_E, ggx_Eavg) // TODO try just 0.04f instead of MSF
-           + 0.04f * f_ms(wo, wi, ggx_E, ggx_Eavg)
-           + (base.f_r(wo,wi) + F_dms * f_ms(wo, wi, on_E, on_Eavg))
-           * (1.0f - E_spec(wo));
-           #endif
+    #ifdef NO_MS
+      + (1.0f - fresnel(ndotl)) * (1.0f - fresnel(ndotv)) * base.f_r(wo,wi) ;
+    #else
+      + MSFresnel(color{0.04f}) * ggx_brdf::f_ms(wo,wi,ggx_E,ggx_Eavg)
+      + base.f_r(wo,wi) * (1.0f - E_spec(wo));
+      // no energy loss for current diffuse, otherwise
+      //+ (base.f_r(wo,wi) + MSFresnel(ptr_mat->base_color) * f_ms(wo,wi,on_E,on_Eavg)) * (1.0f - E_spec(wo));
+    #endif
   }
 
   return color{0.0f};
@@ -275,7 +241,7 @@ inline float dielectric_brdf::pdf( const normed_vec3& wo
   #ifdef NO_MS
   return 0.5f * ggx_brdf::pdf(wo,wi) + 0.5f * base.pdf(wo,wi);
   #else
-  float k{E_spec(wi)};
+  float k{E_spec(wo)};
 
   return k * ggx_brdf::pdf(wo,wi) + (1.0f - k) * base.pdf(wo,wi);
   #endif
