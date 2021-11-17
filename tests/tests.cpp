@@ -7,9 +7,10 @@
 #include <random>
 #include <thread>
 
+constexpr uint32_t n_samples{4096u};
+
 void weak_white_furnace(uint N)
 {
-  constexpr uint32_t n_samples{4096u};
   material m{};
   normed_vec3 normal{normed_vec3::absolute_y()};
 
@@ -25,9 +26,9 @@ void weak_white_furnace(uint N)
       float c{static_cast<float>(j+1) / static_cast<float>(N)};
       normed_vec3 wo{unit(vec3(std::sqrt(1.0f - c * c), c, 0.0f))};
 
-      float total{0.0f};
-      uint32_t i = 0;
-      while (i < n_samples)
+      double total{0.0};
+      uint32_t k = 0;
+      while (k < n_samples)
       {
         ++tot;
         normed_vec3 wi = ggx.sample_dir(wo,0,0,0);
@@ -38,21 +39,21 @@ void weak_white_furnace(uint N)
 
         if (pdf != 0.0f)
         {
-		      total += ggx.G1(loc_wo,loc_wh) * ggx.D(loc_wh) / (4.0f * c * ggx.pdf(wo,wi));
-          ++i;
+		      total += ggx.G1(loc_wo,loc_wh) * ggx.D(loc_wh) / (4.0f * c * pdf);
+          ++k;
         } else {
           ++rep;
         }
       }
       total /= n_samples;
 
-      float diff = std::abs(1.0f - total);
+      double diff{std::abs(1.0 - total)};
 
       std::cerr.precision(9);
-      if (diff > 0.2f)
+      if (diff > 0.2)
       {
         std::cerr << std::fixed << std::setfill('0')
-          << "alpha: " << ggx.alpha << " mu_o: " << c << " integral: " << total << "\n";
+          << "alpha: " << ggx.alpha << " mu_o: " << c << " integral: " << static_cast<float>(total) << "\n";
       }
     }
   }
@@ -61,11 +62,57 @@ void weak_white_furnace(uint N)
   std::cerr << static_cast<float>(rep)/ static_cast<float>(tot)<< "\n";
 }
 
+void ms_energy_conservation(uint N)
+{
+  material m{};
+  normed_vec3 normal{normed_vec3::absolute_y()};
+
+  for (uint i = 0; i < N; ++i)
+  {
+    m.roughness_factor = static_cast<float>(i) / static_cast<float>(N-1);
+    ggx_brdf ggx{&m,&normal};
+
+    double total{0.0};
+    for (uint32_t j = 0; j < n_samples; ++j)
+    {
+      normed_vec3 wo{cos_weighted_random_upper_hemisphere_unit(0,0,0)};
+      vec3 loc_wo{ggx.to_local * wo.to_vec3()};
+      double subtotal{0.0};
+      double s_total{0.0};
+      for (uint32_t j = 0; j < n_samples; ++j)
+      {
+        normed_vec3 wi = ggx.sample_dir(wo,0,0,0);
+        s_total += ggx.estimator(wo,wi).r;
+      }
+      s_total /= n_samples;
+      double d_total{0.0};
+      for (uint32_t j = 0; j < n_samples; ++j)
+      {
+        normed_vec3 wi{cos_weighted_random_upper_hemisphere_unit(0,0,0)};
+        d_total += ggx.f_ms(wo,wi,ggx_E,ggx_Eavg);
+      }
+      d_total *= M_PI / n_samples;
+
+      subtotal = d_total + s_total;
+      total += subtotal;
+    }
+
+    total /= n_samples;
+
+    std::cerr.precision(9);
+    std::cerr << std::fixed << std::setfill('0')
+      << "alpha: " << ggx.alpha << " integral: " << static_cast<float>(total) << "\n";
+
+  }
+}
+
 int main()
 {
   feenableexcept(FE_INVALID | FE_OVERFLOW);
 
-  weak_white_furnace(128);
+  //weak_white_furnace(128);
+
+  ms_energy_conservation(32);
 
   return 0;
 }

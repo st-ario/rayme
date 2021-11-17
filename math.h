@@ -396,8 +396,7 @@ cos_weighted_random_upper_hemisphere_unit(uint16_t pixel_x, uint16_t pixel_y, ui
 
   // projection
   // clamping to avoid NaNs due to rounding
-  // square difference formula to reduce rounding errors
-  float y{std::sqrt(1.0f - clamp((x-z)*(x+z), 0.0f, 1.0f))};
+  float y{std::sqrt(std::max(0.0f, 1.0f - x*x - z*z))};
 
   return normed_vec3{x, y, z};
 }
