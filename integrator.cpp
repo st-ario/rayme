@@ -11,7 +11,7 @@
 //#define NO_INDIRECT 1
 //#define NO_SDLS 1
 //#define NO_BRDFDLS 1
-//#define NO_RR 1
+#define NO_RR 1 // TODO fix Russian Roulette, currently buggy
 
 #ifndef NO_RR
 static constexpr uint16_t MAX_DEPTH{1000};

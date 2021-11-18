@@ -5,6 +5,8 @@
 #include "integrator.h"
 
 #include <future>
+#include <random>
+#include <algorithm>
 
 // debug macros
 //#define SINGLE_SAMPLE_PP 1
@@ -59,6 +61,8 @@ float blackman_harris(float x)
 
 float filter(const std::array<float,2>& pair)
 {
+  // TODO pick the filter based on the number of samples per pixel
+  // (determine a good threshold for the negative tails Mitchell--Netravali to pay off)
   //return mitchell_netravali(4.0f * (pair[0] - 0.5f)) * mitchell_netravali(4.0f * (pair[1] - 0.5f));
   return blackman_harris(pair[0]) * blackman_harris(pair[1]);
 }
@@ -124,6 +128,37 @@ void render_tile( image* picture
   }
 }
 
+void render_tiles_job( image* picture
+                     , std::vector<std::pair<uint16_t,uint16_t>>* cart_prod
+                     , std::mutex* mtx_prod
+                     , uint8_t tiles_size
+                     , uint16_t samples_per_pixel
+                     , const camera* cam
+                     , const bvh_tree* world)
+{
+  while (true)
+  {
+    mtx_prod->lock();
+    std::optional<std::pair<uint16_t,uint16_t>> pair;
+    pair = (cart_prod->size() == 0) ? std::nullopt
+      : std::optional<std::pair<uint16_t,uint16_t>>{cart_prod->back()};
+    if (pair)
+    {
+      cart_prod->pop_back();
+      std::cout <<"\x1b[2K"<<"\rRemaining tiles to render: " << cart_prod->size();
+      std::flush(std::cout);
+      mtx_prod->unlock();
+    }
+    else
+    {
+      mtx_prod->unlock();
+      return;
+    }
+
+    render_tile(picture, tiles_size, pair->first, pair->second, samples_per_pixel, cam, world);
+  }
+}
+
 void render( image& picture
            , uint16_t samples_per_pixel
            , const camera& cam
@@ -148,6 +183,10 @@ void render( image& picture
     }
   }
 
+  // shuffle the cartesian product to reduce the chance of having clusters of costly tiles
+  auto rng = std::default_random_engine {};
+  std::shuffle(std::begin(cartesian_product), std::end(cartesian_product), rng);
+
 //#define NOTPAR 1
 #ifdef NOTPAR
   uint16_t counter{0};
@@ -159,14 +198,29 @@ void render( image& picture
       render_tile(&picture, tile_size, pair.first, pair.second, samples_per_pixel, &cam, &world);
   }
 #else
-  std::vector<std::future<void>> future_tiles;
+
+  // get the number of cores available
+  uint n_cores{std::thread::hardware_concurrency()};
+  if (n_cores == 0)
+  {
+    // TODO give the user a chance to manually specify how many threads to use
+    std::cout << "ERROR: unable to determine the number of CPU cores available to the system";
+    exit(1);
+  } else {
+    std::cout << "Number of cores detected: " << n_cores << "\n";
+  }
+
+  std::mutex mtx_prod;
+  std::vector<std::future<void>> jobs;
 
   std::cout << "Rendering in progress...\n";
+  std::cout << "Rendering " << n_cores << " tiles concurrently\n";
 
-  for (const auto& pair : cartesian_product)
+  for (uint i = 0; i < n_cores; ++i)
   {
-    future_tiles.push_back(std::async(std::launch::async, render_tile, &picture, tile_size,
-      pair.first, pair.second, samples_per_pixel, &cam, &world));
+    jobs.push_back(std::async(std::launch::async, render_tiles_job, &picture, &cartesian_product,
+     &mtx_prod, tile_size, samples_per_pixel, &cam, &world));
   }
+
 #endif
 }
