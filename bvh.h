@@ -57,45 +57,32 @@ using hit_check = std::optional<hit_record>;
 class aabb
 {
   public:
-    aabb(const point& min, const point& max) : minimum{min}, maximum{max} {}
+    aabb(const point& min, const point& max) : bounds{min, max} {}
 
-    const point& min() const { return minimum; }
-    const point& max() const { return maximum; }
+    const point& lower() const { return bounds[0]; }
+    const point& upper() const { return bounds[1]; }
 
-    bool hit(const ray& r, float t_max) const
+    bool hit(const ray& r, float tmax) const
     {
-      float t_min = 0.0f;
+      // Ize, "Robust BVH Ray Traversal", revised version
 
-      for (int a = 0; a < 3; a++)
-      {
-        // if for any i r.direction[i] is 0, invD[i] is infinity
-        // in order to avoid 0*infinity, we need to handle the following case separately
-        // conservatively: true (false negatives would be bad, false positives have little
-        // impact and will be handled correctly by some subsequent hit check)
-        if (r.origin[a] == 0.0f && (r.origin[a] == minimum[a] || r.origin[a] == maximum[a]))
-          return false;
+      float tmin{0.0f};
+      float txmin, txmax, tymin, tymax, tzmin, tzmax;
+      txmin = (bounds[ r.sign[0]].x-r.origin.x)  * r.invD.x;
+      txmax = (bounds[1-r.sign[0]].x-r.origin.x) * r.invD_pad.x;
+      tymin = (bounds[ r.sign[1]].y-r.origin.y)  * r.invD.y;
+      tymax = (bounds[1-r.sign[1]].y-r.origin.y) * r.invD_pad.y;
+      tzmin = (bounds[ r.sign[2]].z-r.origin.z)  * r.invD.z;
+      tzmax = (bounds[1-r.sign[2]].z-r.origin.z) * r.invD_pad.z;
+      tmin = max(tzmin, max(tymin, max(txmin, tmin)));
+      tmax = min(tzmax, min(tymax, min(txmax, tmax)));
+      tmax *= 1.00000024f;
+      return tmin <= tmax;
 
-        float t_small = (minimum[a] - r.origin[a]) * r.invD[a];
-        float t_big = (maximum[a] - r.origin[a]) * r.invD[a];
-
-        // if the direction is negative, the order of the planes is inverted
-        if (r.invD[a] < 0.0f)
-          std::swap(t_small, t_big);
-
-        // float rounding compensation
-        t_big *= 1.0f + 2.0f * gamma_bound(3.0);
-
-        t_min = t_small > t_min ? t_small : t_min;
-        t_max = t_big < t_max ? t_big : t_max;
-        if (t_min > t_max)
-          return false;
-      }
-      return true;
     }
 
   private:
-    point minimum;
-    point maximum;
+    std::array<point,2> bounds;
 };
 
 

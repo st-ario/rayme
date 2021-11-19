@@ -9,6 +9,10 @@ struct ray
   // vector storing 1/direction, used multiple times in hit checks
   // containes an infinity of the correct sign if the direction coordinate is 0
   const vec3 invD;
+  // utility vector for numeric robustness of ray-aabb intersection
+  const vec3 invD_pad;
+  // utility vector storing the signs of invD, for ray-aabb intersection
+  const std::array<bool,3> sign;
   // utility vector storing vertices permutation, for ray-triangle intersection
   const glm::vec<3,uint8_t> perm;
   // vector storing coefficients for the ray-triangle intersection function
@@ -18,12 +22,9 @@ struct ray
   ray(const point& origin, const normed_vec3& direction)
     : origin{origin}
     , direction{direction}
-    , invD{ [&]{
-        vec3 res;
-        for (int i = 0; i < 3; ++i)
-          res[i] = (direction[i] != 0.0f) ? (1.0f / direction[i]) : (std::signbit(direction[i]) ? -infinity : infinity);
-        return res;
-      }() }
+    , invD{1.0f/direction.x(),1.0f/direction.y(),1.0f/direction.z()}
+    , invD_pad{add_ulp_magnitude(invD.x,2),add_ulp_magnitude(invD.y,2),add_ulp_magnitude(invD.z,2)}
+    , sign{invD.x < 0, invD.y < 0, invD.z < 0}
     , perm{ [&](){
         // calculate dimension where ray direction is maximal
         uint8_t kz{max_dimension(glm::abs(direction.to_vec3()))};
@@ -37,9 +38,9 @@ struct ray
         return glm::vec<3,uint8_t>{kx,ky,kz};
       }() }
     , shear_coefficients{ [&](){
-        float Sx = direction[perm.x] / direction[perm.z];
-        float Sy = direction[perm.y] / direction[perm.z];
         float Sz = 1.0f / direction[perm.z];
+        float Sx = direction[perm.x] * Sz;
+        float Sy = direction[perm.y] * Sz;
         return vec3{Sx,Sy,Sz};
       }() }
     {}
@@ -48,6 +49,14 @@ struct ray
   {
     return origin + t * direction;
   }
+  private:
+    static inline float add_ulp_magnitude(float f, int ulps)
+    {
+      if (!std::isfinite(f)) return f;
+      unsigned bits = *reinterpret_cast<unsigned*>(&f);
+      bits += ulps;
+      return *reinterpret_cast<float*>(&bits);
+    }
 };
 
 inline point offset_ray_origin( const point& p

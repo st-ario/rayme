@@ -3,15 +3,15 @@
 
 aabb surrounding_box(aabb box0, aabb box1)
 {
-  point small(fminf(box0.min().x, box1.min().x),
-              fminf(box0.min().y, box1.min().y),
-              fminf(box0.min().z, box1.min().z));
+  point lower(fminf(box0.lower().x, box1.lower().x),
+              fminf(box0.lower().y, box1.lower().y),
+              fminf(box0.lower().z, box1.lower().z));
 
-  point big(fmaxf(box0.max().x, box1.max().x),
-            fmaxf(box0.max().y, box1.max().y),
-            fmaxf(box0.max().z, box1.max().z));
+  point upper(fmaxf(box0.upper().x, box1.upper().x),
+              fmaxf(box0.upper().y, box1.upper().y),
+              fmaxf(box0.upper().z, box1.upper().z));
 
-  return aabb(small,big);
+  return aabb{lower,upper};
 }
 
 bvh_tree::bvh_tree(std::vector<std::unique_ptr<const primitive>>& primitives)
@@ -21,7 +21,7 @@ bvh_tree::bvh_tree(std::vector<std::unique_ptr<const primitive>>& primitives)
 
 inline float surface_area(const std::unique_ptr<const primitive>& leaf)
 {
-  auto v{glm::abs(leaf->bounds.max() - leaf->bounds.min())};
+  auto v{glm::abs(leaf->bounds.upper() - leaf->bounds.lower())};
 
   return v.x * v.y * v.z;
 }

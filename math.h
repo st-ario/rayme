@@ -40,6 +40,15 @@ float fast_inverse_sqrt(float x);
 
 inline float degrees_to_radians(float degrees) { return degrees * pi / 180.0f; }
 
+// numerically stable min and max; the behavior wrt NaNs is used in ray-aabb intersection method
+// guaranteed to return NaN only if b is NaN
+template<class T>
+const T& min(const T& a, const T& b) { return (a < b) ? a : b; }
+
+// guaranteed to return NaN only if b is NaN
+template<class T>
+const T& max(const T& a, const T& b) { return (a > b) ? a : b; }
+
 inline float clamp(float value, float min, float max)
 {
   if (value < min) return min;

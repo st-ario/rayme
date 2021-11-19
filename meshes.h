@@ -161,7 +161,7 @@ class triangle : public primitive
     {
       primitive::parent_mesh = parent_mesh;
       bounds = bounding_box();
-      centroid = 0.5f * bounds.max() + 0.5f * bounds.min();
+      centroid = 0.5f * bounds.upper() + 0.5f * bounds.lower();
     }
 
     virtual hit_check hit(const ray& r, float t_max) const override;
