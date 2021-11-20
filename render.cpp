@@ -145,7 +145,7 @@ void render_tiles_job( image* picture
     if (pair)
     {
       cart_prod->pop_back();
-      std::cout <<"\x1b[2K"<<"\rRemaining tiles to render: " << cart_prod->size();
+      std::cout <<"\x1b[2K"<<"\rRemaining tiles to fully render: " << cart_prod->size();
       std::flush(std::cout);
       mtx_prod->unlock();
     }
