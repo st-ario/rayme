@@ -12,7 +12,7 @@
 //#define SINGLE_SAMPLE_PP 1
 
 color ray_color( const ray& r
-               , const element& world
+               , const bvh_tree& world
                , uint16_t pixel_x
                , uint16_t pixel_y
                , uint16_t sample)

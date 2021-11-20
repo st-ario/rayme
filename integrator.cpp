@@ -25,7 +25,7 @@ color direct_light( const point& x
                   , const composite_brdf& b
                   , const normed_vec3& gnormal
                   , const normed_vec3& snormal
-                  , const element& world
+                  , const bvh_tree& world
                   , size_t L
                   , uint16_t pixel_x
                   , uint16_t pixel_y
@@ -132,7 +132,7 @@ source_sampling:
 }
 
 color integrator( const ray& r
-                , const element& world
+                , const bvh_tree& world
                 , uint16_t depth
                 , color& throughput
                 , uint16_t pixel_x
@@ -216,7 +216,7 @@ color integrator( const ray& r
 }
 
 color integrate_path( const ray& r
-                    , const element& world
+                    , const bvh_tree& world
                     , uint16_t depth
                     , uint16_t pixel_x
                     , uint16_t pixel_y

@@ -31,7 +31,7 @@ hit_properties triangle::get_info(const ray& r, const std::array<float,3>& uvw) 
     snormal = front_face ? unit(nonunital_candidate_normal) : - unit(nonunital_candidate_normal);
   }
 
-  return hit_properties(front_face, parent_mesh->ptr_mat.get(), gnormal, snormal);
+  return hit_properties(parent_mesh->ptr_mat.get(), gnormal, snormal);
 }
 
 aabb triangle::bounding_box() const

@@ -1,6 +1,6 @@
 #include "gltf_parser.h"
 #include "render.h"
-#include "meshes.h"
+#include "bvh.h"
 #include "camera.h"
 
 int main(int argc, char* argv[])
@@ -13,7 +13,7 @@ int main(int argc, char* argv[])
   std::string filename{argv[1]};
   parse_gltf(filename, primitives, cam, image_height);
 
-  bvh_tree scene_tree{primitives};
+  bvh_tree scene_tree{std::move(primitives)};
 
   constexpr uint16_t samples_per_pixel{512};
 

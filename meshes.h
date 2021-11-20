@@ -1,13 +1,113 @@
 #pragma once
 
-#include "bvh.h"
 #include "materials.h"
+#include "ray.h"
 #include "extern/glm/glm/vec4.hpp"
 
 using vec4 = glm::vec4;
 
-class triangle;
+class hit_properties
+{
+  public:
+    const material* ptr_mat() const { return m_ptr_mat; }
+    const normed_vec3 gnormal() const { return m_gnormal; }
+    const normed_vec3 snormal() const { return m_snormal; }
 
+    hit_properties( const material* ptr_mat
+                  , normed_vec3 gnormal
+                  , normed_vec3 snormal
+                  ) : m_ptr_mat{ptr_mat}
+                    , m_gnormal{gnormal}
+                    , m_snormal{snormal} {}
+
+  private:
+    const material* m_ptr_mat;
+    normed_vec3 m_gnormal;
+    normed_vec3 m_snormal;
+};
+
+class primitive;
+class hit_record
+{
+  public:
+    const primitive* what() const { return m_what; }
+    float t() const { return m_t; }
+    const vec3 p_error() const { return m_p_error; }
+
+    hit_record( const primitive* what
+              , float at
+              , const vec3& p_error
+              , const std::array<float,3>& uvw)
+      : m_what{what}, m_t{at}, m_p_error{p_error}, uvw{uvw} {}
+
+  private:
+    const primitive* m_what;
+    float m_t;
+    vec3  m_p_error;
+  public:
+    std::array<float,3> uvw;
+};
+
+// hit_check: type to say whether a primitive was hit, and, if so, to store its hit_record
+using hit_check = std::optional<hit_record>;
+
+class aabb
+{
+  public:
+    aabb(const point& min, const point& max) : bounds{min, max} {}
+
+    const point& lower() const { return bounds[0]; }
+    const point& upper() const { return bounds[1]; }
+
+    std::optional<float> hit(const ray& r, float tmax) const
+    {
+      // Ize, "Robust BVH Ray Traversal", revised version
+
+      float tmin{0.0f};
+      float txmin, txmax, tymin, tymax, tzmin, tzmax;
+      txmin = (bounds[ r.sign[0]].x-r.origin.x)  * r.invD.x;
+      txmax = (bounds[1-r.sign[0]].x-r.origin.x) * r.invD_pad.x;
+      tymin = (bounds[ r.sign[1]].y-r.origin.y)  * r.invD.y;
+      tymax = (bounds[1-r.sign[1]].y-r.origin.y) * r.invD_pad.y;
+      tzmin = (bounds[ r.sign[2]].z-r.origin.z)  * r.invD.z;
+      tzmax = (bounds[1-r.sign[2]].z-r.origin.z) * r.invD_pad.z;
+      tmin = max(tzmin, max(tymin, max(txmin, tmin)));
+      tmax = min(tzmax, min(tymax, min(txmax, tmax)));
+      tmax *= 1.00000024f;
+      // no hit
+      if (tmin > tmax)
+        return std::nullopt;
+      // ray inside box
+      if (std::signbit(tmin) != std::signbit(tmax))
+        return tmax;
+      // ray outside
+      return tmin;
+    }
+
+  private:
+    std::array<point,2> bounds;
+};
+
+class bounded
+{
+  public:
+    aabb bounds{point{infinity, infinity, infinity}, point{-infinity, -infinity, -infinity}};
+    bool is_primitive{false};
+};
+
+class mesh;
+class primitive : public bounded
+{
+  public:
+    point centroid;
+    const mesh* parent_mesh;
+  public:
+    primitive() { is_primitive = true; }
+    virtual hit_check hit(const ray& r, float t_max) const = 0;
+    virtual hit_properties get_info(const ray& r, const std::array<float,3>& uvw)const = 0;
+};
+
+class triangle;
 class mesh
 {
   public:
@@ -63,6 +163,26 @@ class mesh
         n_vertices{n_vertices}, n_triangles{n_triangles},
         vertex_indices{vertex_indices}, vertices{vertices},
         normals{normals}, tangents{tangents}, ptr_mat{std::move(ptr_mat)} {}
+};
+
+class triangle : public primitive
+{
+  public:
+    triangle(const mesh* parent_mesh, size_t triangle_number)
+    : number{triangle_number}
+    {
+      primitive::parent_mesh = parent_mesh;
+      bounds = bounding_box();
+      centroid = 0.5f * bounds.upper() + 0.5f * bounds.lower();
+    }
+
+    virtual hit_check hit(const ray& r, float t_max) const override;
+    virtual hit_properties get_info(const ray& r,
+      const std::array<float,3>& uvw) const override;
+
+  private:
+    const size_t number;
+    aabb bounding_box() const;
 };
 
 // singleton for all the lights in the scene
@@ -151,24 +271,4 @@ class light : public mesh
     mutable std::vector<const triangle*> ptr_triangles;
 
     void compute_surface_area();
-};
-
-class triangle : public primitive
-{
-  public:
-    triangle(const mesh* parent_mesh, size_t triangle_number)
-    : number{triangle_number}
-    {
-      primitive::parent_mesh = parent_mesh;
-      bounds = bounding_box();
-      centroid = 0.5f * bounds.upper() + 0.5f * bounds.lower();
-    }
-
-    virtual hit_check hit(const ray& r, float t_max) const override;
-    virtual hit_properties get_info(const ray& r,
-      const std::array<float,3>& uvw) const override;
-
-  private:
-    const size_t number;
-    aabb bounding_box() const;
 };
