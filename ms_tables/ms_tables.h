@@ -1,12 +1,13 @@
 #pragma once
 
 #include <array>
+#include <stddef.h>
 
-inline static constexpr std::array<std::pair<std::array<float,2>,float>,4096> ggx_E
+inline static constexpr std::array<std::pair<std::array<float,2>,float>,1024> ggx_E
 #include "GGX_corr_E.inl"
 ;
 
-inline static constexpr std::array<std::array<float,2>,64> ggx_Eavg
+inline static constexpr std::array<std::array<float,2>,32> ggx_Eavg
 #include "GGX_corr_Eavg.inl"
 ;
 
@@ -60,14 +61,26 @@ inline float ms_lookup_E( const std::array<float,2>& key
   }
   alpha = table[l-1].first[0];
 
-  l = std::min(0u,l-64u);
-  r = std::max(size_t(l+64u),N);
+  l = (l < 31u) ? 0u : l-31u;
+  r = (l+32u > N) ? N : l+32u;
 
   while (l < r)
   {
     m = (l+r) / 2u;
 
-    if (table[m].first < std::array<float,2>{alpha, key[1]})
+    if (table[m].first[0] > alpha)
+    {
+      r = m;
+      continue;
+    }
+
+    if (table[m].first[0] < alpha)
+    {
+      l = m+1;
+      continue;
+    }
+
+    if (table[m].first[1] < key[1])
       l = m+1;
     else
       r = m;

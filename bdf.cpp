@@ -131,10 +131,11 @@ inline color ggx_brdf::f_r( const normed_vec3& wo
 }
 
 #ifndef NO_MS
+template <typename T>
 // TODO template to optimize the dielectric case
-inline color ggx_brdf::MSFresnel(const color& F0) const
+inline T ggx_brdf::MSFresnel(const T& F0) const
 {
-  return F0 * (color{0.04f} + F0 * (color{0.66f} + color{0.3f} * F0));
+  return F0 * (T{0.04f} + F0 * (T{0.66f} + T{0.3f} * F0));
 }
 
 float dielectric_brdf::E_spec(const normed_vec3& w) const

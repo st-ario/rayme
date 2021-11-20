@@ -192,20 +192,24 @@ class ggx_brdf : public brdf
   #ifndef NO_MS
   protected:
     // multi-scatter methods
-    color MSFresnel(const color& F0) const;
+    template <typename T>
+    T MSFresnel(const T& F0) const;
+
     template <size_t M, size_t N>
     float f_ms( const normed_vec3& wo
               , const normed_vec3& wi
               , const std::array<std::pair<std::array<float,2>,float>,M>& E_table
               , const std::array<std::array<float,2>,N>& Eavg_table) const
     {
+      float E_avg{ms_lookup_Eavg(alpha,Eavg_table)};
+      if (E_avg > 1.0)
+        return 0.0f;
+
+      // IMPORTANT check for == 1.0 if the table changes, or make sure it doesn't contain ones
       float E_i{ms_lookup_E(std::array<float,2>{alpha,dot(*normal,wi)},E_table)};
       float E_o{ms_lookup_E(std::array<float,2>{alpha,dot(*normal,wo)},E_table)};
-      float E_avg{ms_lookup_Eavg(alpha,Eavg_table)};
 
-      if (E_avg < 1.0f)
-        return std::max(1.0f - E_i, 0.0f) * std::max(1.0f - E_o, 0.0f) / (pi * (1.0f - E_avg));
-      return 0.0f;
+      return std::max(1.0f - E_i, 0.0f) * std::max(1.0f - E_o, 0.0f) / (pi * (1.0f - E_avg));
     }
   #endif
 };
@@ -231,7 +235,7 @@ class metal_brdf : public ggx_brdf
         #ifdef NO_MS
         ;
         #else
-        + MSFresnel(ptr_mat->base_color) * f_ms(wo,wi,ggx_E,ggx_Eavg) * dot(*normal,wi) * invpdf;
+        + MSFresnel(ptr_mat->base_color) * ((f_ms(wo,wi,ggx_E,ggx_Eavg) * dot(*normal,wi) * invpdf));
         #endif
       }
       return color{0.0f};
@@ -274,11 +278,11 @@ class dielectric_brdf: public ggx_brdf
         float invpdf{1.0f / pdf(wo,wi)};
         return fresnel(ldoth) * ggx_brdf::estimator(wo,wi)
         #ifdef NO_MS
-          + (1.0f - fresnel(ndotl)) * (1.0f - fresnel(ndotv)) * base.estimator(wo,wi);
+          + ((1.0f - fresnel(ndotl)) * (1.0f - fresnel(ndotv))) * base.estimator(wo,wi);
         #else
         // IMPORTANT this is using that the current diffuse has no energy loss, change accordingly
         // if this is no longer the case
-          + MSFresnel(color{0.04f}) * f_ms(wo,wi,ggx_E,ggx_Eavg) * dot(*normal,wi) * invpdf
+          + MSFresnel(color{0.04f}) * (f_ms(wo,wi,ggx_E,ggx_Eavg) * dot(*normal,wi) * invpdf)
           + (1.0f - E_spec(wo)) * base.estimator(wo,wi);
         #endif
       }
