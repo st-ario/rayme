@@ -104,8 +104,7 @@ class diffuse_brdf : public brdf
       return color{0.0f};
     }
 
-  //private:
-  public:
+  private:
     const material* ptr_mat;
     #ifndef LAMBERTIAN_DIFFUSE
     const float sigma_squared;
@@ -156,12 +155,11 @@ class ggx_brdf : public brdf
       return color{0.0f};
     }
 
-  public:
-  //protected:
+  protected:
     const material* ptr_mat;
     const float alpha;
     const float alpha_squared;
-  //private:
+  private:
     const glm::mat3 to_world;
     const glm::mat3 to_local;
 
@@ -192,7 +190,7 @@ class ggx_brdf : public brdf
     normed_vec3 sample_halfvector(const vec3& loc_wo, const std::array<float,2>& rnd) const;
 
   #ifndef NO_MS
-  //protected:
+  protected:
     // multi-scatter methods
     color MSFresnel(const color& F0) const;
     template <size_t M, size_t N>
@@ -310,29 +308,42 @@ class composite_brdf : public brdf
         else
           return Surface::mixed;
       }()}
-      {
+    , m_dielectric
+      {[&]{
         switch(surf)
         {
           case Surface::pure_dielectric:
-            m_brdf.m_dielectric = std::make_unique<dielectric_brdf>(ptr_mat,normal); break;
+            return std::optional<dielectric_brdf>(dielectric_brdf{ptr_mat,normal});
           case Surface::pure_metal:
-            m_brdf.m_metallic = std::make_unique<metal_brdf>(ptr_mat,normal); break;
-          default:
-            m_brdf.m_dielectric = std::make_unique<dielectric_brdf>(ptr_mat,normal);
-            m_brdf.m_metallic = std::make_unique<metal_brdf>(ptr_mat,normal);
+            return std::optional<dielectric_brdf>{};
+          case Surface::mixed:
+            return std::optional<dielectric_brdf>(dielectric_brdf{ptr_mat,normal});
         }
-      }
+      }()}
+    , m_metallic
+      {[&]{
+        switch(surf)
+        {
+          case Surface::pure_dielectric:
+            return std::optional<metal_brdf>{};
+          case Surface::pure_metal:
+            return std::optional<metal_brdf>(metal_brdf{ptr_mat,normal});
+          case Surface::mixed:
+            return std::optional<metal_brdf>(metal_brdf{ptr_mat,normal});
+        }
+      }()}
+      {}
 
     virtual float pdf( const normed_vec3& wo
                      , const normed_vec3& wi) const override
     {
       switch(surf)
       {
-        case Surface::pure_dielectric: return m_brdf.m_dielectric->pdf(wo,wi);
-        case Surface::pure_metal: return m_brdf.m_metallic->pdf(wo,wi);
-        default:
-          return glm::mix( m_brdf.m_dielectric->pdf(wo,wi)
-                         , m_brdf.m_metallic->pdf(wo,wi)
+        case Surface::pure_dielectric: return m_dielectric->pdf(wo,wi);
+        case Surface::pure_metal: return m_metallic->pdf(wo,wi);
+        case Surface::mixed:
+          return glm::mix( m_dielectric->pdf(wo,wi)
+                         , m_metallic->pdf(wo,wi)
                          , ptr_mat->metallic_factor);
       }
     }
@@ -342,11 +353,11 @@ class composite_brdf : public brdf
     {
       switch(surf)
       {
-        case Surface::pure_dielectric: return m_brdf.m_dielectric->f_r(wo,wi);
-        case Surface::pure_metal: return m_brdf.m_metallic->f_r(wo,wi);
-        default:
-          return glm::mix( m_brdf.m_dielectric->f_r(wo,wi)
-                         , m_brdf.m_metallic->f_r(wo,wi)
+        case Surface::pure_dielectric: return m_dielectric->f_r(wo,wi);
+        case Surface::pure_metal: return m_metallic->f_r(wo,wi);
+        case Surface::mixed:
+          return glm::mix( m_dielectric->f_r(wo,wi)
+                         , m_metallic->f_r(wo,wi)
                          , ptr_mat->metallic_factor);
       }
     }
@@ -358,9 +369,9 @@ class composite_brdf : public brdf
     {
       float rnd{random_float(pixel_x,pixel_y,seed)};
       if (rnd < ptr_mat->metallic_factor)
-        return m_brdf.m_metallic->sample_dir(wo,pixel_x,pixel_y,seed);
+        return m_metallic->sample_dir(wo,pixel_x,pixel_y,seed);
       else
-        return m_brdf.m_dielectric->sample_dir(wo,pixel_x,pixel_y,seed);
+        return m_dielectric->sample_dir(wo,pixel_x,pixel_y,seed);
     }
 
     virtual color estimator( const normed_vec3& wo
@@ -368,11 +379,11 @@ class composite_brdf : public brdf
     {
       switch(surf)
       {
-        case Surface::pure_dielectric: return m_brdf.m_dielectric->estimator(wo,wi);
-        case Surface::pure_metal: return m_brdf.m_metallic->estimator(wo,wi);
-        default:
-          return glm::mix( m_brdf.m_dielectric->estimator(wo,wi)
-                         , m_brdf.m_metallic->estimator(wo,wi)
+        case Surface::pure_dielectric: return m_dielectric->estimator(wo,wi);
+        case Surface::pure_metal: return m_metallic->estimator(wo,wi);
+        case Surface::mixed:
+          return glm::mix( m_dielectric->estimator(wo,wi)
+                         , m_metallic->estimator(wo,wi)
                          , ptr_mat->metallic_factor);
       }
     }
@@ -386,10 +397,6 @@ class composite_brdf : public brdf
       mixed
     };
     const Surface surf;
-    struct Composite
-    {
-      std::unique_ptr<dielectric_brdf> m_dielectric;
-      std::unique_ptr<metal_brdf> m_metallic;
-    };
-    Composite m_brdf;
+    std::optional<dielectric_brdf> m_dielectric;
+    std::optional<metal_brdf> m_metallic;
 };
