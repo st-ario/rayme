@@ -85,13 +85,10 @@ normed_vec3 ggx_brdf::sample_halfvector(const vec3& loc_wo, const std::array<flo
   return unit(Ne);
 }
 
-normed_vec3 ggx_brdf::sample_dir( const normed_vec3& wo
-                                , uint16_t pixel_x
-                                , uint16_t pixel_y
-                                , uint16_t seed) const
+normed_vec3 ggx_brdf::sample_dir(const normed_vec3& wo) const
 {
   vec3 loc_wo{to_local * wo.to_vec3()};
-  normed_vec3 loc_h{sample_halfvector(loc_wo,random_float_pair(pixel_x,pixel_y,seed))};
+  normed_vec3 loc_h{sample_halfvector(loc_wo,random_float_pair())};
   vec3 loc_wi{(2.0f * dot(loc_wo,loc_h)) * loc_h - loc_wo};
 
   return unit(to_world * loc_wi);
@@ -214,25 +211,22 @@ color dielectric_brdf::f_r( const normed_vec3& wo
   return color{0.0f};
 }
 
-normed_vec3 dielectric_brdf::sample_dir( const normed_vec3& wo
-                                       , uint16_t pixel_x
-                                       , uint16_t pixel_y
-                                       , uint16_t seed) const
+normed_vec3 dielectric_brdf::sample_dir(const normed_vec3& wo) const
 {
-  float rnd{random_float(pixel_x,pixel_y,seed)};
+  float rnd{random_float()};
   #ifndef NO_MS
   // sample specular distribution with probability E_spec and diffuse with prob 1-E_spec
   float k{E_spec(wo)};
 
   if (rnd < k)
-    return ggx_brdf::sample_dir(wo,pixel_x,pixel_y,seed);
+    return ggx_brdf::sample_dir(wo);
 
-  return base.sample_dir(wo,pixel_x,pixel_y,seed);
+  return base.sample_dir(wo);
   #else
   if (rnd < 0.5f)
-    return ggx_brdf::sample_dir(wo,pixel_x,pixel_y,seed);
+    return ggx_brdf::sample_dir(wo);
 
-  return base.sample_dir(wo,pixel_x,pixel_y,seed);
+  return base.sample_dir(wo);
   #endif
 }
 

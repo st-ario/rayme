@@ -26,10 +26,7 @@ color direct_light( const point& x
                   , const normed_vec3& gnormal
                   , const normed_vec3& snormal
                   , const bvh_tree& world
-                  , size_t L
-                  , uint16_t pixel_x
-                  , uint16_t pixel_y
-                  , uint16_t rng_offset)
+                  , size_t L)
 {
   color res{0.0f,0.0f,0.0f};
 
@@ -40,7 +37,7 @@ color direct_light( const point& x
   float light_pdf{1.0f / world_lights::lights()[L]->get_surface_area()};
 
   // get scatter direction for BRDF sampliing
-  normed_vec3 scatter_dir{b.sample_dir(-r_incoming.direction,pixel_x,pixel_y,rng_offset)};
+  normed_vec3 scatter_dir{b.sample_dir(-r_incoming.direction)};
   float brdf_pdf{b.pdf(-r_incoming.direction,scatter_dir)};
 
   // if the pdf of the BRDF evaluates to 0, skip the BRDF sampling at once
@@ -82,7 +79,7 @@ source_sampling:
   return res;
   #endif
   {
-    auto target_pair{world_lights::lights()[L]->random_surface_point(pixel_x, pixel_y, rng_offset)};
+    auto target_pair{world_lights::lights()[L]->random_surface_point()};
 
     vec3 nonunital_shadow_dir{target_pair.first - x};
     normed_vec3 shadow_dir{unit(nonunital_shadow_dir)};
@@ -134,10 +131,7 @@ source_sampling:
 color integrator( const ray& r
                 , const bvh_tree& world
                 , uint16_t depth
-                , color& throughput
-                , uint16_t pixel_x
-                , uint16_t pixel_y
-                , uint16_t sample_id)
+                , color& throughput)
 {
   #ifndef NO_INDIRECT
   #ifndef NO_RR
@@ -146,7 +140,7 @@ color integrator( const ray& r
   if (depth > uint16_t(4))
   {
     thr = std::max(throughput.x, std::max(throughput.y, throughput.z));
-    float rand{random_float(pixel_x, pixel_y, sample_id + depth)};
+    float rand{random_float()};
     if (rand > thr || thr < machine_epsilon || depth > MAX_DEPTH)
       return {0.0f,0.0f,0.0f};
 
@@ -182,11 +176,8 @@ color integrator( const ray& r
 
   color direct{0.0f,0.0f,0.0f};
   #ifndef NO_DIRECT
-  static constexpr uint16_t seed_offset{3}; // avoids using the same sample pool for direct and
-                                            // indirect light sampling
   for (size_t i = 0; i < world_lights::lights().size(); ++i)
-    direct += direct_light(hit_point,r,rec.value(),b,info.gnormal(),info.snormal(),world,i,
-      pixel_x, pixel_y, sample_id + depth + seed_offset);
+    direct += direct_light(hit_point,r,rec.value(),b,info.gnormal(),info.snormal(),world,i);
 
   #ifndef NO_RR
   direct *= 1.0f / thr; // compensate for Russian Roulette
@@ -198,14 +189,14 @@ color integrator( const ray& r
   #ifndef NO_INDIRECT
 
   // get scatter ray according to BRDF
-  normed_vec3 scatter_dir{b.sample_dir(-r.direction,pixel_x,pixel_y,sample_id+depth)};
+  normed_vec3 scatter_dir{b.sample_dir(-r.direction)};
   ray scattered{bounce_ray(hit_point,rec->p_error(),info.gnormal(),scatter_dir)};
 
   // update throughput
   throughput *= b.estimator(-r.direction,scatter_dir);
 
   // get indirect light contribution
-  color indirect{integrator(scattered, world, depth+1, throughput, pixel_x, pixel_y, sample_id)};
+  color indirect{integrator(scattered, world, depth+1, throughput)};
 
   res += direct + (throughput * indirect);
   #else
@@ -217,15 +208,12 @@ color integrator( const ray& r
 
 color integrate_path( const ray& r
                     , const bvh_tree& world
-                    , uint16_t depth
-                    , uint16_t pixel_x
-                    , uint16_t pixel_y
-                    , uint16_t sample_id)
+                    , uint16_t depth)
 {
   color res{0.0f,0.0f,0.0f};
   color throughput{1.0f,1.0f,1.0f};
 
-  res += integrator(r,world,depth,throughput,pixel_x,pixel_y,sample_id);
+  res += integrator(r,world,depth,throughput);
 
   return res;
 }

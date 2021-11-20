@@ -5,7 +5,4 @@
 
 color integrate_path( const ray& r
                     , const bvh_tree& world
-                    , uint16_t depth
-                    , uint16_t pixel_x
-                    , uint16_t pixel_y
-                    , uint16_t sample_id);
+                    , uint16_t depth);

@@ -31,10 +31,7 @@ class brdf
     virtual color f_r( const normed_vec3& wo
                      , const normed_vec3& wi) const = 0;
 
-    virtual normed_vec3 sample_dir( const normed_vec3& wo
-                                  , uint16_t pixel_x
-                                  , uint16_t pixel_y
-                                  , uint16_t seed) const = 0;
+    virtual normed_vec3 sample_dir(const normed_vec3& wo) const = 0;
 
     // direct light estimator for Monte Carlo integration,
     // importance sampling formula, assuming wi has been sampled using sample_dir()
@@ -80,12 +77,9 @@ class diffuse_brdf : public brdf
       return cos_wi / pi;
     }
 
-    virtual normed_vec3 sample_dir( const normed_vec3& wo
-                                  , uint16_t pixel_x
-                                  , uint16_t pixel_y
-                                  , uint16_t seed) const override
+    virtual normed_vec3 sample_dir(const normed_vec3& wo) const override
     {
-      return cos_weighted_random_hemisphere_unit(*normal,pixel_x,pixel_y,seed);
+      return cos_weighted_random_hemisphere_unit(*normal);
     }
 
     virtual color estimator( const normed_vec3& wo
@@ -135,10 +129,7 @@ class ggx_brdf : public brdf
     virtual color f_r( const normed_vec3& wo
                      , const normed_vec3& wi) const override;
 
-    virtual normed_vec3 sample_dir( const normed_vec3& wo
-                                  , uint16_t pixel_x
-                                  , uint16_t pixel_y
-                                  , uint16_t seed) const override;
+    virtual normed_vec3 sample_dir(const normed_vec3& wo) const override;
 
     virtual color estimator( const normed_vec3& wo
                            , const normed_vec3& wi) const override
@@ -261,10 +252,7 @@ class dielectric_brdf: public ggx_brdf
     virtual color f_r( const normed_vec3& wo
                      , const normed_vec3& wi) const override;
 
-    virtual normed_vec3 sample_dir( const normed_vec3& wo
-                                  , uint16_t pixel_x
-                                  , uint16_t pixel_y
-                                  , uint16_t seed) const override;
+    virtual normed_vec3 sample_dir(const normed_vec3& wo) const override;
 
     virtual color estimator( const normed_vec3& wo
                            , const normed_vec3& wi) const override
@@ -366,16 +354,13 @@ class composite_brdf : public brdf
       }
     }
 
-    virtual normed_vec3 sample_dir( const normed_vec3& wo
-                                  , uint16_t pixel_x
-                                  , uint16_t pixel_y
-                                  , uint16_t seed) const override
+    virtual normed_vec3 sample_dir(const normed_vec3& wo) const override
     {
-      float rnd{random_float(pixel_x,pixel_y,seed)};
+      float rnd{random_float()};
       if (rnd < ptr_mat->metallic_factor)
-        return m_metallic->sample_dir(wo,pixel_x,pixel_y,seed);
+        return m_metallic->sample_dir(wo);
       else
-        return m_dielectric->sample_dir(wo,pixel_x,pixel_y,seed);
+        return m_dielectric->sample_dir(wo);
     }
 
     virtual color estimator( const normed_vec3& wo

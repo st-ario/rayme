@@ -34,7 +34,7 @@ ray camera::get_ray(uint16_t pixel_x, uint16_t pixel_y) const
 std::pair<ray,std::array<float,2>>
 camera::get_stochastic_ray(uint16_t pixel_x, uint16_t pixel_y) const
 {
-  auto rnd_pair{random_float_pair(pixel_x, pixel_y, N_RNG_SAMPLES - 1)};
+  auto rnd_pair{random_float_pair()};
 
   vec3 nonunital_rel_direction{rel_upper_left_corner
                               + vec3{   pixel_x + rnd_pair[0]

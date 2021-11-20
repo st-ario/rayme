@@ -31,9 +31,9 @@ static constexpr float invpi{1.0f/pi};
 // Utility Functions
 
 size_t random_size_t(size_t min, size_t max);
-float random_float(uint16_t x, uint16_t y, uint16_t z);
-float random_float(float min, float max, uint16_t x, uint16_t y, uint16_t z);
-std::array<float,2> random_float_pair(uint16_t x, uint16_t y, uint16_t z);
+float random_float();
+float random_float(float min, float max);
+std::array<float,2> random_float_pair();
 float standard_normal_random_float();
 
 float fast_inverse_sqrt(float x);
@@ -178,16 +178,11 @@ class normed_vec3 : private vec3
 
     // return a random unit vector in the absolute upper hemisphere weighted by the cosine of the
     // angle formed wrt the north pole;
-    // the three arguments are used for the rng
     friend normed_vec3
-    cos_weighted_random_upper_hemisphere_unit(uint16_t pixel_x, uint16_t pixel_y, uint16_t seed);
+    cos_weighted_random_upper_hemisphere_unit();
     // return a random unit vector in the upper hemisphere having the argument as north pole,
     // weighted by the cosine of the angle formed wrt the argument;
-    // the three extra arguments are used for the rng
-    friend normed_vec3 cos_weighted_random_hemisphere_unit( const normed_vec3& normal
-                                                          , uint16_t pixel_x
-                                                          , uint16_t pixel_y
-                                                          , uint16_t seed);
+    friend normed_vec3 cos_weighted_random_hemisphere_unit( const normed_vec3& normal);
 };
 
 inline float epsilon_clamp(float value)
@@ -373,14 +368,14 @@ inline glm::mat3 rotate_given_north_pole(const normed_vec3& normal)
 }
 
 inline normed_vec3
-cos_weighted_random_upper_hemisphere_unit(uint16_t pixel_x, uint16_t pixel_y, uint16_t seed)
+cos_weighted_random_upper_hemisphere_unit()
 {
   // picks a uniformly random point in the 2d disk and projects it to the hemisphere
 
   // concentric disk sampling
 
   // map [0,1]^2 into [-1,1]^2
-  auto rnd_pair{random_float_pair(pixel_x,pixel_y,seed)};
+  auto rnd_pair{random_float_pair()};
   float x{2.0f * rnd_pair[0] - 1.0f};
   float z{2.0f * rnd_pair[1] - 1.0f};
 
@@ -411,13 +406,10 @@ cos_weighted_random_upper_hemisphere_unit(uint16_t pixel_x, uint16_t pixel_y, ui
 }
 
 inline normed_vec3
-cos_weighted_random_hemisphere_unit( const normed_vec3& normal
-                                   , uint16_t pixel_x
-                                   , uint16_t pixel_y
-                                   , uint16_t seed)
+cos_weighted_random_hemisphere_unit( const normed_vec3& normal)
 {
   vec3 res{rotate_given_north_pole(normal)
-    * cos_weighted_random_upper_hemisphere_unit(pixel_x, pixel_y, seed).to_vec3()};
+    * cos_weighted_random_upper_hemisphere_unit().to_vec3()};
 
   return normed_vec3(res[0],res[1],res[2]);
 }

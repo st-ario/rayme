@@ -5,7 +5,7 @@
 #include <time.h>
 
 // if not defined, random_float_pair() generates unstratified pairs
-//#define PMJ02_RANDOM_PAIRS 1
+//#define PMJ02_RANDOM_PAIRS 1 // TODO currently broken, reintroduce after rng restructuration
 #ifdef PMJ02_RANDOM_PAIRS
 #include "rng.h"
 #include <unordered_map>
@@ -34,17 +34,7 @@ static inline uint64_t xoroshiro_rotl(const uint64_t x, int k)
   return (x << k) | (x >> (64 - k));
 }
 
-#ifdef STD_RNG
 uint32_t random_uint32_t()
-{
-  static thread_local std::mt19937_64 generator(std::clock()
-    + std::hash<std::thread::id>()(std::this_thread::get_id()));
-  std::uniform_int_distribution<uint32_t> distribution(0,std::numeric_limits<uint32_t>::max());
-  return distribution(generator);
-}
-#endif
-
-uint32_t random_uint32_t(uint16_t x, uint16_t y, uint16_t z)
 {
   #ifdef XORSHIFT_RANDOM
   // xorshift
@@ -88,15 +78,18 @@ uint32_t random_uint32_t(uint16_t x, uint16_t y, uint16_t z)
 
   return res;
   #elif defined(STD_RNG)
-  return random_uint32_t();
+  static thread_local std::mt19937_64 generator(std::clock()
+    + std::hash<std::thread::id>()(std::this_thread::get_id()));
+  std::uniform_int_distribution<uint32_t> distribution(0,std::numeric_limits<uint32_t>::max());
+  return distribution(generator);
   #endif
 }
 
-uint32_t random_uint32_t(uint16_t x, uint16_t y, uint16_t z, uint32_t range)
+uint32_t random_uint32_t(uint32_t range)
 {
   // unbiased fast ranged rng, due to D. Lemire and M.E. O'Neill
   // (see https://www.pcg-random.org/posts/bounded-rands.html)
-  uint32_t n{random_uint32_t(x,y,z)};
+  uint32_t n{random_uint32_t()};
   uint64_t m{uint64_t(n) * uint64_t(range)};
   uint32_t l{uint32_t(m)};
   if (l < range)
@@ -110,7 +103,7 @@ uint32_t random_uint32_t(uint16_t x, uint16_t y, uint16_t z, uint32_t range)
     }
     while (l < t)
     {
-        n = random_uint32_t(x,y,z);
+        n = random_uint32_t();
         m = uint64_t(n) * uint64_t(range);
         l = uint32_t(m);
     }
@@ -118,17 +111,7 @@ uint32_t random_uint32_t(uint16_t x, uint16_t y, uint16_t z, uint32_t range)
   return m >> 32;
 }
 
-#ifdef STD_RNG
 float random_float()
-{
-  static thread_local std::mt19937_64 generator(std::clock()
-    + std::hash<std::thread::id>()(std::this_thread::get_id()));
-  static std::uniform_real_distribution<float> distribution(0.0f, 1.0f);
-  return distribution(generator);
-}
-#endif
-
-float random_float(uint16_t x, uint16_t y, uint16_t z)
 {
   #if defined(XORSHIFT_RANDOM) || defined(XOROSHIRO128PLUS_RANDOM)
   uint32_t n{random_uint32_t(x,y,z)};
@@ -142,11 +125,14 @@ float random_float(uint16_t x, uint16_t y, uint16_t z)
   // shift the result to make it concentrated in [0,1)
   return res - 1.0f;
   #elif defined(STD_RNG)
-  return random_float();
+  static thread_local std::mt19937_64 generator(std::clock()
+    + std::hash<std::thread::id>()(std::this_thread::get_id()));
+  static std::uniform_real_distribution<float> distribution(0.0f, 1.0f);
+  return distribution(generator);
   #endif
 }
 
-std::array<float,2> random_float_pair(uint16_t x, uint16_t y, uint16_t z)
+std::array<float,2> random_float_pair()
 {
   #ifdef PMJ02_RANDOM_PAIRS
   static thread_local std::unordered_map<uint64_t,size_t> indices;
@@ -187,11 +173,11 @@ std::array<float,2> random_float_pair(uint16_t x, uint16_t y, uint16_t z)
 
   return std::array<float,2>{res0,res1};
   #else
-  return std::array<float,2>{random_float(x,y,z), random_float(x,y,z)};
+  return std::array<float,2>{random_float(), random_float()};
   #endif
 }
 
-float random_float(float min, float max, uint16_t x, uint16_t y, uint16_t z)
+float random_float(float min, float max)
 {
   #if defined(XORSHIFT_RANDOM) || defined(XOROSHIRO128PLUS_RANDOM)
   return min + (max - min) * random_float(x,y,z);

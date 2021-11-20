@@ -12,13 +12,10 @@
 //#define SINGLE_SAMPLE_PP 1
 
 color ray_color( const ray& r
-               , const bvh_tree& world
-               , uint16_t pixel_x
-               , uint16_t pixel_y
-               , uint16_t sample)
+               , const bvh_tree& world)
 {
   constexpr uint16_t depth{0};
-  return integrate_path(r,world,depth,pixel_x,pixel_y,sample);
+  return integrate_path(r,world,depth);
 }
 
 #ifndef SINGLE_SAMPLE_PP
@@ -111,9 +108,9 @@ void render_tile( image* picture
         #ifndef SINGLE_SAMPLE_PP
         auto filter_weight{filter(center_offset)};
         total_weight += filter_weight;
-        pixel_color += filter_weight * ray_color(r, *world, pixel_x, pixel_y, s);
+        pixel_color += filter_weight * ray_color(r, *world);
         #else
-        pixel_color += ray_color(r, *world, pixel_x, pixel_y, 0);
+        pixel_color += ray_color(r, *world);
         #endif
 
       }
