@@ -11,14 +11,6 @@
 // debug macros
 //#define SINGLE_SAMPLE_PP 1
 
-color ray_color( const ray& r
-               , const bvh_tree& world)
-{
-  constexpr uint16_t depth{0};
-  return integrate_path(r,world,depth);
-}
-
-#ifndef SINGLE_SAMPLE_PP
 float mitchell_netravali(float x)
 {
   // spline parameters configuration
@@ -63,13 +55,12 @@ float filter(const std::array<float,2>& pair)
   //return mitchell_netravali(4.0f * (pair[0] - 0.5f)) * mitchell_netravali(4.0f * (pair[1] - 0.5f));
   return blackman_harris(pair[0]) * blackman_harris(pair[1]);
 }
-#endif
 
 void render_tile( image* picture
                 , uint8_t tile_size
                 , uint16_t row
                 , uint16_t column
-                , uint16_t samples_per_pixel
+                , uint32_t samples_per_pixel
                 , const camera* cam
                 , const bvh_tree* world)
 {
@@ -77,10 +68,8 @@ void render_tile( image* picture
   const uint16_t h_offset = column * tile_size;
   const uint16_t v_offset = row * tile_size;
 
-  #ifndef SINGLE_SAMPLE_PP
   // weight for pixel reconstruction
   float total_weight{0.0f};
-  #endif
 
   for (uint16_t x = 0; x < tile_size; ++x)
   {
@@ -95,28 +84,24 @@ void render_tile( image* picture
 
       pixel_color = {0,0,0};
 
-      #ifndef SINGLE_SAMPLE_PP
       total_weight = 0.0f;
 
       for (uint16_t s = 0; s < samples_per_pixel; ++s)
-      #endif
       {
         auto r_pair{cam->get_stochastic_ray(pixel_x, pixel_y)};
         ray r{r_pair.first};
         std::array<float,2> center_offset{r_pair.second};
 
-        #ifndef SINGLE_SAMPLE_PP
+        uint64_t seed( pixel_x
+                     | (uint32_t(pixel_y) << 16)
+                     | ((uint64_t(s) ^ uint64_t(0x3436484629)) << 32));
+        integrator path_integrator(seed);
+
         auto filter_weight{filter(center_offset)};
         total_weight += filter_weight;
-        pixel_color += filter_weight * ray_color(r, *world);
-        #else
-        pixel_color += ray_color(r, *world);
-        #endif
-
+        pixel_color += filter_weight * path_integrator.integrate_path(r,*world);
       }
-      #ifndef SINGLE_SAMPLE_PP
       pixel_color = pixel_color / total_weight;
-      #endif
 
       gamma_correct(pixel_color,2.2f);
 

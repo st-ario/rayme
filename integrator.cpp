@@ -128,10 +128,10 @@ source_sampling:
   return res;
 }
 
-color integrator( const ray& r
-                , const bvh_tree& world
-                , uint16_t depth
-                , color& throughput)
+color integr( const ray& r
+            , const bvh_tree& world
+            , uint16_t depth
+            , color& throughput)
 {
   #ifndef NO_INDIRECT
   #ifndef NO_RR
@@ -196,7 +196,7 @@ color integrator( const ray& r
   throughput *= b.estimator(-r.direction,scatter_dir);
 
   // get indirect light contribution
-  color indirect{integrator(scattered, world, depth+1, throughput)};
+  color indirect{integr(scattered, world, depth+1, throughput)};
 
   res += direct + (throughput * indirect);
   #else
@@ -206,14 +206,13 @@ color integrator( const ray& r
   return res;
 }
 
-color integrate_path( const ray& r
-                    , const bvh_tree& world
-                    , uint16_t depth)
+color integrator::integrate_path( const ray& r
+                                , const bvh_tree& world)
 {
   color res{0.0f,0.0f,0.0f};
   color throughput{1.0f,1.0f,1.0f};
 
-  res += integrator(r,world,depth,throughput);
+  res += integr(r,world,0,throughput);
 
   return res;
 }
