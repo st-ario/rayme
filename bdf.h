@@ -33,12 +33,8 @@ class brdf
   protected:
     const normed_vec3* normal;
     const uint64_t seed;
-    static thread_local sampler_1d sampler;
 
-    sampler_1d& get_sampler() const;
-
-  private:
-    static thread_local bool initiated_sampler;
+    static sampler_1d& get_sampler(uint64_t seed);
 };
 
 class diffuse_brdf : public brdf
@@ -78,7 +74,7 @@ class diffuse_brdf : public brdf
     virtual normed_vec3 sample_dir(const normed_vec3& wo) const override
     {
       return cos_weighted_random_hemisphere_unit(*normal
-        , get_sampler().rnd_float(), get_sampler().rnd_float());
+        , get_sampler(seed).rnd_float(), get_sampler(seed).rnd_float());
     }
 
     virtual color estimator( const normed_vec3& wo
@@ -316,7 +312,7 @@ class composite_brdf : public brdf
             return std::optional<dielectric_brdf>(dielectric_brdf{ptr_mat,normal,seed});
           case Surface::pure_metal:
             return std::optional<dielectric_brdf>{};
-          case Surface::mixed:
+          case Surface::mixed: default:
             return std::optional<dielectric_brdf>(dielectric_brdf{ptr_mat,normal,seed});
         }
       }()}
@@ -328,7 +324,7 @@ class composite_brdf : public brdf
             return std::optional<metal_brdf>{};
           case Surface::pure_metal:
             return std::optional<metal_brdf>(metal_brdf{ptr_mat,normal,seed});
-          case Surface::mixed:
+          case Surface::mixed: default:
             return std::optional<metal_brdf>(metal_brdf{ptr_mat,normal,seed});
         }
       }()}
@@ -341,7 +337,7 @@ class composite_brdf : public brdf
       {
         case Surface::pure_dielectric: return m_dielectric->pdf(wo,wi);
         case Surface::pure_metal: return m_metallic->pdf(wo,wi);
-        case Surface::mixed:
+        case Surface::mixed: default:
           return glm::mix( m_dielectric->pdf(wo,wi)
                          , m_metallic->pdf(wo,wi)
                          , ptr_mat->metallic_factor);
@@ -355,7 +351,7 @@ class composite_brdf : public brdf
       {
         case Surface::pure_dielectric: return m_dielectric->f_r(wo,wi);
         case Surface::pure_metal: return m_metallic->f_r(wo,wi);
-        case Surface::mixed:
+        case Surface::mixed: default:
           return glm::mix( m_dielectric->f_r(wo,wi)
                          , m_metallic->f_r(wo,wi)
                          , ptr_mat->metallic_factor);
@@ -364,7 +360,7 @@ class composite_brdf : public brdf
 
     virtual normed_vec3 sample_dir(const normed_vec3& wo) const override
     {
-      if (get_sampler().rnd_float() < ptr_mat->metallic_factor)
+      if (get_sampler(seed).rnd_float() < ptr_mat->metallic_factor)
         return m_metallic->sample_dir(wo);
       else
         return m_dielectric->sample_dir(wo);
@@ -377,7 +373,7 @@ class composite_brdf : public brdf
       {
         case Surface::pure_dielectric: return m_dielectric->estimator(wo,wi);
         case Surface::pure_metal: return m_metallic->estimator(wo,wi);
-        case Surface::mixed:
+        case Surface::mixed: default:
           return glm::mix( m_dielectric->estimator(wo,wi)
                          , m_metallic->estimator(wo,wi)
                          , ptr_mat->metallic_factor);
