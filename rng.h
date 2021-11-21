@@ -36,11 +36,11 @@ class sampler_1d
     : seed{seed} {}
 
     float rnd_float();
+    uint32_t rnd_uint32();
 
   private:
     uint64_t seed;
     #ifndef STD_RNG
-    uint32_t rnd_uint32();
     uint32_t rnd_uint32(uint32_t range);
     #endif
 };

@@ -26,7 +26,7 @@ float sampler_1d::rnd_float()
   // concentrated in [1,2) (set the exponent to 127)
   std::bitset<32> float_bits{(n & 0x007FFFFF) | 0x3F800000};
   float res;
-  std::memcpy(&res,&float_bits,32);
+  std::memcpy(&res,&float_bits,4);
 
   // shift the result to make it concentrated in [0,1)
   return res - 1.0f;
@@ -34,9 +34,9 @@ float sampler_1d::rnd_float()
 }
 
 
-#ifndef STD_RNG
-inline uint32_t sampler_1d::rnd_uint32()
+uint32_t sampler_1d::rnd_uint32()
 {
+  #ifndef STD_RNG
   //xoroshiro128+
 
   static thread_local std::array<uint64_t,2> s{
@@ -54,8 +54,15 @@ inline uint32_t sampler_1d::rnd_uint32()
   s[1] = (s1 << 37) | (s1 >> 27);
 
   return n;
+  #else
+  static thread_local std::mt19937_64 generator(std::clock()
+    + std::hash<std::thread::id>()(std::this_thread::get_id()));
+  static std::uniform_int_distribution<uint32_t> distribution(0);
+  return distribution(generator);
+  #endif
 }
 
+#ifndef STD_RNG
 inline uint32_t sampler_1d::rnd_uint32(uint32_t range)
 {
   // unbiased fast ranged rng, due to D. Lemire and M.E. O'Neill
