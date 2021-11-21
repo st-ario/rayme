@@ -89,7 +89,7 @@ light::random_surface_point() const
   // then return a uniformly distributed point from it
 
   // binary search to invert the CDF
-  const float r0{random_float(0.0f,get_surface_area())};
+  const float r0{get_surface_area() * random_float()};
 
   size_t sel{0};
   size_t len{n_triangles};
@@ -116,11 +116,7 @@ light::random_surface_point() const
   // u = 1 - sqrt(rand0)
   // v = sqrt(rand0) * rand1
 
-  std::array<float,2> rnd_pair{ random_float()
-                              , random_float()};
-  // it's better not to use random_float_pair() for this one, as the improvement is negligible and
-  // definitely not worth the hassle of avoiding seed conflicts with other functions calling
-  // random_float_pair() from the same thread
+  std::array<float,2> rnd_pair{random_float(), random_float()};
   auto r1{std::sqrt(rnd_pair[0])};
 
   // uv to world

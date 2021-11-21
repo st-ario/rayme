@@ -11,6 +11,8 @@
 #include <iostream>
 #include <optional>
 
+#include "rng.h"
+
 #define GLM_FORCE_CTOR_INIT
 #include "extern/glm/glm/vec3.hpp"
 #include "extern/glm/glm/geometric.hpp"
@@ -28,17 +30,7 @@ static constexpr float pi_over_four{pi/4.0f};
 static constexpr float two_pi{2.0f*pi};
 static constexpr float invpi{1.0f/pi};
 
-// Utility Functions
-
-size_t random_size_t(size_t min, size_t max);
-float random_float();
-float random_float(float min, float max);
-std::array<float,2> random_float_pair();
-float standard_normal_random_float();
-
 float fast_inverse_sqrt(float x);
-
-inline float degrees_to_radians(float degrees) { return degrees * pi / 180.0f; }
 
 // numerically stable min and max; the behavior wrt NaNs is used in ray-aabb intersection method
 // guaranteed to return NaN only if b is NaN
@@ -179,10 +171,10 @@ class normed_vec3 : private vec3
     // return a random unit vector in the absolute upper hemisphere weighted by the cosine of the
     // angle formed wrt the north pole;
     friend normed_vec3
-    cos_weighted_random_upper_hemisphere_unit();
+    cos_weighted_random_upper_hemisphere_unit(float rnd0, float rnd1);
     // return a random unit vector in the upper hemisphere having the argument as north pole,
     // weighted by the cosine of the angle formed wrt the argument;
-    friend normed_vec3 cos_weighted_random_hemisphere_unit( const normed_vec3& normal);
+    friend normed_vec3 cos_weighted_random_hemisphere_unit(const normed_vec3& normal, float rnd0, float rnd1);
 };
 
 inline float epsilon_clamp(float value)
@@ -368,16 +360,15 @@ inline glm::mat3 rotate_given_north_pole(const normed_vec3& normal)
 }
 
 inline normed_vec3
-cos_weighted_random_upper_hemisphere_unit()
+cos_weighted_random_upper_hemisphere_unit(float rnd0, float rnd1)
 {
   // picks a uniformly random point in the 2d disk and projects it to the hemisphere
 
   // concentric disk sampling
 
   // map [0,1]^2 into [-1,1]^2
-  auto rnd_pair{random_float_pair()};
-  float x{2.0f * rnd_pair[0] - 1.0f};
-  float z{2.0f * rnd_pair[1] - 1.0f};
+  float x{2.0f * rnd0 - 1.0f};
+  float z{2.0f * rnd1 - 1.0f};
 
   // edge case
   if(x == 0.0f && z == 0.0f)
@@ -406,10 +397,10 @@ cos_weighted_random_upper_hemisphere_unit()
 }
 
 inline normed_vec3
-cos_weighted_random_hemisphere_unit( const normed_vec3& normal)
+cos_weighted_random_hemisphere_unit(const normed_vec3& normal, float rnd0, float rnd1)
 {
   vec3 res{rotate_given_north_pole(normal)
-    * cos_weighted_random_upper_hemisphere_unit().to_vec3()};
+    * cos_weighted_random_upper_hemisphere_unit(rnd0,rnd1).to_vec3()};
 
   return normed_vec3(res[0],res[1],res[2]);
 }

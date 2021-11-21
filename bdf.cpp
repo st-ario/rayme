@@ -2,6 +2,21 @@
 #include "ray.h"
 #include "bvh.h"
 
+thread_local sampler_1d brdf::sampler;
+thread_local bool brdf::initiated_sampler;
+
+sampler_1d& brdf::get_sampler() const
+{
+  if(!initiated_sampler) // non-local static and thread-local variables are zero-initialized.
+                         // https://en.cppreference.com/w/cpp/language/initialization
+  {
+    sampler = sampler_1d{seed};
+    initiated_sampler = true;
+  }
+
+  return sampler;
+}
+
 color diffuse_brdf::f_r( const normed_vec3& wo
                        , const normed_vec3& wi) const
 {
@@ -88,7 +103,7 @@ normed_vec3 ggx_brdf::sample_halfvector(const vec3& loc_wo, const std::array<flo
 normed_vec3 ggx_brdf::sample_dir(const normed_vec3& wo) const
 {
   vec3 loc_wo{to_local * wo.to_vec3()};
-  normed_vec3 loc_h{sample_halfvector(loc_wo,random_float_pair())};
+  normed_vec3 loc_h{sample_halfvector(loc_wo,{get_sampler().rnd_float(),get_sampler().rnd_float()})};
   vec3 loc_wi{(2.0f * dot(loc_wo,loc_h)) * loc_h - loc_wo};
 
   return unit(to_world * loc_wi);
@@ -213,7 +228,7 @@ color dielectric_brdf::f_r( const normed_vec3& wo
 
 normed_vec3 dielectric_brdf::sample_dir(const normed_vec3& wo) const
 {
-  float rnd{random_float()};
+  float rnd{get_sampler().rnd_float()};
   #ifndef NO_MS
   // sample specular distribution with probability E_spec and diffuse with prob 1-E_spec
   float k{E_spec(wo)};

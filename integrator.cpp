@@ -131,7 +131,8 @@ source_sampling:
 color integr( const ray& r
             , const bvh_tree& world
             , uint16_t depth
-            , color& throughput)
+            , color& throughput
+            , uint64_t seed)
 {
   #ifndef NO_INDIRECT
   #ifndef NO_RR
@@ -170,7 +171,8 @@ color integr( const ray& r
 
   // pick the BRDF for the surface hit
   normed_vec3 snormal{info.snormal()};
-  composite_brdf b{info.ptr_mat(),&snormal};
+  composite_brdf b{info.ptr_mat(),&snormal,seed};
+  seed = next_seed(seed);
 
   // sample direct light
 
@@ -196,7 +198,7 @@ color integr( const ray& r
   throughput *= b.estimator(-r.direction,scatter_dir);
 
   // get indirect light contribution
-  color indirect{integr(scattered, world, depth+1, throughput)};
+  color indirect{integr(scattered, world, depth+1, throughput,seed)};
 
   res += direct + (throughput * indirect);
   #else
@@ -212,7 +214,13 @@ color integrator::integrate_path( const ray& r
   color res{0.0f,0.0f,0.0f};
   color throughput{1.0f,1.0f,1.0f};
 
-  res += integr(r,world,0,throughput);
+  float seedf0{sampler.rnd_float()};
+  float seedf1{sampler.rnd_float()};
+  uint64_t seed;
+  std::memcpy(&seed,&seedf0,4);
+  std::memcpy(&seed+32,&seedf1,4);
+
+  res += integr(r,world,0,throughput,seed);
 
   return res;
 }

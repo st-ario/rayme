@@ -10,20 +10,11 @@
 //#define LAMBERTIAN_DIFFUSE 1
 //#define NO_MS 1
 
-struct brdf_sample
-{
-  const float pdf;
-  const color f_r;
-  const normed_vec3 scatter_dir;
-
-  brdf_sample(float pdf, color f_r, normed_vec3 scatter_dir) :
-    pdf{pdf}, f_r{f_r}, scatter_dir{scatter_dir} {}
-};
-
 class brdf
 {
   public:
-    explicit brdf(const normed_vec3* normal) : normal{normal} {}
+    explicit brdf(const normed_vec3* normal, uint64_t seed) : normal{normal}, seed{seed}
+    {}
 
     virtual float pdf( const normed_vec3& wo
                      , const normed_vec3& wi) const = 0;
@@ -41,13 +32,20 @@ class brdf
 
   protected:
     const normed_vec3* normal;
+    const uint64_t seed;
+    static thread_local sampler_1d sampler;
+
+    sampler_1d& get_sampler() const;
+
+  private:
+    static thread_local bool initiated_sampler;
 };
 
 class diffuse_brdf : public brdf
 {
   public:
-    diffuse_brdf(const material* ptr_mat, const normed_vec3* normal)
-    : brdf{normal}, ptr_mat{ptr_mat}
+    diffuse_brdf(const material* ptr_mat, const normed_vec3* normal, uint64_t seed)
+    : brdf{normal, seed}, ptr_mat{ptr_mat}
     #ifdef LAMBERTIAN_DIFFUSE
     {}
     #else
@@ -79,7 +77,8 @@ class diffuse_brdf : public brdf
 
     virtual normed_vec3 sample_dir(const normed_vec3& wo) const override
     {
-      return cos_weighted_random_hemisphere_unit(*normal);
+      return cos_weighted_random_hemisphere_unit(*normal
+        , get_sampler().rnd_float(), get_sampler().rnd_float());
     }
 
     virtual color estimator( const normed_vec3& wo
@@ -110,8 +109,8 @@ class diffuse_brdf : public brdf
 class ggx_brdf : public brdf
 {
   public:
-    ggx_brdf(const material* ptr_mat, const normed_vec3* normal)
-      : brdf{normal}, ptr_mat{ptr_mat},
+    ggx_brdf(const material* ptr_mat, const normed_vec3* normal, uint64_t seed)
+      : brdf{normal, seed}, ptr_mat{ptr_mat},
         alpha{ptr_mat->roughness_factor * ptr_mat->roughness_factor},
         alpha_squared{alpha * alpha},
         to_world{[&]
@@ -243,8 +242,8 @@ class metal_brdf : public ggx_brdf
 class dielectric_brdf: public ggx_brdf
 {
   public:
-    dielectric_brdf(const material* ptr_mat, const normed_vec3* normal)
-    : ggx_brdf{ptr_mat, normal}, base{ptr_mat,normal} {}
+    dielectric_brdf(const material* ptr_mat, const normed_vec3* normal, uint64_t seed)
+    : ggx_brdf{ptr_mat, normal, seed}, base{ptr_mat,normal, seed} {}
 
     virtual float pdf( const normed_vec3& wo
                      , const normed_vec3& wi) const override;
@@ -289,8 +288,8 @@ class dielectric_brdf: public ggx_brdf
 class composite_brdf : public brdf
 {
   public:
-    composite_brdf(const material* ptr_mat, const normed_vec3* normal)
-    : brdf{normal}, ptr_mat{ptr_mat}
+    composite_brdf(const material* ptr_mat, const normed_vec3* normal, uint64_t seed)
+    : brdf{normal,seed}, ptr_mat{ptr_mat}
     , surf
       {[&]{
         if (ptr_mat->metallic_factor == 0)
@@ -305,11 +304,11 @@ class composite_brdf : public brdf
         switch(surf)
         {
           case Surface::pure_dielectric:
-            return std::optional<dielectric_brdf>(dielectric_brdf{ptr_mat,normal});
+            return std::optional<dielectric_brdf>(dielectric_brdf{ptr_mat,normal,seed});
           case Surface::pure_metal:
             return std::optional<dielectric_brdf>{};
           case Surface::mixed:
-            return std::optional<dielectric_brdf>(dielectric_brdf{ptr_mat,normal});
+            return std::optional<dielectric_brdf>(dielectric_brdf{ptr_mat,normal,seed});
         }
       }()}
     , m_metallic
@@ -319,9 +318,9 @@ class composite_brdf : public brdf
           case Surface::pure_dielectric:
             return std::optional<metal_brdf>{};
           case Surface::pure_metal:
-            return std::optional<metal_brdf>(metal_brdf{ptr_mat,normal});
+            return std::optional<metal_brdf>(metal_brdf{ptr_mat,normal,seed});
           case Surface::mixed:
-            return std::optional<metal_brdf>(metal_brdf{ptr_mat,normal});
+            return std::optional<metal_brdf>(metal_brdf{ptr_mat,normal,seed});
         }
       }()}
       {}
@@ -356,8 +355,7 @@ class composite_brdf : public brdf
 
     virtual normed_vec3 sample_dir(const normed_vec3& wo) const override
     {
-      float rnd{random_float()};
-      if (rnd < ptr_mat->metallic_factor)
+      if (get_sampler().rnd_float() < ptr_mat->metallic_factor)
         return m_metallic->sample_dir(wo);
       else
         return m_dielectric->sample_dir(wo);
