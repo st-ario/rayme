@@ -83,14 +83,14 @@ void render_tile( image* picture
         break;
 
       pixel_color = {0,0,0};
-
       total_weight = 0.0f;
+      uint32_t seed{uint32_t(pixel_x) << 16 | uint32_t(pixel_y)};
+      sampler_2d sampler{seed};
 
       for (uint16_t s = 0; s < samples_per_pixel; ++s)
       {
-        auto r_pair{cam->get_stochastic_ray(pixel_x, pixel_y)};
-        ray r{r_pair.first};
-        std::array<float,2> center_offset{r_pair.second};
+        std::array<float,2> center_offset{sampler.rnd_float_pair()};
+        ray r{cam->get_offset_ray(pixel_x, pixel_y,center_offset)};
 
         uint64_t seed( pixel_x
                      | (uint32_t(pixel_y) << 16)

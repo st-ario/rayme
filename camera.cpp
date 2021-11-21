@@ -31,18 +31,15 @@ ray camera::get_ray(uint16_t pixel_x, uint16_t pixel_y) const
   return ray(origin,unit(nonunital_direction));
 }
 
-std::pair<ray,std::array<float,2>>
-camera::get_stochastic_ray(uint16_t pixel_x, uint16_t pixel_y) const
+ray camera::get_offset_ray(uint16_t pixel_x, uint16_t pixel_y, std::array<float,2> rnd) const
 {
-  auto rnd_pair{random_float_pair()};
-
   vec3 nonunital_rel_direction{rel_upper_left_corner
-                              + vec3{   pixel_x + rnd_pair[0]
-                                    , -(pixel_y + rnd_pair[1])
+                              + vec3{   pixel_x + rnd[0]
+                                    , -(pixel_y + rnd[1])
                                     ,   0.0f}};
   vec3 nonunital_direction{to_world*nonunital_rel_direction};
 
-  return std::make_pair(ray(origin,unit(nonunital_direction)),std::array<float,2>{rnd_pair[0],rnd_pair[1]});
+  return ray{origin,unit(nonunital_direction)};
 }
 
 float camera::get_aspect_ratio() const { return aspect_ratio; }
