@@ -24,6 +24,13 @@ inline static constexpr std::array<std::array<float,2>,32> on_Eavg
 template<size_t N>
 inline float ms_lookup_Eavg(float key, const std::array<std::array<float,2>,N>& table)
 {
+  // dirty trick, using that the sampling interval is known
+  // IMPORTANT to be modified if the table changes
+  uint n{static_cast<uint>(key * 32.0f)};
+  n = (n == 32) ? n-1 : n;
+  return table[n][1];
+
+  /*
   uint16_t l{0};
   uint16_t r = N;
   uint16_t m;
@@ -39,12 +46,23 @@ inline float ms_lookup_Eavg(float key, const std::array<std::array<float,2>,N>& 
   }
 
   return table[l-1][1];
+  */
 }
 
 template<size_t N>
 inline float ms_lookup_E( const std::array<float,2>& key
                         , const std::array<std::pair<std::array<float,2>,float>,N>& table )
 {
+  // dirty trick, using that the sampling intervals are known
+  // IMPORTANT to be modified if the table changes
+  uint a{static_cast<uint>(key[0] * 32.0f)};
+  a = (a == 32) ? 31 : a;
+  uint m{static_cast<uint>(key[1] * 33.0f - 1.0f)};
+  m = (m == 32) ? 31 : m;
+
+  return table[32u * a + m].second;
+
+  /*
   uint16_t l{0};
   uint16_t r = N;
   uint16_t m;
@@ -87,4 +105,5 @@ inline float ms_lookup_E( const std::array<float,2>& key
   }
 
   return table[l-1].second;
+  */
 }

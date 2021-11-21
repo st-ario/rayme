@@ -1,5 +1,6 @@
 #include "../bdf.h"
 #include "../bdf.cpp"
+#include "../rng.cpp"
 #include "../math.cpp"
 
 #include <iomanip>
@@ -19,7 +20,7 @@ void weak_white_furnace(uint N)
   for (uint i = 0; i < N; ++i)
   {
     m.roughness_factor = static_cast<float>(i+1) / static_cast<float>(N);
-    ggx_brdf ggx{&m,&normal};
+    ggx_brdf ggx{&m,&normal,0};
 
     for (uint j = 0; j < N; ++j)
     {
@@ -31,7 +32,7 @@ void weak_white_furnace(uint N)
       while (k < n_samples)
       {
         ++tot;
-        normed_vec3 wi = ggx.sample_dir(wo,0,0,0);
+        normed_vec3 wi = ggx.sample_dir(wo);
         vec3 loc_wi = ggx.to_local * wi.to_vec3();
         vec3 loc_wo = ggx.to_local * wo.to_vec3();
         vec3 loc_wh = glm::normalize(loc_wo + loc_wi);
@@ -70,25 +71,27 @@ void ms_energy_conservation(uint N)
   for (uint i = 0; i < N; ++i)
   {
     m.roughness_factor = static_cast<float>(i) / static_cast<float>(N-1);
-    ggx_brdf ggx{&m,&normal};
+    ggx_brdf ggx{&m,&normal,0};
 
     double total{0.0};
     for (uint32_t j = 0; j < n_samples; ++j)
     {
-      normed_vec3 wo{cos_weighted_random_upper_hemisphere_unit(0,0,0)};
+      auto rnd{random_float_pair()};
+      normed_vec3 wo{cos_weighted_random_upper_hemisphere_unit(rnd[0],rnd[1])};
       vec3 loc_wo{ggx.to_local * wo.to_vec3()};
       double subtotal{0.0};
       double s_total{0.0};
       for (uint32_t j = 0; j < n_samples; ++j)
       {
-        normed_vec3 wi = ggx.sample_dir(wo,0,0,0);
+        normed_vec3 wi = ggx.sample_dir(wo);
         s_total += ggx.estimator(wo,wi).r;
       }
       s_total /= n_samples;
       double d_total{0.0};
       for (uint32_t j = 0; j < n_samples; ++j)
       {
-        normed_vec3 wi{cos_weighted_random_upper_hemisphere_unit(0,0,0)};
+        auto rn{random_float_pair()};
+        normed_vec3 wi{cos_weighted_random_upper_hemisphere_unit(rn[0],rn[1])};
         d_total += ggx.f_ms(wo,wi,ggx_E,ggx_Eavg);
       }
       d_total *= M_PI / n_samples;

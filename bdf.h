@@ -191,15 +191,24 @@ class ggx_brdf : public brdf
               , const std::array<std::pair<std::array<float,2>,float>,M>& E_table
               , const std::array<std::array<float,2>,N>& Eavg_table) const
     {
-      float E_avg{ms_lookup_Eavg(alpha,Eavg_table)};
-      if (E_avg > 1.0)
+      float E_avg{ms_lookup_Eavg(ptr_mat->roughness_factor,Eavg_table)};
+      if (E_avg == 1.0)
         return 0.0f;
+      // IMPORTANT check for > 1.0 if the table changes, or make sure it doesn't contain values > 1
 
-      // IMPORTANT check for == 1.0 if the table changes, or make sure it doesn't contain ones
-      float E_i{ms_lookup_E(std::array<float,2>{alpha,dot(*normal,wi)},E_table)};
-      float E_o{ms_lookup_E(std::array<float,2>{alpha,dot(*normal,wo)},E_table)};
+      float cos_i{dot(*normal,wi)};
+      float cos_o{dot(*normal,wo)};
+      if (cos_i > 0.0f && cos_o > 0.0f)
+      {
+        float E_i{ms_lookup_E(std::array<float,2>{ptr_mat->roughness_factor,dot(*normal,wi)},E_table)};
+        float E_o{ms_lookup_E(std::array<float,2>{ptr_mat->roughness_factor,dot(*normal,wo)},E_table)};
 
-      return std::max(1.0f - E_i, 0.0f) * std::max(1.0f - E_o, 0.0f) / (pi * (1.0f - E_avg));
+        float res{std::max(1.0f - E_i, 0.0f) * std::max(1.0f - E_o, 0.0f) / (pi * (1.0f - E_avg))};
+
+        return res;
+      }
+
+      return 0.0f;
     }
   #endif
 };

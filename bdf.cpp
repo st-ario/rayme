@@ -153,7 +153,7 @@ inline T ggx_brdf::MSFresnel(const T& F0) const
 float dielectric_brdf::E_spec(const normed_vec3& w) const
 {
   static constexpr float F_avg{0.089497712f};
-  float E_o{ms_lookup_E(std::array<float,2>{alpha, dot(*normal,w)},ggx_E)};
+  float E_o{ms_lookup_E(std::array<float,2>{ptr_mat->roughness_factor, dot(*normal,w)},ggx_E)};
   return (F_avg * E_o + MSFresnel(color{0.04f}).x * (1.0f - E_o));
 }
 #endif
