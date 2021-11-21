@@ -14,7 +14,7 @@ float random_float()
   return distribution(generator);
 }
 
-float sampler_1d::rnd_float()
+float sampler_1d::rnd_float() const
 {
   #ifdef STD_RNG
   return random_float();
@@ -33,8 +33,7 @@ float sampler_1d::rnd_float()
   #endif
 }
 
-
-uint32_t sampler_1d::rnd_uint32()
+uint32_t sampler_1d::rnd_uint32() const
 {
   #ifndef STD_RNG
   //xoroshiro128+
@@ -62,9 +61,9 @@ uint32_t sampler_1d::rnd_uint32()
   #endif
 }
 
-#ifndef STD_RNG
-inline uint32_t sampler_1d::rnd_uint32(uint32_t range)
+uint32_t sampler_1d::rnd_uint32(uint32_t range) const
 {
+  #ifndef STD_RNG
   // unbiased fast ranged rng, due to D. Lemire and M.E. O'Neill
   // (see https://www.pcg-random.org/posts/bounded-rands.html)
   uint32_t n{rnd_uint32()};
@@ -87,8 +86,13 @@ inline uint32_t sampler_1d::rnd_uint32(uint32_t range)
     }
   }
   return m >> 32;
+  #else
+  static thread_local std::mt19937_64 generator(std::clock()
+    + std::hash<std::thread::id>()(std::this_thread::get_id()));
+  static std::uniform_int_distribution<uint32_t> distribution(0,range-1u);
+  return distribution(generator);
+  #endif
 }
-#endif
 
 
 std::array<float,2> sampler_2d::rnd_float_pair()

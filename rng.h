@@ -35,14 +35,14 @@ class sampler_1d
     sampler_1d(uint64_t seed)
     : seed{seed} {}
 
-    float rnd_float();
-    uint32_t rnd_uint32();
+    float rnd_float() const;
+    uint32_t rnd_uint32() const;
+    // uniform distribution in [0,range)
+    // IMPORTANT different from STL convention for integer distributions
+    uint32_t rnd_uint32(uint32_t range) const;
 
   private:
     uint64_t seed;
-    #ifndef STD_RNG
-    uint32_t rnd_uint32(uint32_t range);
-    #endif
 };
 
 class sampler_2d
