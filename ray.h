@@ -2,54 +2,61 @@
 
 #include "math.h"
 
-struct ray
+class ray
 {
-  const point origin;
-  const normed_vec3 direction;
-  // vector storing 1/direction, used multiple times in hit checks
-  // containes an infinity of the correct sign if the direction coordinate is 0
-  const vec3 invD;
-  // utility vector for numeric robustness of ray-aabb intersection
-  const vec3 invD_pad;
-  // utility vector storing the signs of invD, for ray-aabb intersection
-  const std::array<bool,3> sign;
-  // utility vector storing vertices permutation, for ray-triangle intersection
-  const glm::vec<3,uint8_t> perm;
-  // vector storing coefficients for the ray-triangle intersection function
-  const vec3 shear_coefficients;
+  friend class aabb;
+  friend class triangle;
+  public:
+    const point& get_origin() { return origin; }
+    const normed_vec3& get_direction() { return direction; }
 
-  ray() = delete;
-  ray(const point& origin, const normed_vec3& direction)
-    : origin{origin}
-    , direction{direction}
-    , invD{1.0f/direction.x(),1.0f/direction.y(),1.0f/direction.z()}
-    , invD_pad{add_ulp_magnitude(invD.x,2),add_ulp_magnitude(invD.y,2),add_ulp_magnitude(invD.z,2)}
-    , sign{invD.x < 0, invD.y < 0, invD.z < 0}
-    , perm{ [&](){
-        // calculate dimension where ray direction is maximal
-        uint8_t kz{max_dimension(glm::abs(direction.to_vec3()))};
-        uint8_t kx{uint8_t(kz + 1)}; if (kx == 3) kx = 0;
-        uint8_t ky{uint8_t(kx + 1)}; if (ky == 3) ky = 0;
+    ray() = delete;
+    ray(const point& origin, const normed_vec3& direction)
+      : origin{origin}
+      , direction{direction}
+      , invD{1.0f/direction.x(),1.0f/direction.y(),1.0f/direction.z()}
+      , invD_pad{add_ulp_magnitude(invD.x,2),add_ulp_magnitude(invD.y,2),add_ulp_magnitude(invD.z,2)}
+      , sign{invD.x < 0, invD.y < 0, invD.z < 0}
+      , perm{ [&](){
+          // calculate dimension where ray direction is maximal
+          uint8_t kz{max_dimension(glm::abs(direction.to_vec3()))};
+          uint8_t kx{uint8_t(kz + 1)}; if (kx == 3) kx = 0;
+          uint8_t ky{uint8_t(kx + 1)}; if (ky == 3) ky = 0;
 
-        // swap kx and ky to preserve the orientation of the triangle vertices
-        if (direction[kz] < 0.0f)
-          std::swap(kx,ky);
+          // swap kx and ky to preserve the orientation of the triangle vertices
+          if (direction[kz] < 0.0f)
+            std::swap(kx,ky);
 
-        return glm::vec<3,uint8_t>{kx,ky,kz};
-      }() }
-    , shear_coefficients{ [&](){
-        float Sz = 1.0f / direction[perm.z];
-        float Sx = direction[perm.x] * Sz;
-        float Sy = direction[perm.y] * Sz;
-        return vec3{Sx,Sy,Sz};
-      }() }
-    {}
+          return glm::vec<3,uint8_t>{kx,ky,kz};
+        }() }
+      , shear_coefficients{ [&](){
+          float Sz = 1.0f / direction[perm.z];
+          float Sx = direction[perm.x] * Sz;
+          float Sy = direction[perm.y] * Sz;
+          return vec3{Sx,Sy,Sz};
+        }() }
+      {}
 
-  point at(float t) const
-  {
-    return origin + t * direction;
-  }
+    point at(float t) const
+    {
+      return origin + t * direction;
+    }
+
   private:
+    point origin;
+    normed_vec3 direction;
+    // vector storing 1/direction, used multiple times in hit checks
+    // containes an infinity of the correct sign if the direction coordinate is 0
+    vec3 invD;
+    // utility vector for numeric robustness of ray-aabb intersection
+    vec3 invD_pad;
+    // utility vector storing the signs of invD, for ray-aabb intersection
+    std::array<bool,3> sign;
+    // utility vector storing vertices permutation, for ray-triangle intersection
+    glm::vec<3,uint8_t> perm;
+    // vector storing coefficients for the ray-triangle intersection function
+    vec3 shear_coefficients;
+
     static inline float add_ulp_magnitude(float f, int ulps)
     {
       if (!std::isfinite(f)) return f;
