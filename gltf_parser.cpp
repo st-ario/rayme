@@ -47,6 +47,7 @@ struct gltf_primitive
   int indices = -1;
   int material = -1;
   int mode = 4;
+  std::string name;
 };
 
 struct gltf_texture_info
@@ -266,10 +267,20 @@ std::vector<mesh*> store_mesh(
     }
 
     auto json_mesh = mesh_iterator.get_object();
+    std::string_view mesh_nameview;
+    std::string mesh_name;
+    auto err_mesh_name = json_mesh["name"].get(mesh_nameview);
+    if (!err_mesh_name)
+      mesh_name = mesh_nameview;
+
     simdjson::ondemand::array mesh_primitives = json_mesh["primitives"];
     for (auto primitive_iterator : mesh_primitives)
     {
       gltf_primitive prim;
+      if (!mesh_name.empty())
+        prim.name = mesh_name;
+      else
+        prim.name = "[NO NAME GIVEN]";
 
       // record intermediate representation
       auto json_primitive = primitive_iterator.get_object();
@@ -413,6 +424,13 @@ std::vector<mesh*> store_mesh(
 
           tangents.push_back(v);
         }
+      }
+
+      if (prim.material == -1)
+      {
+        std::cerr << "ERROR: missing material for mesh \"" << prim.name << "\"\n";
+        exit(1);
+        // TODO instead of exiting, use default material and warn about this
       }
 
       std::unique_ptr<const material> ptr_mat = std::make_unique<const material>(
