@@ -87,8 +87,6 @@ integrator::sample_light( const point& x
 color integrator::integrate_path( ray& r
                                 , const bvh_tree& world) const
 {
-  // TODO handle purely reflective bounces correctly
-  // TODO add point lights
   color res{0.0f,0.0f,0.0f};
   color throughput{1.0f,1.0f,1.0f};
   uint16_t depth{0u};
@@ -121,7 +119,7 @@ color integrator::integrate_path( ray& r
     {
       if (depth == 0)
         res += info.ptr_mat()->emissive_factor;
-      else
+      else if (brdf_pdf != 0.0f) // MIS only non-deterministic bounces
       {
         // MIS this light
         color brdf_contribution{info.ptr_mat()->emissive_factor * brdf_estimator};
@@ -140,6 +138,10 @@ color integrator::integrate_path( ray& r
 
         color future_direct{normalize * (bpdf2 * brdf_contribution + npdf2 * nee_contribution)};
         res += 0.5f * (throughput * (past_direct + future_direct));
+      } else { // deterministic bounce
+        // add contribution from this light
+        color brdf_contribution{info.ptr_mat()->emissive_factor * brdf_estimator};
+        res += throughput * brdf_contribution;
       }
     } else {
       res += throughput * past_direct;
@@ -159,17 +161,18 @@ color integrator::integrate_path( ray& r
     // get hit BRDF
     composite_brdf b{info.ptr_mat(),&snormal,seed};
 
-    point hit_point{r.at(rec->t())};
-
-    // direct light contribution
-    past_direct = sample_light(hit_point,info.gnormal(),info.snormal(),r.get_direction(),*rec,world,b);
-
     // sample bounce direction using BRDF
     normed_vec3 scatter_dir{b.sample_dir(-r.get_direction())};
+    brdf_pdf = b.pdf(-r.get_direction(),scatter_dir);
+
+    point hit_point{r.at(rec->t())};
+
+    // direct light contribution for non-deterministic bounces
+      past_direct = (brdf_pdf == 0.0f) ? color{0.0}
+        : sample_light(hit_point,info.gnormal(),info.snormal(),r.get_direction(),*rec,world,b);
 
     // sample integral estimator
     brdf_estimator = b.estimator(-r.get_direction(),scatter_dir);
-    brdf_pdf = b.pdf(-r.get_direction(),scatter_dir);
 
     ++depth;
     if (depth == MAX_DEPTH)
