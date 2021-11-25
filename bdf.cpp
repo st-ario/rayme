@@ -135,13 +135,6 @@ inline color ggx_brdf::f_r( const normed_vec3& wo
 }
 
 #ifndef NO_MS
-template <typename T>
-// TODO template to optimize the dielectric case
-inline T ggx_brdf::MSFresnel(const T& F0) const
-{
-  return F0 * (T{0.04f} + F0 * (T{0.66f} + T{0.3f} * F0));
-}
-
 float dielectric_brdf::E_spec(const normed_vec3& w) const
 {
   static constexpr float F_avg{0.089497712f};
@@ -179,7 +172,11 @@ inline float dielectric_brdf::fresnel(float cos_angle) const
   float x{1.0f + (auxup * auxup) / (auxdn * auxdn)};
   return 0.5f * (gmc * gmc) * x / (gpc * gpc);
   /*
-  auto pow5 = [](float x){ return (x * x) * (x * x) * x; };
+  auto pow5 = [](float x)
+  {
+    float x2{x*x};
+    return x2 * x2 * x;
+  };
   //return 0.04f + 0.96f * pow5(1.0f - clamp(cos_angle,0.0f,1.0f));
   return 0.04f + 0.96f * pow5(1.0f - cos_angle);
   */
