@@ -226,12 +226,15 @@ class metal_brdf : public ggx_brdf
       if (ndotl > 0 && ndotv > 0)
       {
         vec3 wh{glm::normalize(wo.to_vec3() + wi.to_vec3())};
-        float invpdf{1.0f / pdf(wo,wi)};
-        return ggx_brdf::estimator(wo,wi) * fresnel(dot(wo,wh))
+        float pr{pdf(wo,wi)};
+        float invpdf{1.0f / pr};
         #ifdef NO_MS
-        ;
+        return ggx_brdf::estimator(wo,wi) * fresnel(dot(wo,wh));
         #else
-        + MSFresnel(ptr_mat->base_color) * ((f_ms(wo,wi,ggx_E,ggx_Eavg) * dot(*normal,wi) * invpdf));
+        return (pr == 0.0f) ? ggx_brdf::estimator(wo,wi) * fresnel(dot(wo,wh)) :
+          ggx_brdf::estimator(wo,wi) * fresnel(dot(wo,wh))
+          + MSFresnel(ptr_mat->base_color)
+          * ((f_ms(wo,wi,ggx_E,ggx_Eavg) * dot(*normal,wi) * invpdf));
         #endif
       }
       return color{0.0f};
