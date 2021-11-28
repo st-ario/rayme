@@ -7,8 +7,8 @@ class ray
   friend class aabb;
   friend class triangle;
   public:
-    const point& get_origin() { return origin; }
-    const normed_vec3& get_direction() { return direction; }
+    const point& get_origin() const { return origin; }
+    const normed_vec3& get_direction() const { return direction; }
 
     ray() = delete;
     ray(const point& origin, const normed_vec3& direction)
@@ -22,10 +22,6 @@ class ray
           uint8_t kz{max_dimension(glm::abs(direction.to_vec3()))};
           uint8_t kx{uint8_t(kz + 1)}; if (kx == 3) kx = 0;
           uint8_t ky{uint8_t(kx + 1)}; if (ky == 3) ky = 0;
-
-          // swap kx and ky to preserve the orientation of the triangle vertices
-          if (direction[kz] < 0.0f)
-            std::swap(kx,ky);
 
           return glm::vec<3,uint8_t>{kx,ky,kz};
         }() }

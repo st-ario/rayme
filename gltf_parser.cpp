@@ -5,6 +5,7 @@
 #include "materials.h"
 #include "extern/simdjson/singleheader/simdjson.h"
 #include "extern/glm/glm/gtc/type_ptr.hpp"
+#include "extern/glm/glm/gtx/component_wise.hpp"
 
 using  gltf_buffer = std::vector<unsigned char>;
 
@@ -27,6 +28,7 @@ struct raw_gltf_node
   bool has_rotation = false;
   bool has_scale = false;
   bool has_translation = false;
+  bool transf_sgn = 0; // sign of determinant of node transformation, used to process meshes
   int camera = -1;
   int mesh = -1;
   mat4 matrix;
@@ -246,13 +248,13 @@ void apply_camera_transformations(gltf_node& node)
     apply_camera_transformations(*p_p, *(node.cam));
 }
 
-std::vector<mesh*> store_mesh(
-                  int index
-                , simdjson::ondemand::document& doc
-                , const std::vector<gltf_buffer>& buffers
-                , const std::vector<buffer_view>& views
-                , const std::vector<accessor>& accessors
-                , const std::vector<gltf_material>& gltf_materials)
+std::vector<mesh*> store_mesh( int index
+                             , bool reverse_wind
+                             , simdjson::ondemand::document& doc
+                             , const std::vector<gltf_buffer>& buffers
+                             , const std::vector<buffer_view>& views
+                             , const std::vector<accessor>& accessors
+                             , const std::vector<gltf_material>& gltf_materials)
 {
   std::vector<mesh*> res;
 
@@ -365,11 +367,30 @@ std::vector<mesh*> store_mesh(
         int length = s_component * acc.count;
         const gltf_buffer& data{buffers[views[acc.buffer_view].buffer_index]};
 
-        for (int i = offset; i < offset + length ; i+=s_component)
+        if (!reverse_wind)
         {
-          uint16_t current_index;
-          std::memcpy(&current_index, &data[i], s_component);
-          vertex_indices.push_back(current_index);
+          for (int i = offset; i < offset + length ; i+=s_component)
+          {
+            uint16_t current_index;
+            std::memcpy(&current_index, &data[i], s_component);
+            vertex_indices.push_back(current_index);
+          }
+        } else {
+          // reverse triangles winding
+          uint remainder{0u};
+          for (int i = offset; i < offset + length ; i+=s_component)
+          {
+            uint16_t current_index;
+            if (remainder == 0)
+              std::memcpy(&current_index, &data[i], s_component);
+            else if (remainder == 1)
+              std::memcpy(&current_index, &data[i+s_component], s_component);
+            else if (remainder == 2)
+              std::memcpy(&current_index, &data[i-s_component], s_component);
+            vertex_indices.push_back(current_index);
+            ++remainder;
+            remainder %= 3;
+          }
         }
       } // unnamed scope
 
@@ -586,7 +607,8 @@ void process_tree( std::shared_ptr<gltf_node>& relative_root
     // process mesh
     if (current_raw_node.has_mesh)
     {
-      current_node->m_mesh = store_mesh(current_raw_node.mesh,doc,buffers,views,accessors,gltf_materials);
+      bool reverse_winding{current_raw_node.transf_sgn};
+      current_node->m_mesh = store_mesh(current_raw_node.mesh,reverse_winding,doc,buffers,views,accessors,gltf_materials);
       apply_mesh_transformations(*current_node);
 
       size_t new_triangles = 0;
@@ -951,6 +973,13 @@ void parse_gltf( const std::string& filename
             ++i;
           }
         }
+      }
+      if(current_node.has_mesh)
+      {
+        bool scale_sgn{std::signbit(glm::compMul(current_node.scale))};
+        bool det_sgn{std::signbit(glm::determinant(current_node.matrix))};
+        if (scale_sgn || det_sgn)
+          current_node.transf_sgn = 1;
       }
       raw_nodes.push_back(current_node);
     }

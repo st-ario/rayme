@@ -186,7 +186,7 @@ hit_check triangle::hit(const ray& r, float t_max) const
   const float tp2z{r.shear_coefficients.z * tp2[r.perm.z]};
   const float t_scaled{u * tp0z + v * tp1z + w * tp2z};
 
-  if (std::signbit(t_scaled) || t_scaled > t_max * det)
+  if ((std::signbit(det) && t_scaled < t_max * det) || (!std::signbit(det) && t_scaled > t_max * det))
     return std::nullopt;
 
   // unscaled values
