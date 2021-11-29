@@ -194,7 +194,29 @@ bvh_node::bvh_node(const std::vector<std::unique_ptr<const primitive>>& leaves, 
 
 hit_check bvh_tree::hit(const ray& r, float t_max) const
 {
-  if (!m_nodes[0].bounds.hit(r,t_max))
+  constexpr static float eps{gamma_bound(5)};
+
+  vec3 lower = glm::abs(r.origin-m_nodes[0].bounds.lower());
+  lower[0] = next_float_down(lower[0]);
+  lower[1] = next_float_down(lower[1]);
+  lower[2] = next_float_down(lower[2]);
+  vec3 upper = glm::abs(r.origin-m_nodes[0].bounds.upper());
+  upper[0] = next_float_up(upper[0]);
+  upper[1] = next_float_up(upper[1]);
+  upper[2] = next_float_up(upper[2]);
+  float max_z = max(lower[r.perm.z],upper[r.perm.z]);
+  float err_near_x = next_float_up(lower[r.perm.x]+max_z);
+  float err_near_y = next_float_up(lower[r.perm.y]+max_z);
+  float org_near_x = next_float_up(r.origin[r.perm.x]+next_float_up(eps*err_near_x));
+  float org_near_y = next_float_up(r.origin[r.perm.y]+next_float_up(eps*err_near_y));
+  float err_far_x = next_float_up(upper[r.perm.x]+max_z);
+  float err_far_y = next_float_up(upper[r.perm.y]+max_z);
+  float org_far_x = next_float_down(r.origin[r.perm.x]-next_float_up(eps*err_far_x));
+  float org_far_y = next_float_down(r.origin[r.perm.y]-next_float_up(eps*err_far_y));
+  if (r.direction[r.perm.x] < 0.0f) std::swap(org_near_x,org_far_x);
+  if (r.direction[r.perm.y] < 0.0f) std::swap(org_near_y,org_far_y);
+
+  if (!m_nodes[0].bounds.hit(r,t_max,org_near_x,org_near_y,org_far_x,org_far_y))
     return std::nullopt;
 
   std::stack<const bounded*> stck;
@@ -227,8 +249,8 @@ hit_check bvh_tree::hit(const ray& r, float t_max) const
     // not a primitive -> node
     const bvh_node* curr_node{static_cast<const bvh_node*>(current)};
 
-    std::optional<float> t_left{curr_node->left->bounds.hit(r, t_max)};
-    std::optional<float> t_right{curr_node->right->bounds.hit(r, t_max)};
+    std::optional<float> t_left{curr_node->left->bounds.hit(r,t_max,org_near_x,org_near_y,org_far_x,org_far_y)};
+    std::optional<float> t_right{curr_node->right->bounds.hit(r,t_max,org_near_x,org_near_y,org_far_x,org_far_y)};
 
     if (t_left && t_right)
     {

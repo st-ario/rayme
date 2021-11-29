@@ -6,6 +6,7 @@ class ray
 {
   friend class aabb;
   friend class triangle;
+  friend class bvh_tree;
   public:
     const point& get_origin() const { return origin; }
     const normed_vec3& get_direction() const { return direction; }
@@ -15,7 +16,6 @@ class ray
       : origin{origin}
       , direction{direction}
       , invD{1.0f/direction.x(),1.0f/direction.y(),1.0f/direction.z()}
-      , invD_pad{add_ulp_magnitude(invD.x,2),add_ulp_magnitude(invD.y,2),add_ulp_magnitude(invD.z,2)}
       , sign{invD.x < 0, invD.y < 0, invD.z < 0}
       , perm{ [&](){
           // calculate dimension where ray direction is maximal
@@ -41,25 +41,16 @@ class ray
   private:
     point origin;
     normed_vec3 direction;
-    // vector storing 1/direction, used multiple times in hit checks
-    // containes an infinity of the correct sign if the direction coordinate is 0
+    // vector storing negatively padded 1/direction, used multiple times in aabb hit checks
+    // contains an infinity of the correct sign if the direction coordinate is 0
     vec3 invD;
+    // vector storing positively padded 1/direction
     // utility vector for numeric robustness of ray-aabb intersection
-    vec3 invD_pad;
-    // utility vector storing the signs of invD, for ray-aabb intersection
     std::array<bool,3> sign;
     // utility vector storing vertices permutation, for ray-triangle intersection
     glm::vec<3,uint8_t> perm;
     // vector storing coefficients for the ray-triangle intersection function
     vec3 shear_coefficients;
-
-    static inline float add_ulp_magnitude(float f, int ulps)
-    {
-      if (!std::isfinite(f)) return f;
-      unsigned bits = *reinterpret_cast<unsigned*>(&f);
-      bits += ulps;
-      return *reinterpret_cast<float*>(&bits);
-    }
 };
 
 inline point offset_ray_origin( const point& p
