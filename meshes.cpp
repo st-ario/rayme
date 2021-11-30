@@ -6,32 +6,28 @@ using mat3 = glm::mat3;
 
 hit_properties triangle::get_info(const ray& r, const std::array<float,3>& uvw) const
 {
-  normed_vec3 gnormal{normed_vec3::absolute_y()};
+  point where{
+      uvw[0] * parent_mesh->vertices[parent_mesh->vertex_indices[3*number]] +
+      uvw[1] * parent_mesh->vertices[parent_mesh->vertex_indices[3*number+1]] +
+      uvw[2] * parent_mesh->vertices[parent_mesh->vertex_indices[3*number+2]]};
+
+  bool front_face{dot(r.direction, nu_gnormal) < 0};
+  normed_vec3 gnormal{front_face ? unit(nu_gnormal) : - unit(nu_gnormal)};
+
   normed_vec3 snormal{normed_vec3::absolute_y()};
-
-  const point& p0 = parent_mesh->vertices[parent_mesh->vertex_indices[3*number]];
-  const point& p1 = parent_mesh->vertices[parent_mesh->vertex_indices[3*number+1]];
-  const point& p2 = parent_mesh->vertices[parent_mesh->vertex_indices[3*number+2]];
-
-  vec3 nonunital_candidate_normal{cross(p1-p0, p2-p0)};
-
-  bool front_face{dot(r.direction, nonunital_candidate_normal) < 0};
-  gnormal = front_face ? unit(nonunital_candidate_normal) : - unit(nonunital_candidate_normal);
-
   if (parent_mesh->normals.empty())
   {
     snormal = gnormal;
   } else {
-    nonunital_candidate_normal =
+    vec3 nonunital_candidate_normal{
       uvw[0] * parent_mesh->normals[parent_mesh->vertex_indices[3*number]] +
       uvw[1] * parent_mesh->normals[parent_mesh->vertex_indices[3*number+1]] +
-      uvw[2] * parent_mesh->normals[parent_mesh->vertex_indices[3*number+2]];
-
+      uvw[2] * parent_mesh->normals[parent_mesh->vertex_indices[3*number+2]]};
 
     snormal = front_face ? unit(nonunital_candidate_normal) : - unit(nonunital_candidate_normal);
   }
 
-  return hit_properties(parent_mesh->ptr_mat.get(), gnormal, snormal);
+  return hit_properties(parent_mesh->ptr_mat.get(), where, gnormal, snormal);
 }
 
 aabb triangle::bounding_box() const

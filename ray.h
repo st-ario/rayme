@@ -33,11 +33,6 @@ class ray
         }() }
       {}
 
-    point at(float t) const
-    {
-      return origin + t * direction;
-    }
-
   private:
     point origin;
     normed_vec3 direction;

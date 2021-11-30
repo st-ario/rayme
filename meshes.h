@@ -10,18 +10,22 @@ class hit_properties
 {
   public:
     const material* ptr_mat() const { return m_ptr_mat; }
+    const point where() const {return x; }
     const normed_vec3 gnormal() const { return m_gnormal; }
     const normed_vec3 snormal() const { return m_snormal; }
 
     hit_properties( const material* ptr_mat
+                  , point where
                   , normed_vec3 gnormal
                   , normed_vec3 snormal
                   ) : m_ptr_mat{ptr_mat}
+                    , x{where}
                     , m_gnormal{gnormal}
                     , m_snormal{snormal} {}
 
   private:
     const material* m_ptr_mat;
+    point x;
     normed_vec3 m_gnormal;
     normed_vec3 m_snormal;
 };
@@ -92,12 +96,12 @@ class aabb
 
       float tmin{0.0f};
       float txmin, txmax, tymin, tymax, tzmin, tzmax;
-      txmin = (bounds[ r.sign[0]].x-r.origin.x)  * r.invD.x;
-      txmax = (bounds[1-r.sign[0]].x-r.origin.x) * r.invD.x;
-      tymin = (bounds[ r.sign[1]].y-r.origin.y)  * r.invD.y;
-      tymax = (bounds[1-r.sign[1]].y-r.origin.y) * r.invD.y;
-      tzmin = (bounds[ r.sign[2]].z-r.origin.z)  * r.invD.z;
-      tzmax = (bounds[1-r.sign[2]].z-r.origin.z) * r.invD.z;
+      txmin = (bounds[  r.sign[0]].x -r.origin.x) * r.invD.x;
+      txmax = (bounds[!(r.sign[0])].x-r.origin.x) * r.invD.x;
+      tymin = (bounds[  r.sign[1]].y -r.origin.y) * r.invD.y;
+      tymax = (bounds[!(r.sign[1])].y-r.origin.y) * r.invD.y;
+      tzmin = (bounds[  r.sign[2]].z -r.origin.z) * r.invD.z;
+      tzmax = (bounds[!(r.sign[2])].z-r.origin.z) * r.invD.z;
       tmin = max(tzmin, max(tymin, max(txmin, tmin)));
       tmax = min(tzmax, min(tymax, min(txmax, tmax)));
       tmax *= 1.00000024f;
@@ -202,6 +206,12 @@ class triangle : public primitive
       primitive::parent_mesh = parent_mesh;
       bounds = bounding_box();
       centroid = 0.5f * bounds.upper() + 0.5f * bounds.lower();
+      const point& p0{parent_mesh->vertices[parent_mesh->vertex_indices[3*number]]};
+      const point& p1{parent_mesh->vertices[parent_mesh->vertex_indices[3*number+1]]};
+      const point& p2{parent_mesh->vertices[parent_mesh->vertex_indices[3*number+2]]};
+      e1 = p1-p0;
+      e2 = p2-p0;
+      nu_gnormal = cross(e1,e2);
     }
 
     virtual hit_check hit(const ray& r, float t_max) const override;
@@ -210,6 +220,11 @@ class triangle : public primitive
 
   private:
     const size_t number;
+    // sides adjacent to p0
+    vec3 e1;
+    vec3 e2;
+    // nonunital geometric normal
+    vec3 nu_gnormal;
     aabb bounding_box() const;
 };
 
