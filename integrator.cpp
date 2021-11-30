@@ -165,7 +165,7 @@ color integrator::integrate_path( ray& r
     normed_vec3 scatter_dir{b.sample_dir(-r.get_direction())};
     brdf_pdf = b.pdf(-r.get_direction(),scatter_dir);
 
-    point hit_point{r.at(rec->t())};
+    point hit_point{info.where()};
 
     // direct light contribution for non-deterministic bounces
       past_direct = (brdf_pdf == 0.0f) ? color{0.0}

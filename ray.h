@@ -15,7 +15,6 @@ class ray
       : origin{origin}
       , direction{direction}
       , invD{1.0f/direction.x(),1.0f/direction.y(),1.0f/direction.z()}
-      , invD_pad{add_ulp_magnitude(invD.x,2),add_ulp_magnitude(invD.y,2),add_ulp_magnitude(invD.z,2)}
       , sign{invD.x < 0, invD.y < 0, invD.z < 0}
       , perm{ [&](){
           // calculate dimension where ray direction is maximal
@@ -32,11 +31,6 @@ class ray
           return vec3{Sx,Sy,Sz};
         }() }
       {}
-
-    point at(float t) const
-    {
-      return origin + t * direction;
-    }
 
   private:
     point origin;
