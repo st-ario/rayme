@@ -88,34 +88,6 @@ class aabb
       return tNear;
     }
 
-    /*
-    std::optional<float> hit(const ray& r, float tmax) const
-    {
-      // Ize, "Robust BVH Ray Traversal", revised version
-      // combined with the adjustments for the (Woop--Benthin--Wald) ray-triangle intersection
-
-      float tmin{0.0f};
-      float txmin, txmax, tymin, tymax, tzmin, tzmax;
-      txmin = (bounds[  r.sign[0]].x -r.origin.x) * r.invD.x;
-      txmax = (bounds[!(r.sign[0])].x-r.origin.x) * r.invD.x;
-      tymin = (bounds[  r.sign[1]].y -r.origin.y) * r.invD.y;
-      tymax = (bounds[!(r.sign[1])].y-r.origin.y) * r.invD.y;
-      tzmin = (bounds[  r.sign[2]].z -r.origin.z) * r.invD.z;
-      tzmax = (bounds[!(r.sign[2])].z-r.origin.z) * r.invD.z;
-      tmin = max(tzmin, max(tymin, max(txmin, tmin)));
-      tmax = min(tzmax, min(tymax, min(txmax, tmax)));
-      tmax *= 1.00000024f;
-      // no hit
-      if (tmin > tmax)
-        return std::nullopt;
-      // ray inside box
-      if (std::signbit(tmin) != std::signbit(tmax))
-        return tmax;
-      // ray outside
-      return tmin;
-    }
-    */
-
   private:
     std::array<point,2> bounds;
 };
