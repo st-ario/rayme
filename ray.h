@@ -36,10 +36,9 @@ class ray
   private:
     point origin;
     normed_vec3 direction;
-    // vector storing negatively padded 1/direction, used multiple times in aabb hit checks
+    // vector storing 1/direction, used multiple times in aabb hit checks
     // contains an infinity of the correct sign if the direction coordinate is 0
     vec3 invD;
-    // vector storing positively padded 1/direction
     // utility vector for numeric robustness of ray-aabb intersection
     std::array<bool,3> sign;
     // utility vector storing vertices permutation, for ray-triangle intersection
