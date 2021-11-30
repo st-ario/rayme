@@ -1,3 +1,3 @@
 # rayme
 
-Very early stages of a path tracing render for static glTF 2.0 scenes.
+Very early stages of a path tracing renderer for static glTF 2.0 scenes.
