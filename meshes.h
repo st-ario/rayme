@@ -62,30 +62,30 @@ class aabb
 
     const point& lower() const { return bounds[0]; }
     const point& upper() const { return bounds[1]; }
-
-    std::optional<float> hit(const ray& r, float tmax) const
+    std::optional<float> hit( const ray& r
+                            , float tmax
+                            , float onear_x
+                            , float onear_y
+                            , float ofar_x
+                            , float ofar_y) const
     {
       // Ize, "Robust BVH Ray Traversal", revised version
-
+      // combined with the adjustments for the Woop--Benthin--Wald ray-triangle intersection
       float tmin{0.0f};
-      float txmin, txmax, tymin, tymax, tzmin, tzmax;
-      txmin = (bounds[  r.sign[0]].x -r.origin.x) * r.invD.x;
-      txmax = (bounds[!(r.sign[0])].x-r.origin.x) * r.invD.x;
-      tymin = (bounds[  r.sign[1]].y -r.origin.y) * r.invD.y;
-      tymax = (bounds[!(r.sign[1])].y-r.origin.y) * r.invD.y;
-      tzmin = (bounds[  r.sign[2]].z -r.origin.z) * r.invD.z;
-      tzmax = (bounds[!(r.sign[2])].z-r.origin.z) * r.invD.z;
-      tmin = max(tzmin, max(tymin, max(txmin, tmin)));
-      tmax = min(tzmax, min(tymax, min(txmax, tmax)));
-      tmax *= 1.00000024f;
-      // no hit
-      if (tmin > tmax)
+      float tNearX = (bounds[r.sign[r.perm.x]][r.perm.x] - onear_x) * r.invD[r.perm.x];
+      float tNearY = (bounds[r.sign[r.perm.y]][r.perm.y] - onear_y) * r.invD[r.perm.y];
+      float tNearZ = (bounds[r.sign[r.perm.z]][r.perm.z] - r.origin[r.perm.z]) * r.invD[r.perm.z];
+      float tFarX = (bounds[!(r.sign[r.perm.x])][r.perm.x] - ofar_x ) * r.invD[r.perm.x];
+      float tFarY = (bounds[!(r.sign[r.perm.y])][r.perm.y] - ofar_y ) * r.invD[r.perm.y];
+      float tFarZ = (bounds[!(r.sign[r.perm.z])][r.perm.z] - r.origin[r.perm.z] ) * r.invD[r.perm.z];
+      float tNear = max(tNearX,max(tNearY,max(tNearZ,tmin)));
+      float tFar = min(tFarX,min(tFarY,min(tFarZ,tmax)));
+      tFar *= 1.00000024f;
+      if (tNear>tFar)
         return std::nullopt;
-      // ray inside box
-      if (std::signbit(tmin) != std::signbit(tmax))
-        return tmax;
-      // ray outside
-      return tmin;
+      if (std::signbit(tNear) != std::signbit(tFar))
+        return tFar;
+      return tNear;
     }
 
   private:

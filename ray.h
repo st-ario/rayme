@@ -6,6 +6,7 @@ class ray
 {
   friend class aabb;
   friend class triangle;
+  friend class bvh_tree;
   public:
     const point& get_origin() const { return origin; }
     const normed_vec3& get_direction() const { return direction; }
@@ -35,14 +36,15 @@ class ray
   private:
     point origin;
     normed_vec3 direction;
-    // vector storing 1/direction, used multiple times in hit checks
+    // vector storing 1/direction, used multiple times in aabb hit checks
     // contains an infinity of the correct sign if the direction coordinate is 0
     vec3 invD;
-    // utility vector storing the signs of invD, for ray-aabb intersection
+    // utility vector storing the signs of the direction components,
+    // for numeric robustness of ray-aabb intersection
     std::array<bool,3> sign;
     // utility vector storing vertices permutation, for ray-triangle intersection
     glm::vec<3,uint8_t> perm;
-    // vector storing coefficients for the ray-triangle intersection function
+    // vector storing coefficients for ray-triangle intersection
     vec3 shear_coefficients;
 };
 
