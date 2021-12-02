@@ -371,7 +371,7 @@ std::vector<mesh*> store_mesh( int index
         {
           for (int i = offset; i < offset + length ; i+=s_component)
           {
-            uint16_t current_index;
+            size_t current_index{0};
             std::memcpy(&current_index, &data[i], s_component);
             vertex_indices.push_back(current_index);
           }
@@ -380,7 +380,7 @@ std::vector<mesh*> store_mesh( int index
           uint remainder{0u};
           for (int i = offset; i < offset + length ; i+=s_component)
           {
-            uint16_t current_index;
+            size_t current_index{0};
             if (remainder == 0)
               std::memcpy(&current_index, &data[i], s_component);
             else if (remainder == 1)
