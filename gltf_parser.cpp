@@ -180,7 +180,8 @@ void apply_pointwise_transformation(const transformation& M, mesh& mesh)
   for (normed_vec3& n : mesh.normals)
     n = unit(mat3(M) * n.to_vec3());
 
-  for (vec4& v : mesh.tangents); // TODO
+  for (vec4& v : mesh.tangents)
+    ; // TODO
 }
 
 material material_from_info(const gltf_material& mat_info)

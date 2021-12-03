@@ -14,8 +14,7 @@
 class brdf
 {
   public:
-    explicit brdf(const normed_vec3* normal, uint64_t seed) : normal{normal}, seed{seed}
-    {}
+    explicit brdf(const normed_vec3* normal, uint64_t seed);
 
     virtual float pdf( const normed_vec3& wo
                      , const normed_vec3& wi) const = 0;
@@ -41,22 +40,7 @@ class brdf
 class diffuse_brdf : public brdf
 {
   public:
-    diffuse_brdf(const material* ptr_mat, const normed_vec3* normal, uint64_t seed)
-    : brdf{normal, seed}, ptr_mat{ptr_mat}
-    #ifdef LAMBERTIAN_DIFFUSE
-    {}
-    #else
-    // Oren--Nayar's sigma (angular standard deviation) in principle takes values in [0,pi/2],
-    // but physically most of the values don't make sense; the common cap seems to be at around 0.3
-    // with rare exceptions up to 0.5; heuristic multiplicative factor (0.36^2)
-    // (try different values at a later stage)
-    // IMPORTANT: the energy compensation tables for the diffuse multi-scatter depend on this
-    // choice, if the multiplicative factor is changed they have to be recomputed;
-    // for the current choice the energy loss is negligible, so the tables are omitted
-    , sigma_squared{0.13f * ptr_mat->roughness_factor * ptr_mat->roughness_factor}
-    , A{1.0f - sigma_squared / (2.0f * (sigma_squared + 0.33f))}
-    , B{0.45f * sigma_squared / (sigma_squared + 0.09f)} {}
-    #endif
+    diffuse_brdf(const material* ptr_mat, const normed_vec3* normal, uint64_t seed);
 
     virtual color f_r( const normed_vec3& wo
                      , const normed_vec3& wi) const override;
@@ -106,18 +90,7 @@ class diffuse_brdf : public brdf
 class ggx_brdf : public brdf
 {
   public:
-    ggx_brdf(const material* ptr_mat, const normed_vec3* normal, uint64_t seed)
-      : brdf{normal, seed}, ptr_mat{ptr_mat},
-        alpha{ptr_mat->roughness_factor * ptr_mat->roughness_factor},
-        alpha_squared{alpha * alpha},
-        to_world{[&]
-          {
-            glm::mat3 res{rotate_given_north_pole(*normal)};
-            std::swap(res[1],res[2]);
-            res[1] *= -1;
-            return res;
-          }()},
-        to_local{glm::transpose(to_world)} {}
+    ggx_brdf(const material* ptr_mat, const normed_vec3* normal, uint64_t seed);
 
     virtual float pdf( const normed_vec3& wo
                      , const normed_vec3& wi) const override;
@@ -254,8 +227,7 @@ class metal_brdf : public ggx_brdf
 class dielectric_brdf: public ggx_brdf
 {
   public:
-    dielectric_brdf(const material* ptr_mat, const normed_vec3* normal, uint64_t seed)
-    : ggx_brdf{ptr_mat, normal, seed}, base{ptr_mat,normal, seed} {}
+    dielectric_brdf(const material* ptr_mat, const normed_vec3* normal, uint64_t seed);
 
     virtual float pdf( const normed_vec3& wo
                      , const normed_vec3& wi) const override;
@@ -300,33 +272,7 @@ class dielectric_brdf: public ggx_brdf
 class composite_brdf : public brdf
 {
   public:
-    composite_brdf(const material* ptr_mat, const normed_vec3* normal, uint64_t seed)
-    : brdf{normal,seed}, ptr_mat{ptr_mat}
-    , surf
-      {[&]{
-        if (ptr_mat->metallic_factor == 0)
-          return Surface::dielectric;
-        else if (ptr_mat->metallic_factor == 1)
-          return Surface::metal;
-        else
-        {
-          float r{brdf::get_sampler(seed).rnd_float()};
-          if (r < ptr_mat->metallic_factor)
-            return Surface::metal;
-          return Surface::dielectric;
-        }
-      }()}
-    , m_brdf
-      {[&]{
-        switch(surf)
-        {
-          case Surface::dielectric:
-            return std::variant<dielectric_brdf,metal_brdf>(dielectric_brdf{ptr_mat,normal,seed});
-          case Surface::metal:
-            return std::variant<dielectric_brdf,metal_brdf>(metal_brdf{ptr_mat,normal,seed});
-        }
-      }()}
-      {}
+    composite_brdf(const material* ptr_mat, const normed_vec3* normal, uint64_t seed);
 
     virtual float pdf( const normed_vec3& wo
                      , const normed_vec3& wi) const override

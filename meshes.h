@@ -107,6 +107,7 @@ class primitive : public bounded
     const mesh* parent_mesh;
   public:
     primitive() { is_primitive = true; }
+    virtual ~primitive() = default;
     virtual hit_check hit(const ray& r, float t_max) const = 0;
     virtual hit_properties get_info(const ray& r, const std::array<float,3>& uvw)const = 0;
 };
@@ -185,6 +186,7 @@ class triangle : public primitive
       e2 = p2-p0;
       nu_gnormal = cross(e1,e2);
     }
+    ~triangle() = default;
 
     virtual hit_check hit(const ray& r, float t_max) const override;
     virtual hit_properties get_info(const ray& r,
