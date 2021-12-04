@@ -7,5 +7,6 @@ class bvh_tree;
 
 void render( image& picture
            , uint16_t samples_per_pixel
+           , uint16_t min_depth
            , const camera& cam
            , const bvh_tree& world);

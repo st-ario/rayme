@@ -13,7 +13,11 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 ## set(GCC_WARNING_FLAGS "-Wall -Wextra -Wno-deprecated -fno-elide-type -fdiagnostics-show-template-tree -Wall -Wextra -Wpedantic -Wvla -Wextra-semi -Wnull-dereference -Wswitch-enum -Wduplicated-cond -Wduplicated-branches -Wsuggest-override  -Wfloat-conversion")
 set(GCC_WARNING_FLAGS "")
 
-add_executable(${PROJECT_NAME}
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+find_package(Boost 1.60 COMPONENTS program_options REQUIRED)
+
+add_executable(rayme
   bdf.cpp
   bvh.cpp
   camera.cpp
@@ -73,8 +77,7 @@ set_target_properties(simdjson PROPERTIES LINKER_LANGUAGE CXX)
 add_library(glm extern/glm/glm/glm.hpp)
 set_target_properties(glm PROPERTIES LINKER_LANGUAGE CXX)
 
-set(THREADS_PREFER_PTHREAD_FLAG ON)
-find_package(Threads REQUIRED)
+target_link_libraries(rayme PRIVATE Boost::program_options)
 target_link_libraries(rayme PRIVATE Threads::Threads)
 
 add_definitions(${GCC_WARNING_FLAGS})

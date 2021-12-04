@@ -61,6 +61,7 @@ void render_tile( image* picture
                 , uint16_t row
                 , uint16_t column
                 , uint32_t samples_per_pixel
+                , uint16_t min_depth
                 , const camera* cam
                 , const bvh_tree* world)
 {
@@ -99,7 +100,7 @@ void render_tile( image* picture
 
         auto filter_weight{filter(center_offset)};
         total_weight += filter_weight;
-        pixel_color += filter_weight * path_integrator.integrate_path(r,*world);
+        pixel_color += filter_weight * path_integrator.integrate_path(r,*world,min_depth);
       }
       pixel_color = pixel_color / total_weight;
 
@@ -115,6 +116,7 @@ void render_tiles_job( image* picture
                      , std::mutex* mtx_prod
                      , uint8_t tiles_size
                      , uint16_t samples_per_pixel
+                     , uint16_t min_depth
                      , const camera* cam
                      , const bvh_tree* world)
 {
@@ -137,12 +139,13 @@ void render_tiles_job( image* picture
       return;
     }
 
-    render_tile(picture, tiles_size, pair->first, pair->second, samples_per_pixel, cam, world);
+    render_tile(picture, tiles_size, pair->first, pair->second, samples_per_pixel, min_depth, cam, world);
   }
 }
 
 void render( image& picture
            , uint16_t samples_per_pixel
+           , uint16_t min_depth
            , const camera& cam
            , const bvh_tree& world)
 {
@@ -201,7 +204,7 @@ void render( image& picture
   for (uint i = 0; i < n_cores; ++i)
   {
     jobs.push_back(std::async(std::launch::async, render_tiles_job, &picture, &cartesian_product,
-     &mtx_prod, tile_size, samples_per_pixel, &cam, &world));
+     &mtx_prod, tile_size, samples_per_pixel, min_depth, &cam, &world));
   }
 
 #endif

@@ -12,7 +12,6 @@
 //#define NO_RR 1
 
 #ifndef NO_RR
-static constexpr uint16_t MIN_DEPTH{5};
 static constexpr uint16_t MAX_DEPTH{1000};
 #else
 static constexpr uint16_t MAX_DEPTH{10};
@@ -85,7 +84,8 @@ integrator::sample_light( const point& x
 }
 
 color integrator::integrate_path( ray& r
-                                , const bvh_tree& world) const
+                                , const bvh_tree& world
+                                , uint16_t min_depth) const
 {
   color res{0.0f,0.0f,0.0f};
   color throughput{1.0f,1.0f,1.0f};
@@ -183,7 +183,7 @@ color integrator::integrate_path( ray& r
 
     #ifndef NO_RR
     // russian roulette
-    if (depth > MIN_DEPTH)
+    if (depth > min_depth)
     {
       rr_p = min(0.99f,max(throughput.x,max(throughput.y,throughput.z)));
       if (sampler.rnd_float() > rr_p)

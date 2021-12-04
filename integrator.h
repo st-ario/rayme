@@ -12,7 +12,8 @@ class integrator
     : sampler{seed} {}
 
     color integrate_path( ray& r
-                        , const bvh_tree& world) const;
+                        , const bvh_tree& world
+                        , uint16_t min_depth) const;
   private:
     color sample_light( const point& x
                       , const normed_vec3& gnormal
