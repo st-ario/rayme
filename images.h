@@ -13,7 +13,12 @@ class image
 
   public:
     image() = delete;
+
+    // create black image
     image(uint16_t pixel_width, uint16_t pixel_height);
+
+    // create image from image buffer
+    image(uint16_t pixel_width, uint16_t pixel_height, float* buffer);
 
     uint16_t get_height() const;
     uint16_t get_width() const;

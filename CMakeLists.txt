@@ -16,11 +16,20 @@ set(GCC_WARNING_FLAGS "")
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 find_package(Boost 1.60 COMPONENTS program_options REQUIRED)
+find_library(OID OpenImageDenoise)
+if (NOT OID)
+    ## compile without denoise
+    message("OID not found")
+else()
+    ## compile with denoise
+    message("OID found")
+endif()
 
 add_executable(rayme
   bdf.cpp
   bvh.cpp
   camera.cpp
+  denoise.cpp
   gltf_parser.cpp
   images.cpp
   integrator.cpp
@@ -79,5 +88,6 @@ set_target_properties(glm PROPERTIES LINKER_LANGUAGE CXX)
 
 target_link_libraries(rayme PRIVATE Boost::program_options)
 target_link_libraries(rayme PRIVATE Threads::Threads)
+target_link_libraries(rayme PRIVATE "${OID}")
 
 add_definitions(${GCC_WARNING_FLAGS})

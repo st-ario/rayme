@@ -2,6 +2,7 @@
 #include "render.h"
 #include "bvh.h"
 #include "camera.h"
+#include "denoise.h"
 
 #include <boost/program_options.hpp>
 namespace po = boost::program_options;
@@ -40,7 +41,7 @@ void initialize_arguments( int argc
   if (!vm.count("input-filename") || vm.count("help"))
   {
     std::cout << "Usage: rayme [-i] gltf-file [options]\n";
-    std::cout << "Example: rayme scene.gltf -H 1080 -spp 512 -o rendered-scene\n\n";
+    std::cout << "Example: rayme scene.gltf -H 1080 -s 512 -o rendered-scene\n\n";
     std::cout << desc << "\n";
     std::exit(0);
   }
@@ -108,10 +109,14 @@ int main(int argc, char* argv[])
         , *cam
         , scene_tree);
 
+  // denoise result
+  image denoised{denoise(*cam,picture)};
+
   // export file
   std::cout << "\nExporting file...";
   std::flush(std::cout);
-  picture.write_to_png(output_filename);
+  picture.write_to_png(output_filename + "_noisy");
+  denoised.write_to_png(output_filename + "_denoised");
 
   std::cout << "\nDone!\n";
 }

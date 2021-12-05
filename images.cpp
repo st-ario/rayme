@@ -5,7 +5,8 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "extern/stb/stb_image_write.h"
 
-image::image(uint16_t pixel_width, uint16_t pixel_height) : width{pixel_width}, height{pixel_height}
+image::image(uint16_t pixel_width, uint16_t pixel_height)
+: width{pixel_width}, height{pixel_height}
 {
   pixels.reserve(pixel_height);
   for (uint16_t r = 0; r < pixel_height; ++r)
@@ -16,6 +17,24 @@ image::image(uint16_t pixel_width, uint16_t pixel_height) : width{pixel_width}, 
     for (uint16_t c = 0; c < pixel_width; ++c)
     {
       row.emplace_back(color(0,0,0));
+    }
+    pixels.emplace_back(std::move(row));
+  }
+}
+
+image::image(uint16_t pixel_width, uint16_t pixel_height, float* buffer)
+: width{pixel_width}, height{pixel_height}
+{
+  pixels.reserve(pixel_height);
+  for (uint16_t r = 0; r < pixel_height; ++r)
+  {
+    std::vector<color> row;
+    row.reserve(pixel_width);
+
+    for (uint16_t c = 0; c < pixel_width; ++c)
+    {
+      size_t pos{(r*width + c)*3u};
+      row.emplace_back(color{buffer[pos],buffer[++pos],buffer[++pos]});
     }
     pixels.emplace_back(std::move(row));
   }
