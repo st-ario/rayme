@@ -7,6 +7,8 @@
 #include <boost/program_options.hpp>
 namespace po = boost::program_options;
 
+//#define EXPORT_DENOISE_MAPS 1
+
 void initialize_arguments( int argc
                          , char* argv[]
                          , int32_t& image_height
@@ -97,26 +99,44 @@ int main(int argc, char* argv[])
   std::vector<std::unique_ptr<const primitive>> primitives;
   std::unique_ptr<camera> cam;
 
+  std::cout << "\nLoading scene...\n";
   parse_gltf(input_filename, primitives, cam, static_cast<uint16_t>(image_height));
 
+  std::cout << "Creating BVH...\n";
   bvh_tree scene_tree{std::move(primitives)};
 
   // begin rendering
+  std::cout << "\nReady to render!\n";
   image picture(cam->get_image_width(),cam->get_image_height());
+  image albedo_map(cam->get_image_width(),cam->get_image_height());
+  image normal_map(cam->get_image_width(),cam->get_image_height());
   render( picture
+        , albedo_map
+        , normal_map
         , static_cast<uint16_t>(samples_per_pixel)
         , static_cast<uint16_t>(min_depth)
         , *cam
         , scene_tree);
 
   // denoise result
-  image denoised{denoise(picture)};
+  image denoised{denoise(picture,albedo_map,normal_map)};
 
   // export file
   std::cout << "\nExporting file...";
   std::flush(std::cout);
+  #ifdef EXPORT_DENOISE_MAPS
   picture.write_to_png(output_filename + "_noisy");
   denoised.write_to_png(output_filename + "_denoised");
+
+  albedo_map.write_to_png(output_filename + "_albedo");
+
+  for(auto& x : normal_map.image_buffer)
+    x = (x+1.0f)/2.0f;
+
+  normal_map.write_to_png(output_filename + "_normal");
+  #else
+  denoised.write_to_png(output_filename);
+  #endif
 
   std::cout << "\nDone!\n";
 }

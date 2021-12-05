@@ -4,7 +4,7 @@
 #include "camera.h"
 #include "images.h"
 
-image denoise(image& noisy)
+image denoise(image& noisy, image& albedo_map, image& normal_map)
 {
   // create denoise device
   oidn::DeviceRef device = oidn::newDevice();
@@ -17,8 +17,8 @@ image denoise(image& noisy)
   std::vector<float> denoised_buffer(noisy.image_buffer.size());
 
   filter.setImage("color", noisy.image_buffer.data(), oidn::Format::Float3, noisy.get_width(), noisy.get_height());
-  //filter.setImage("albedo", albedoPtr, oidn::Format::Float3, width, height);
-  //filter.setImage("normal", normalPtr, oidn::Format::Float3, width, height);
+  filter.setImage("albedo", albedo_map.image_buffer.data(), oidn::Format::Float3, noisy.get_width(), noisy.get_height());
+  filter.setImage("normal", normal_map.image_buffer.data(), oidn::Format::Float3, noisy.get_width(), noisy.get_height());
   filter.setImage("output", denoised_buffer.data(), oidn::Format::Float3, noisy.get_width(), noisy.get_height());
   filter.set("hdr", false);
   filter.set("srgb", true); // TODO test if the result is better when gamma correcting at the very end

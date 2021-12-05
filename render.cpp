@@ -29,7 +29,28 @@ float filter(const std::array<float,2>& pair)
   return blackman_harris(pair[0]) * blackman_harris(pair[1]);
 }
 
+// auxiliary function for denoising purposes, computes the albedo and the normal of the first hit
+// of a camera ray
+void accumulate_albedo_normal( ray& r
+                             , color& albedo_color
+                             , color& normal_color
+                             , const bvh_tree& world)
+{
+  // IMPORTANT change after implementing transmissive materials
+  auto rec{world.hit(r, infinity)};
+  if (!rec)
+    return;
+
+  hit_properties info{rec->what()->get_info(r,rec->uvw)};
+  albedo_color.r += clamp(info.ptr_mat()->base_color.r,0.0f,1.0f);
+  albedo_color.g += clamp(info.ptr_mat()->base_color.g,0.0f,1.0f);
+  albedo_color.b += clamp(info.ptr_mat()->base_color.b,0.0f,1.0f);
+  normal_color += info.snormal().to_vec3();
+}
+
 void render_tile( image* picture
+                , image* albedo_map
+                , image* normal_map
                 , uint8_t tile_size
                 , uint16_t row
                 , uint16_t column
@@ -38,7 +59,9 @@ void render_tile( image* picture
                 , const camera* cam
                 , const bvh_tree* world)
 {
-  color pixel_color(0,0,0);
+  color pixel_color{0.0f,0.0f,0.0f};
+  color albedo_color{0.0f,0.0f,0.0f};
+  color normal_color{0.0f,0.0f,0.0f};
   const uint16_t h_offset = column * tile_size;
   const uint16_t v_offset = row * tile_size;
 
@@ -57,6 +80,8 @@ void render_tile( image* picture
         break;
 
       pixel_color = {0,0,0};
+      albedo_color = {0,0,0};
+      normal_color = {0,0,0};
       total_weight = 0.0f;
       uint32_t seed{uint32_t(pixel_x) << 16 | uint32_t(pixel_y)};
       sampler_2d sampler{seed};
@@ -65,6 +90,8 @@ void render_tile( image* picture
       {
         std::array<float,2> center_offset{sampler.rnd_float_pair()};
         ray r{cam->get_offset_ray(pixel_x, pixel_y,center_offset)};
+
+        accumulate_albedo_normal(r,albedo_color,normal_color,*world);
 
         uint64_t seed( pixel_x
                      | (uint32_t(pixel_y) << 16)
@@ -75,20 +102,38 @@ void render_tile( image* picture
         total_weight += filter_weight;
         pixel_color += filter_weight * path_integrator.integrate_path(r,*world,min_depth);
       }
+
       pixel_color = pixel_color / total_weight;
+      albedo_color /= samples_per_pixel;
+      normal_color /= samples_per_pixel;
 
       gamma_correct(pixel_color,2.2f);
 
       size_t pos{(cam->get_image_width() * (v_offset + y) + h_offset + x)*3u};
 
-      picture->image_buffer[pos]   = pixel_color.r;
-      picture->image_buffer[++pos] = pixel_color.g;
-      picture->image_buffer[++pos] = pixel_color.b;
+      // red channels
+      picture->   image_buffer[pos]   = pixel_color.r;
+      albedo_map->image_buffer[pos]   = albedo_color.r;
+      normal_map->image_buffer[pos]   = normal_color.r;
+
+      // green channels
+      ++pos;
+      picture   ->image_buffer[pos] = pixel_color.g;
+      albedo_map->image_buffer[pos] = albedo_color.g;
+      normal_map->image_buffer[pos] = normal_color.g;
+
+      // blue channels
+      ++pos;
+      picture   ->image_buffer[pos] = pixel_color.b;
+      albedo_map->image_buffer[pos] = albedo_color.b;
+      normal_map->image_buffer[pos] = normal_color.b;
     }
   }
 }
 
 void render_tiles_job( image* picture
+                     , image* albedo_map
+                     , image* normal_map
                      , std::vector<std::pair<uint16_t,uint16_t>>* cart_prod
                      , std::mutex* mtx_prod
                      , uint8_t tiles_size
@@ -116,11 +161,22 @@ void render_tiles_job( image* picture
       return;
     }
 
-    render_tile(picture, tiles_size, pair->first, pair->second, samples_per_pixel, min_depth, cam, world);
+    render_tile( picture
+               , albedo_map
+               , normal_map
+               , tiles_size
+               , pair->first
+               , pair->second
+               , samples_per_pixel
+               , min_depth
+               , cam
+               , world);
   }
 }
 
 void render( image& picture
+           , image& albedo_map
+           , image& normal_map
            , uint16_t samples_per_pixel
            , uint16_t min_depth
            , const camera& cam
@@ -157,7 +213,16 @@ void render( image& picture
       ++counter;
       std::cerr <<"\x1b[2K"<<"\rRemaining tiles to render: "<< (num_rows * num_columns - counter);
       std::flush(std::cerr);
-      render_tile(&picture, tile_size, pair.first, pair.second, samples_per_pixel, &cam, &world);
+      render_tile( &picture
+                 , &albedo_map
+                 , &normal_map
+                 , tile_size
+                 , pair.first
+                 , pair.second
+                 , samples_per_pixel
+                 , min_depth
+                 , &cam
+                 , &world);
   }
 #else
 
@@ -180,8 +245,17 @@ void render( image& picture
 
   for (uint i = 0; i < n_cores; ++i)
   {
-    jobs.push_back(std::async(std::launch::async, render_tiles_job, &picture, &cartesian_product,
-     &mtx_prod, tile_size, samples_per_pixel, min_depth, &cam, &world));
+    jobs.push_back(std::async(std::launch::async,
+      render_tiles_job, &picture
+                      , &albedo_map
+                      , &normal_map
+                      , &cartesian_product
+                      , &mtx_prod
+                      , tile_size
+                      , samples_per_pixel
+                      , min_depth
+                      , &cam
+                      , &world));
   }
 
 #endif
