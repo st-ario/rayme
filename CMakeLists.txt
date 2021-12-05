@@ -16,31 +16,6 @@ set(GCC_WARNING_FLAGS "")
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 find_package(Boost 1.60 COMPONENTS program_options REQUIRED)
-find_library(OID OpenImageDenoise)
-if (NOT OID)
-    ## compile without denoise
-    message("OID not found")
-else()
-    ## compile with denoise
-    message("OID found")
-endif()
-
-add_executable(rayme
-  bdf.cpp
-  bvh.cpp
-  camera.cpp
-  denoise.cpp
-  gltf_parser.cpp
-  images.cpp
-  integrator.cpp
-  main.cpp
-  math.cpp
-  meshes.cpp
-  render.cpp
-  rng.cpp
-  extern/simdjson/singleheader/simdjson.cpp
-  2d_samples/hardcoded_2d_rng.cpp
-  )
 
 #####    DOWNLOAD ALL THE SUBMODULES
 find_package(Git QUIET)
@@ -72,13 +47,6 @@ if(NOT EXISTS "${PROJECT_SOURCE_DIR}/extern/glm/CMakeLists.txt")
     message(FATAL_ERROR "The glm submodule was not downloaded! GIT_SUBMODULE was turned off or failed; please update submodules and try again.")
 endif()
 
-
-target_link_directories(${PROJECT_NAME}
-    PRIVATE extern/stb
-    PRIVATE extern/simdjson
-    PRIVATE extern/glm
-)
-
 add_library(stb extern/stb/stb_image_write.h)
 set_target_properties(stb PROPERTIES LINKER_LANGUAGE CXX)
 add_library(simdjson extern/simdjson/singleheader/simdjson.h)
@@ -86,8 +54,58 @@ set_target_properties(simdjson PROPERTIES LINKER_LANGUAGE CXX)
 add_library(glm extern/glm/glm/glm.hpp)
 set_target_properties(glm PROPERTIES LINKER_LANGUAGE CXX)
 
+find_library(OID OpenImageDenoise)
+if (NOT OID)
+    ## compile without denoise
+    message("WARNING: Intel(R) OpenImageDenoise library not found, the program will be compiled
+        WITHOUT denosing options")
+    add_compile_definitions(NO_DENOISE=1)
+
+    add_executable(rayme
+      bdf.cpp
+      bvh.cpp
+      camera.cpp
+      gltf_parser.cpp
+      images.cpp
+      integrator.cpp
+      main.cpp
+      math.cpp
+      meshes.cpp
+      render.cpp
+      rng.cpp
+      extern/simdjson/singleheader/simdjson.cpp
+      2d_samples/hardcoded_2d_rng.cpp
+      )
+else()
+    ## compile with denoise
+    add_executable(rayme
+      bdf.cpp
+      bvh.cpp
+      camera.cpp
+      denoise.cpp
+      gltf_parser.cpp
+      images.cpp
+      integrator.cpp
+      main.cpp
+      math.cpp
+      meshes.cpp
+      render.cpp
+      rng.cpp
+      extern/simdjson/singleheader/simdjson.cpp
+      2d_samples/hardcoded_2d_rng.cpp
+      )
+target_link_libraries(rayme PRIVATE "${OID}")
+endif()
+
+## add_compile_definitions(NO_DENOISE=1)
+
 target_link_libraries(rayme PRIVATE Boost::program_options)
 target_link_libraries(rayme PRIVATE Threads::Threads)
-target_link_libraries(rayme PRIVATE "${OID}")
+
+target_link_directories(${PROJECT_NAME}
+    PRIVATE extern/stb
+    PRIVATE extern/simdjson
+    PRIVATE extern/glm
+)
 
 add_definitions(${GCC_WARNING_FLAGS})

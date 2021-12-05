@@ -2,12 +2,14 @@
 #include "render.h"
 #include "bvh.h"
 #include "camera.h"
+
+#ifndef NO_DENOISE
 #include "denoise.h"
+//#define EXPORT_DENOISE_MAPS 1
+#endif
 
 #include <boost/program_options.hpp>
 namespace po = boost::program_options;
-
-//#define EXPORT_DENOISE_MAPS 1
 
 void initialize_arguments( int argc
                          , char* argv[]
@@ -15,7 +17,8 @@ void initialize_arguments( int argc
                          , int32_t& samples_per_pixel
                          , int32_t& min_depth
                          , std::string& input_filename
-                         , std::string& output_filename)
+                         , std::string& output_filename
+                         , bool& allowdenoise)
 {
   po::options_description desc("Allowed options");
   desc.add_options()
@@ -29,6 +32,9 @@ void initialize_arguments( int argc
       "specify the number of samples per pixel (default: 128)")
 		("min-depth,d", po::value<int32_t>(&min_depth)->value_name("DEPTH"),
       "specify the minimum number of ray bounces (default: 5)")
+    #ifndef NO_DENOISE
+    ("no-denoise,N", "disable image denoising (enabled by default)")
+    #endif
 		("output-filename,o", po::value<std::string>(&output_filename)->value_name("FILENAME"),
       "specify name of the output PNG file (without extension)")
     ;
@@ -76,6 +82,8 @@ void initialize_arguments( int argc
   if (!vm.count("output-filename"))
     std::cout << "output file name not set, using default value: \"" << output_filename
               << "\"\n";
+  if (vm.count("no-denoise"))
+    allowdenoise = false;
 }
 
 int main(int argc, char* argv[])
@@ -86,6 +94,7 @@ int main(int argc, char* argv[])
   int32_t min_depth{5};
   std::string input_filename;
   std::string output_filename{"output"};
+  bool allowdenoise{true};
 
   initialize_arguments( argc
                       , argv
@@ -93,7 +102,8 @@ int main(int argc, char* argv[])
                       , samples_per_pixel
                       , min_depth
                       , input_filename
-                      , output_filename);
+                      , output_filename
+                      , allowdenoise);
 
   // initialize scene elements
   std::vector<std::unique_ptr<const primitive>> primitives;
@@ -108,15 +118,39 @@ int main(int argc, char* argv[])
   // begin rendering
   std::cout << "\nReady to render!\n";
   image picture(cam->get_image_width(),cam->get_image_height());
-  image albedo_map(cam->get_image_width(),cam->get_image_height());
-  image normal_map(cam->get_image_width(),cam->get_image_height());
+
+  #ifdef NO_DENOISE
   render( picture
-        , albedo_map
-        , normal_map
+        , nullptr
+        , nullptr
         , static_cast<uint16_t>(samples_per_pixel)
         , static_cast<uint16_t>(min_depth)
         , *cam
         , scene_tree);
+  #endif
+
+  #ifndef NO_DENOISE
+  image albedo_map(cam->get_image_width(),cam->get_image_height());
+  image normal_map(cam->get_image_width(),cam->get_image_height());
+  if (allowdenoise)
+  {
+    render( picture
+          , &albedo_map
+          , &normal_map
+          , static_cast<uint16_t>(samples_per_pixel)
+          , static_cast<uint16_t>(min_depth)
+          , *cam
+          , scene_tree);
+  } else {
+    render( picture
+          , nullptr
+          , nullptr
+          , static_cast<uint16_t>(samples_per_pixel)
+          , static_cast<uint16_t>(min_depth)
+          , *cam
+          , scene_tree);
+  }
+  #endif
 
   // denoise result
   image denoised{denoise(picture,albedo_map,normal_map)};
@@ -124,6 +158,7 @@ int main(int argc, char* argv[])
   // export file
   std::cout << "\nExporting file...";
   std::flush(std::cout);
+  #ifndef NO_DENOISE
   #ifdef EXPORT_DENOISE_MAPS
   picture.write_to_png(output_filename + "_noisy");
   denoised.write_to_png(output_filename + "_denoised");
@@ -135,7 +170,13 @@ int main(int argc, char* argv[])
 
   normal_map.write_to_png(output_filename + "_normal");
   #else
-  denoised.write_to_png(output_filename);
+  if (allowdenoise)
+    denoised.write_to_png(output_filename);
+  else
+    picture.write_to_png(output_filename);
+  #endif
+  #else
+  picture.write_to_png(output_filename);
   #endif
 
   std::cout << "\nDone!\n";
