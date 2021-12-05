@@ -110,7 +110,7 @@ int main(int argc, char* argv[])
         , scene_tree);
 
   // denoise result
-  image denoised{denoise(*cam,picture)};
+  image denoised{denoise(picture)};
 
   // export file
   std::cout << "\nExporting file...";

@@ -9,16 +9,15 @@ class image
     const uint16_t height;
 
   public:
-    std::vector<std::vector<color>> pixels;
+    std::vector<float> image_buffer; // rows first, rgb
 
-  public:
     image() = delete;
 
-    // create black image
+    // create uninitialized image
     image(uint16_t pixel_width, uint16_t pixel_height);
 
     // create image from image buffer
-    image(uint16_t pixel_width, uint16_t pixel_height, float* buffer);
+    image(uint16_t pixel_width, uint16_t pixel_height, std::vector<float>&& buffer);
 
     uint16_t get_height() const;
     uint16_t get_width() const;

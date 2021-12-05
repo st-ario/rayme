@@ -8,30 +8,6 @@
 #include <random>
 #include <algorithm>
 
-// debug macros
-//#define SINGLE_SAMPLE_PP 1
-
-float mitchell_netravali(float x)
-{
-  // spline parameters configuration
-  constexpr static float b{1.0f / 3.0f};
-  constexpr static float c{1.0f / 3.0f};
-
-  // Mitchell--Netravali filter formula (https://en.wikipedia.org/wiki/Mitchell%E2%80%93Netravali_filters)
-  x = std::abs(2 * x);
-
-  if (x > 1)
-    return ((-b - 6.0f * c) * x*x*x
-      + (6.0f * b + 30.0f * c) * x*x
-      + (-12.0f * b - 48.0f * c) * x
-      + (8.0f * b + 24.0f * c)) / 6.f;
-  else
-    return ((12.0f - 9.0f * b - 6.0f * c) * x*x*x
-      + (-18.0f + 12.0f * b + 6.0f * c) * x*x
-      + (6.0f - 2.0f * b)) / 6.f;
-
-}
-
 float blackman_harris(float x)
 {
   // Blackman–Harris window (https://en.wikipedia.org/wiki/Window_function#Blackman%E2%80%93Harris_window)
@@ -50,9 +26,6 @@ float blackman_harris(float x)
 
 float filter(const std::array<float,2>& pair)
 {
-  // TODO pick the filter based on the number of samples per pixel
-  // (determine a good threshold for the negative tails Mitchell--Netravali to pay off)
-  //return mitchell_netravali(4.0f * (pair[0] - 0.5f)) * mitchell_netravali(4.0f * (pair[1] - 0.5f));
   return blackman_harris(pair[0]) * blackman_harris(pair[1]);
 }
 
@@ -106,7 +79,11 @@ void render_tile( image* picture
 
       gamma_correct(pixel_color,2.2f);
 
-      picture->pixels[v_offset + y][h_offset + x] = pixel_color;
+      size_t pos{(cam->get_image_width() * (v_offset + y) + h_offset + x)*3u};
+
+      picture->image_buffer[pos]   = pixel_color.r;
+      picture->image_buffer[++pos] = pixel_color.g;
+      picture->image_buffer[++pos] = pixel_color.b;
     }
   }
 }
