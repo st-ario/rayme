@@ -99,6 +99,11 @@ endif()
 
 ## add_compile_definitions(NO_DENOISE=1)
 
+## force GLM to use the avx512 instruction set
+## in case "make" fails to build because the target system does not support them,
+## create makefile with "cmake -DNO_AVX512=ON" instead
+option(NO_AVX512 "Do not use AVX512 intrinsics" OFF)
+
 target_link_libraries(rayme PRIVATE Boost::program_options)
 target_link_libraries(rayme PRIVATE Threads::Threads)
 

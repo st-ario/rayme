@@ -13,7 +13,14 @@
 
 #include "rng.h"
 
+#define GLM_FORCE_CXX17
+#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
+#define GLM_FORCE_INLINE
+#define GLM_FORCE_SILENT_WARNINGS
 #define GLM_FORCE_CTOR_INIT
+#ifndef NO_AVX512
+#define GLM_FORCE_AVX512
+#endif
 #include "extern/glm/glm/vec3.hpp"
 #include "extern/glm/glm/geometric.hpp"
 #include "extern/glm/glm/mat3x3.hpp"
