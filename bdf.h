@@ -19,16 +19,14 @@ class brdf
     virtual float pdf( const normed_vec3& wo
                      , const normed_vec3& wi) const = 0;
 
-    virtual color f_r( const normed_vec3& wo
-                     , const normed_vec3& wi) const = 0;
-
     virtual normed_vec3 sample_dir(const normed_vec3& wo) const = 0;
 
     // direct light estimator for Monte Carlo integration,
     // importance sampling formula, assuming wi has been sampled using sample_dir()
     virtual color estimator( const normed_vec3& wo
                            , const normed_vec3& wi) const = 0;
-    // { return f_r(wo,wi) * dot(wi,*normal) / pdf(wo,wi); }
+    // estimator = f_r(wo,wi) * dot(wi,*normal) / pdf(wo,wi)
+    // -> use f_r = estimator * pdf / dot(wi,*normal) when needed
 
   protected:
     const normed_vec3* normal;
@@ -42,8 +40,6 @@ class diffuse_brdf : public brdf
   public:
     diffuse_brdf(const material* ptr_mat, const normed_vec3* normal, uint64_t seed);
 
-    virtual color f_r( const normed_vec3& wo
-                     , const normed_vec3& wi) const override;
 
     virtual float pdf( const normed_vec3& wo
                      , const normed_vec3& wi) const override
@@ -85,6 +81,7 @@ class diffuse_brdf : public brdf
     const float A;
     const float B;
     #endif
+    color f_r(const normed_vec3& wo, const normed_vec3& wi) const;
 };
 
 class ggx_brdf : public brdf
@@ -93,9 +90,6 @@ class ggx_brdf : public brdf
     ggx_brdf(const material* ptr_mat, const normed_vec3* normal, uint64_t seed);
 
     virtual float pdf( const normed_vec3& wo
-                     , const normed_vec3& wi) const override;
-
-    virtual color f_r( const normed_vec3& wo
                      , const normed_vec3& wi) const override;
 
     virtual normed_vec3 sample_dir(const normed_vec3& wo) const override;
@@ -188,9 +182,6 @@ class metal_brdf : public ggx_brdf
   public:
     using ggx_brdf::ggx_brdf;
 
-    virtual color f_r( const normed_vec3& wo
-                     , const normed_vec3& wi) const override;
-
     virtual color estimator( const normed_vec3& wo
                            , const normed_vec3& wi) const override
     {
@@ -230,9 +221,6 @@ class dielectric_brdf: public ggx_brdf
     dielectric_brdf(const material* ptr_mat, const normed_vec3* normal, uint64_t seed);
 
     virtual float pdf( const normed_vec3& wo
-                     , const normed_vec3& wi) const override;
-
-    virtual color f_r( const normed_vec3& wo
                      , const normed_vec3& wi) const override;
 
     virtual normed_vec3 sample_dir(const normed_vec3& wo) const override;
@@ -286,16 +274,6 @@ class composite_brdf : public brdf
           return std::get<dielectric_brdf>(m_brdf).pdf(wo,wi);
         case Surface::metal:
           return std::get<metal_brdf>(m_brdf).pdf(wo,wi);
-      }
-    }
-
-    virtual color f_r( const normed_vec3& wo
-                     , const normed_vec3& wi) const override
-    {
-      switch(surf)
-      {
-        case Surface::dielectric: return std::get<dielectric_brdf>(m_brdf).f_r(wo,wi);
-        case Surface::metal: return std::get<metal_brdf>(m_brdf).f_r(wo,wi);
       }
     }
 

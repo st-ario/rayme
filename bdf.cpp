@@ -73,8 +73,7 @@ composite_brdf::composite_brdf(const material* ptr_mat, const normed_vec3* norma
     }(ptr_mat,normal,seed)}
     {}
 
-color diffuse_brdf::f_r( const normed_vec3& wo
-                       , const normed_vec3& wi) const
+color diffuse_brdf::f_r(const normed_vec3& wo, const normed_vec3& wi) const
 {
   float ndotl{dot(*normal,wi)};
   float ndotv{dot(*normal,wo)};
@@ -180,23 +179,6 @@ float ggx_brdf::pdf(const normed_vec3& wo, const normed_vec3& wi) const
   return 0.0f;
 }
 
-inline color ggx_brdf::f_r( const normed_vec3& wo
-                          , const normed_vec3& wi) const
-{
-  if (dot(wo,*normal) > 0 && dot(wi,*normal) > 0)
-  {
-    vec3 loc_wi{to_local * wi.to_vec3()};
-    vec3 loc_wo{to_local * wo.to_vec3()};
-    vec3 loc_h{glm::normalize(loc_wi + loc_wo)};
-
-    float res{G2(loc_wo,loc_wi,loc_h) * D(loc_h) / (4.0f * loc_wo.z * loc_wi.z)};
-
-    return color{res};
-  }
-
-  return color{0.0f};
-}
-
 #ifndef NO_MS
 float dielectric_brdf::E_spec(const normed_vec3& w) const
 {
@@ -205,24 +187,6 @@ float dielectric_brdf::E_spec(const normed_vec3& w) const
   return (F_avg * E_o + MSFresnel(color{0.04f}).x * (1.0f - E_o));
 }
 #endif
-
-color metal_brdf::f_r( const normed_vec3& wo
-                     , const normed_vec3& wi) const
-{
-  float ndotl{dot(*normal,wi)};
-  float ndotv{dot(*normal,wo)};
-  if (ndotl > 0 && ndotv > 0)
-  {
-    vec3 wh{glm::normalize(wo.to_vec3()+wi.to_vec3())};
-    return ggx_brdf::f_r(wo,wi) * fresnel(dot(wo,wh))
-    #ifdef NO_MS
-    ;
-    #else
-    + MSFresnel(ptr_mat->base_color) * ggx_brdf::f_ms(wo,wi,ggx_E,ggx_Eavg);
-    #endif
-  }
-  return color{0.0f};
-}
 
 float dielectric_brdf::fresnel(float cos_angle) const
 {
@@ -243,39 +207,6 @@ float dielectric_brdf::fresnel(float cos_angle) const
   //return 0.04f + 0.96f * pow5(1.0f - clamp(cos_angle,0.0f,1.0f));
   return 0.04f + 0.96f * pow5(1.0f - cos_angle);
   */
-}
-
-color dielectric_brdf::f_r( const normed_vec3& wo
-                          , const normed_vec3& wi) const
-{
-  float ndotl{dot(*normal,wi)};
-  float ndotv{dot(*normal,wo)};
-  if (ndotl > 0 && ndotv > 0)
-  {
-    #ifndef NO_MS
-    // no energy loss for current diffuse
-    /*
-    static constexpr float A1{8.854467355133801f};
-    static constexpr float tau{0.28430405702379613f};
-    color rho{ptr_mat->base_color};
-    color F_dms{A1 * tau * tau * (rho * rho) / (color{1.0f} - tau * rho)};
-    */
-    #endif
-    vec3 h{glm::normalize(wo.to_vec3()+wi.to_vec3())};
-    float ldoth{dot(wi,h)};
-
-    return fresnel(ldoth) * ggx_brdf::f_r(wo,wi)
-    #ifdef NO_MS
-      + (1.0f - fresnel(ndotl)) * (1.0f - fresnel(ndotv)) * base.f_r(wo,wi) ;
-    #else
-      + MSFresnel(color{0.04f}) * ggx_brdf::f_ms(wo,wi,ggx_E,ggx_Eavg)
-      + base.f_r(wo,wi) * (1.0f - E_spec(wo));
-      // no energy loss for current diffuse, otherwise
-      //+ (base.f_r(wo,wi) + MSFresnel(ptr_mat->base_color) * f_ms(wo,wi,on_E,on_Eavg)) * (1.0f - E_spec(wo));
-    #endif
-  }
-
-  return color{0.0f};
 }
 
 normed_vec3 dielectric_brdf::sample_dir(const normed_vec3& wo) const
