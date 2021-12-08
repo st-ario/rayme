@@ -165,8 +165,7 @@ normed_vec3 ggx_brdf::sample_dir(const normed_vec3& wo) const
   return unit(to_world * loc_wi);
 }
 
-inline float ggx_brdf::pdf( const normed_vec3& wo
-                          , const normed_vec3& wi) const
+float ggx_brdf::pdf(const normed_vec3& wo, const normed_vec3& wi) const
 {
   if (dot(wo,*normal) > 0 && dot(wi,*normal) > 0)
   {
@@ -225,7 +224,7 @@ color metal_brdf::f_r( const normed_vec3& wo
   return color{0.0f};
 }
 
-inline float dielectric_brdf::fresnel(float cos_angle) const
+float dielectric_brdf::fresnel(float cos_angle) const
 {
   // TODO measure performance difference between exact and approximated formula
   float g{std::sqrt(1.25f + cos_angle * cos_angle)};
@@ -298,8 +297,7 @@ normed_vec3 dielectric_brdf::sample_dir(const normed_vec3& wo) const
   #endif
 }
 
-inline float dielectric_brdf::pdf( const normed_vec3& wo
-                                 , const normed_vec3& wi) const
+float dielectric_brdf::pdf(const normed_vec3& wo, const normed_vec3& wi) const
 {
   #ifdef NO_MS
   return 0.5f * ggx_brdf::pdf(wo,wi) + 0.5f * base.pdf(wo,wi);
