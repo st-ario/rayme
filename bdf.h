@@ -144,28 +144,32 @@ class ggx_brdf : public brdf
     normed_vec3 sample_halfvector(const vec3& loc_wo, const std::array<float,2>& rnd) const;
 
   #ifndef NO_MS
-  protected:
+  public:
     // multi-scatter methods
     template <typename T>
-    T MSFresnel(const T& F0) const { return F0 * (T{0.04f} + F0 * (T{0.66f} + T{0.3f} * F0)); }
+    static
+    T MSFresnel(const T& F0) { return F0 * (T{0.04f} + F0 * (T{0.66f} + T{0.3f} * F0)); }
 
     template <size_t M, size_t N>
+    static
     float f_ms( const normed_vec3& wo
               , const normed_vec3& wi
+              , float roughness_factor
+              , const normed_vec3& normal
               , const std::array<std::pair<std::array<float,2>,float>,M>& E_table
-              , const std::array<std::array<float,2>,N>& Eavg_table) const
+              , const std::array<std::array<float,2>,N>& Eavg_table)
     {
-      float E_avg{ms_lookup_Eavg(ptr_mat->roughness_factor,Eavg_table)};
+      float E_avg{ms_lookup_Eavg(roughness_factor,Eavg_table)};
       if (E_avg == 1.0)
         return 0.0f;
       // IMPORTANT check for > 1.0 if the table changes, or make sure it doesn't contain values > 1
 
-      float cos_i{dot(*normal,wi)};
-      float cos_o{dot(*normal,wo)};
+      float cos_i{dot(normal,wi)};
+      float cos_o{dot(normal,wo)};
       if (cos_i > 0.0f && cos_o > 0.0f)
       {
-        float E_i{ms_lookup_E(std::array<float,2>{ptr_mat->roughness_factor,dot(*normal,wi)},E_table)};
-        float E_o{ms_lookup_E(std::array<float,2>{ptr_mat->roughness_factor,dot(*normal,wo)},E_table)};
+        float E_i{ms_lookup_E(std::array<float,2>{roughness_factor,dot(normal,wi)},E_table)};
+        float E_o{ms_lookup_E(std::array<float,2>{roughness_factor,dot(normal,wo)},E_table)};
 
         float res{std::max(1.0f - E_i, 0.0f) * std::max(1.0f - E_o, 0.0f) / (pi * (1.0f - E_avg))};
 
@@ -191,14 +195,13 @@ class metal_brdf : public ggx_brdf
       {
         vec3 wh{glm::normalize(wo.to_vec3() + wi.to_vec3())};
         float pr{pdf(wo,wi)};
-        float invpdf{1.0f / pr};
         #ifdef NO_MS
         return ggx_brdf::estimator(wo,wi) * fresnel(dot(wo,wh));
         #else
         return (pr == 0.0f) ? ggx_brdf::estimator(wo,wi) * fresnel(dot(wo,wh)) :
           ggx_brdf::estimator(wo,wi) * fresnel(dot(wo,wh))
-          + MSFresnel(ptr_mat->base_color)
-          * ((f_ms(wo,wi,ggx_E,ggx_Eavg) * dot(*normal,wi) * invpdf));
+          + ggx_brdf::MSFresnel(ptr_mat->base_color)
+          * ((ggx_brdf::f_ms(wo,wi,ptr_mat->roughness_factor,*normal,ggx_E,ggx_Eavg) * dot(*normal,wi) / pr));
         #endif
       }
       return color{0.0f};
@@ -215,44 +218,81 @@ class metal_brdf : public ggx_brdf
     }
 };
 
-class dielectric_brdf: public ggx_brdf
+class dielectric_brdf: public brdf
 {
   public:
     dielectric_brdf(const material* ptr_mat, const normed_vec3* normal, uint64_t seed);
 
     virtual float pdf( const normed_vec3& wo
-                     , const normed_vec3& wi) const override;
+                     , const normed_vec3& wi) const override
+    {
+      switch (lobe)
+      {
+        case Lobe::diffuse:
+          return std::get<diffuse_brdf>(m_brdf).pdf(wo,wi);
+        case Lobe::specular:
+          return std::get<ggx_brdf>(m_brdf).pdf(wo,wi);
+      }
+    }
 
-    virtual normed_vec3 sample_dir(const normed_vec3& wo) const override;
+    virtual normed_vec3 sample_dir(const normed_vec3& wo) const override
+    {
+      switch (lobe)
+      {
+        case Lobe::diffuse:
+          return std::get<diffuse_brdf>(m_brdf).sample_dir(wo);
+        case Lobe::specular:
+          return std::get<ggx_brdf>(m_brdf).sample_dir(wo);
+      }
+    }
 
     virtual color estimator( const normed_vec3& wo
                            , const normed_vec3& wi) const override
     {
       float ndotl{dot(*normal,wi)};
       float ndotv{dot(*normal,wo)};
-      if (ndotl > 0 && ndotv > 0)
+      switch (lobe)
       {
-        vec3 h{glm::normalize(wo.to_vec3()+wi.to_vec3())};
-        float ldoth{dot(wi,h)};
-        #ifdef NO_MS
-        return fresnel(ldoth) * ggx_brdf::estimator(wo,wi)
-          + ((1.0f - fresnel(ndotl)) * (1.0f - fresnel(ndotv))) * base.estimator(wo,wi);
-        #else
-        float pr{pdf(wo,wi)};
-        // deterministic bounce -> all energy is reflected
-        return (pr == 0) ? fresnel(ldoth) * ggx_brdf::estimator(wo,wi) :
-          fresnel(ldoth) * ggx_brdf::estimator(wo,wi)
-            // IMPORTANT this is using that the current diffuse has no energy loss, change accordingly
-            // if this is no longer the case
-            + MSFresnel(color{0.04f}) * (f_ms(wo,wi,ggx_E,ggx_Eavg) * dot(*normal,wi) / pr)
-            + (1.0f - E_spec(wo)) * base.estimator(wo,wi);
-        #endif
+        // the factor of 2 in front of each return is to compensate for the choice of the lobe
+        case Lobe::diffuse:
+        // IMPORTANT this is using that the current diffuse has no energy loss, change accordingly
+        // if this is no longer the case
+          #ifdef NO_MS
+          return 2.0f * ((1.0f-fresnel(ndotl)) * (1.0f-fresnel(ndotv)))
+                * std::get<diffuse_brdf>(m_brdf).estimator(wo,wi);
+          #else
+          return 2.0f * (1.0f-E_spec(wo))
+                * std::get<diffuse_brdf>(m_brdf).estimator(wo,wi);
+          #endif
+        case Lobe::specular:
+          if (ndotl > 0 && ndotv > 0)
+          {
+            vec3 h{glm::normalize(wo.to_vec3()+wi.to_vec3())};
+            float ldoth{dot(wi,h)};
+            #ifdef NO_MS
+            return 2.0f * fresnel(ldoth) * std::get<ggx_brdf>(m_brdf).estimator(wo,wi);
+            #else
+            float pr{pdf(wo,wi)};
+            // deterministic bounce -> all energy is reflected
+            return (pr == 0) ? 2.0f*fresnel(ldoth) * std::get<ggx_brdf>(m_brdf).estimator(wo,wi) :
+              2.0f * fresnel(ldoth) * std::get<ggx_brdf>(m_brdf).estimator(wo,wi)
+                + ggx_brdf::MSFresnel(0.04f)
+                * (ggx_brdf::f_ms(wo,wi,ptr_mat->roughness_factor,*normal,ggx_E,ggx_Eavg) * dot(*normal,wi) / pr);
+            #endif
+          }
+          return color{0.0f};
       }
-      return color{0.0f};
     }
 
   private:
-    const diffuse_brdf base;
+    const material* ptr_mat;
+    enum class Lobe
+    {
+      diffuse,
+      specular,
+    };
+    const Lobe lobe;
+    std::variant<diffuse_brdf,ggx_brdf> m_brdf;
 
     #ifndef NO_MS
     float E_spec(const normed_vec3& w) const;
@@ -268,41 +308,41 @@ class composite_brdf : public brdf
     virtual float pdf( const normed_vec3& wo
                      , const normed_vec3& wi) const override
     {
-      switch(surf)
+      switch(lobe)
       {
-        case Surface::dielectric:
+        case Lobe::dielectric:
           return std::get<dielectric_brdf>(m_brdf).pdf(wo,wi);
-        case Surface::metal:
+        case Lobe::metal:
           return std::get<metal_brdf>(m_brdf).pdf(wo,wi);
       }
     }
 
     virtual normed_vec3 sample_dir(const normed_vec3& wo) const override
     {
-      switch(surf)
+      switch(lobe)
       {
-        case Surface::dielectric: return std::get<dielectric_brdf>(m_brdf).sample_dir(wo);
-        case Surface::metal: return std::get<metal_brdf>(m_brdf).sample_dir(wo);
+        case Lobe::dielectric: return std::get<dielectric_brdf>(m_brdf).sample_dir(wo);
+        case Lobe::metal: return std::get<metal_brdf>(m_brdf).sample_dir(wo);
       }
     }
 
     virtual color estimator( const normed_vec3& wo
                            , const normed_vec3& wi) const override
     {
-      switch(surf)
+      switch(lobe)
       {
-        case Surface::dielectric: return std::get<dielectric_brdf>(m_brdf).estimator(wo,wi);
-        case Surface::metal: return std::get<metal_brdf>(m_brdf).estimator(wo,wi);
+        case Lobe::dielectric: return std::get<dielectric_brdf>(m_brdf).estimator(wo,wi);
+        case Lobe::metal: return std::get<metal_brdf>(m_brdf).estimator(wo,wi);
       }
     }
 
   private:
     const material* ptr_mat;
-    enum class Surface
+    enum class Lobe
     {
       dielectric,
       metal,
     };
-    const Surface surf;
+    const Lobe lobe;
     std::variant<dielectric_brdf,metal_brdf> m_brdf;
 };

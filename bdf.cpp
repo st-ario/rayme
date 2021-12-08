@@ -42,32 +42,51 @@ ggx_brdf::ggx_brdf(const material* ptr_mat, const normed_vec3* normal, uint64_t 
     to_local{glm::transpose(to_world)} {}
 
 dielectric_brdf::dielectric_brdf(const material* ptr_mat, const normed_vec3* normal, uint64_t seed)
-  : ggx_brdf{ptr_mat, normal, seed}, base{ptr_mat,normal, seed} {}
+  : brdf{normal,seed}, ptr_mat{ptr_mat}
+  , lobe
+    {[=]{
+      float rnd{brdf::get_sampler(seed).rnd_float()};
+      if (rnd < 0.5f)
+        return Lobe::diffuse;
+      return Lobe::specular;
+    }()}
+  , m_brdf
+    {[&](const material* p_m, const normed_vec3* n, uint64_t s)
+      -> std::variant<diffuse_brdf,ggx_brdf>{
+      switch (lobe)
+      {
+        case Lobe::diffuse:
+          return diffuse_brdf{p_m,n,s};
+        case Lobe::specular:
+          return ggx_brdf{p_m,n,s};
+      }
+    }(ptr_mat,normal,seed)}
+  {}
 
 composite_brdf::composite_brdf(const material* ptr_mat, const normed_vec3* normal, uint64_t seed)
   : brdf{normal,seed}, ptr_mat{ptr_mat}
-  , surf
+  , lobe
     {[&]{
       if (ptr_mat->metallic_factor == 0)
-        return Surface::dielectric;
+        return Lobe::dielectric;
       else if (ptr_mat->metallic_factor == 1)
-        return Surface::metal;
+        return Lobe::metal;
       else
       {
         float r{brdf::get_sampler(seed).rnd_float()};
         if (r < ptr_mat->metallic_factor)
-          return Surface::metal;
-        return Surface::dielectric;
+          return Lobe::metal;
+        return Lobe::dielectric;
       }
     }()}
   , m_brdf
     {[&](const material* p_m, const normed_vec3* n, uint64_t s)
       -> std::variant<dielectric_brdf,metal_brdf>{
-      switch(surf)
+      switch(lobe)
       {
-        case Surface::dielectric:
+        case Lobe::dielectric:
           return dielectric_brdf{p_m,n,s};
-        case Surface::metal:
+        case Lobe::metal:
           return metal_brdf{p_m,n,s};
       }
     }(ptr_mat,normal,seed)}
@@ -184,7 +203,7 @@ float dielectric_brdf::E_spec(const normed_vec3& w) const
 {
   static constexpr float F_avg{0.089497712f};
   float E_o{ms_lookup_E(std::array<float,2>{ptr_mat->roughness_factor, dot(*normal,w)},ggx_E)};
-  return (F_avg * E_o + MSFresnel(color{0.04f}).x * (1.0f - E_o));
+  return (F_avg * E_o + ggx_brdf::MSFresnel(0.04f) * (1.0f - E_o));
 }
 #endif
 
@@ -207,34 +226,4 @@ float dielectric_brdf::fresnel(float cos_angle) const
   //return 0.04f + 0.96f * pow5(1.0f - clamp(cos_angle,0.0f,1.0f));
   return 0.04f + 0.96f * pow5(1.0f - cos_angle);
   */
-}
-
-normed_vec3 dielectric_brdf::sample_dir(const normed_vec3& wo) const
-{
-  float rnd{get_sampler(seed).rnd_float()};
-  #ifndef NO_MS
-  // sample specular distribution with probability E_spec and diffuse with prob 1-E_spec
-  float k{E_spec(wo)};
-
-  if (rnd < k)
-    return ggx_brdf::sample_dir(wo);
-
-  return base.sample_dir(wo);
-  #else
-  if (rnd < 0.5f)
-    return ggx_brdf::sample_dir(wo);
-
-  return base.sample_dir(wo);
-  #endif
-}
-
-float dielectric_brdf::pdf(const normed_vec3& wo, const normed_vec3& wi) const
-{
-  #ifdef NO_MS
-  return 0.5f * ggx_brdf::pdf(wo,wi) + 0.5f * base.pdf(wo,wi);
-  #else
-  float k{E_spec(wo)};
-
-  return k * ggx_brdf::pdf(wo,wi) + (1.0f - k) * base.pdf(wo,wi);
-  #endif
 }
