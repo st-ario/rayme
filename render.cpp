@@ -42,9 +42,15 @@ void accumulate_albedo_normal( ray& r
     return;
 
   hit_properties info{rec->what()->get_info(r,rec->uvw)};
+
+  // albedo map channels take values in [0,1], no matter whether the render image is HDR or LDR
+  // TODO see if there's any noticeable difference in the denoising quality if this is tonemapped
+  // rather than clamped
   albedo_color.r += clamp(info.ptr_mat()->base_color.r,0.0f,1.0f);
   albedo_color.g += clamp(info.ptr_mat()->base_color.g,0.0f,1.0f);
   albedo_color.b += clamp(info.ptr_mat()->base_color.b,0.0f,1.0f);
+
+  // normal map channels take values in [-1,1]; they don't have to be normalized, though
   normal_color += info.snormal().to_vec3();
 }
 
@@ -107,8 +113,6 @@ void render_tile( image* picture
       pixel_color = pixel_color / total_weight;
       albedo_color /= samples_per_pixel;
       normal_color /= samples_per_pixel;
-
-      gamma_correct(pixel_color,2.2f);
 
       size_t pos{(cam->get_image_width() * (v_offset + y) + h_offset + x)*3u};
 

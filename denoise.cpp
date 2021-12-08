@@ -20,8 +20,9 @@ image denoise(image& noisy, image& albedo_map, image& normal_map)
   filter.setImage("albedo", albedo_map.image_buffer.data(), oidn::Format::Float3, noisy.get_width(), noisy.get_height());
   filter.setImage("normal", normal_map.image_buffer.data(), oidn::Format::Float3, noisy.get_width(), noisy.get_height());
   filter.setImage("output", denoised_buffer.data(), oidn::Format::Float3, noisy.get_width(), noisy.get_height());
-  filter.set("hdr", false);
-  filter.set("srgb", true); // TODO test if the result is better when gamma correcting at the very end
+  filter.set("hdr", true); // beauty image is HDR
+  filter.set("srgb", false); // beauty image is in linear space
+  filter.set("cleanAux", true); // auxiliary images don't have noise
   filter.commit();
 
   // filter the image
