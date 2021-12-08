@@ -246,15 +246,18 @@ class dielectric_brdf: public ggx_brdf
       {
         vec3 h{glm::normalize(wo.to_vec3()+wi.to_vec3())};
         float ldoth{dot(wi,h)};
-        float invpdf{1.0f / pdf(wo,wi)};
-        return fresnel(ldoth) * ggx_brdf::estimator(wo,wi)
         #ifdef NO_MS
+        return fresnel(ldoth) * ggx_brdf::estimator(wo,wi)
           + ((1.0f - fresnel(ndotl)) * (1.0f - fresnel(ndotv))) * base.estimator(wo,wi);
         #else
-        // IMPORTANT this is using that the current diffuse has no energy loss, change accordingly
-        // if this is no longer the case
-          + MSFresnel(color{0.04f}) * (f_ms(wo,wi,ggx_E,ggx_Eavg) * dot(*normal,wi) * invpdf)
-          + (1.0f - E_spec(wo)) * base.estimator(wo,wi);
+        float pr{pdf(wo,wi)};
+        // deterministic bounce -> all energy is reflected
+        return (pr == 0) ? fresnel(ldoth) * ggx_brdf::estimator(wo,wi) :
+          fresnel(ldoth) * ggx_brdf::estimator(wo,wi)
+            // IMPORTANT this is using that the current diffuse has no energy loss, change accordingly
+            // if this is no longer the case
+            + MSFresnel(color{0.04f}) * (f_ms(wo,wi,ggx_E,ggx_Eavg) * dot(*normal,wi) / pr)
+            + (1.0f - E_spec(wo)) * base.estimator(wo,wi);
         #endif
       }
       return color{0.0f};
