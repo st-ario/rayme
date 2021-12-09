@@ -160,7 +160,12 @@ int main(int argc, char* argv[])
   std::flush(std::cout);
   #ifndef NO_DENOISE
   #ifdef EXPORT_DENOISE_MAPS
+  picture.hdr_to_ldr();
+  picture.linear_to_srgb();
   picture.write_to_png(output_filename + "_noisy");
+
+  denoised.hdr_to_ldr();
+  denoised.linear_to_srgb();
   denoised.write_to_png(output_filename + "_denoised");
 
   albedo_map.write_to_png(output_filename + "_albedo");
@@ -171,11 +176,21 @@ int main(int argc, char* argv[])
   normal_map.write_to_png(output_filename + "_normal");
   #else
   if (allowdenoise)
+  {
+    denoised.hdr_to_ldr();
+    denoised.linear_to_srgb();
     denoised.write_to_png(output_filename);
+  }
   else
+  {
+    picture.hdr_to_ldr();
+    picture.linear_to_srgb();
     picture.write_to_png(output_filename);
+  }
   #endif
   #else
+  picture.hdr_to_ldr();
+  picture.linear_to_srgb();
   picture.write_to_png(output_filename);
   #endif
 
