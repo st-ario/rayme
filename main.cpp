@@ -18,6 +18,7 @@ void initialize_arguments( int argc
                          , int32_t& min_depth
                          , std::string& input_filename
                          , std::string& output_filename
+                         , bool& autoexposure
                          , bool& allowdenoise)
 {
   po::options_description desc("Allowed options");
@@ -32,6 +33,7 @@ void initialize_arguments( int argc
       "specify the number of samples per pixel (default: 128)")
 		("min-depth,d", po::value<int32_t>(&min_depth)->value_name("DEPTH"),
       "specify the minimum number of ray bounces (default: 5)")
+    ("auto-exposure,e", "apply automatic exposure (disabled by default)")
     #ifndef NO_DENOISE
     ("no-denoise,N", "disable image denoising (enabled by default)")
     #endif
@@ -82,6 +84,8 @@ void initialize_arguments( int argc
   if (!vm.count("output-filename"))
     std::cout << "output file name not set, using default value: \"" << output_filename
               << "\"\n";
+  if (vm.count("auto-exposure"))
+    autoexposure = true;
   if (vm.count("no-denoise"))
     allowdenoise = false;
 }
@@ -95,6 +99,7 @@ int main(int argc, char* argv[])
   std::string input_filename;
   std::string output_filename{"output"};
   bool allowdenoise{true};
+  bool autoexposure{false};
 
   initialize_arguments( argc
                       , argv
@@ -103,6 +108,7 @@ int main(int argc, char* argv[])
                       , min_depth
                       , input_filename
                       , output_filename
+                      , autoexposure
                       , allowdenoise);
 
   // initialize scene elements
@@ -150,21 +156,21 @@ int main(int argc, char* argv[])
           , *cam
           , scene_tree);
   }
-  #endif
 
   // denoise result
   image denoised{denoise(picture,albedo_map,normal_map)};
+  #endif
 
   // export file
   std::cout << "\nExporting file...";
   std::flush(std::cout);
   #ifndef NO_DENOISE
   #ifdef EXPORT_DENOISE_MAPS
-  picture.hdr_to_ldr();
+  picture.hdr_to_ldr(autoexposure);
   picture.linear_to_srgb();
   picture.write_to_png(output_filename + "_noisy");
 
-  denoised.hdr_to_ldr();
+  denoised.hdr_to_ldr(autoexposure);
   denoised.linear_to_srgb();
   denoised.write_to_png(output_filename + "_denoised");
 
@@ -177,19 +183,19 @@ int main(int argc, char* argv[])
   #else
   if (allowdenoise)
   {
-    denoised.hdr_to_ldr();
+    denoised.hdr_to_ldr(autoexposure);
     denoised.linear_to_srgb();
     denoised.write_to_png(output_filename);
   }
   else
   {
-    picture.hdr_to_ldr();
+    picture.hdr_to_ldr(autoexposure);
     picture.linear_to_srgb();
     picture.write_to_png(output_filename);
   }
   #endif
   #else
-  picture.hdr_to_ldr();
+  picture.hdr_to_ldr(autoexposure);
   picture.linear_to_srgb();
   picture.write_to_png(output_filename);
   #endif

@@ -5,6 +5,10 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "extern/stb/stb_image_write.h"
 
+// select tonemapping curve (only one)
+#define TONEMAP_REINHARD_1 1
+//#define TONEMAP_HABLE_UNCHARTED2 1
+
 image::image(uint16_t pixel_width, uint16_t pixel_height)
 : width{pixel_width}, height{pixel_height}, image_buffer(width * height * 3u) {}
 
@@ -23,90 +27,152 @@ void image::write_to_png(const std::string& file_name)
 
 void image::linear_to_srgb()
 {
-  constexpr float g{1.0f/2.2f};
-
+  // https://entropymine.com/imageworsener/srgbformula/
+  constexpr float conversion_exponent{1.0f/2.4f};
   for(float& x : image_buffer)
-    x = std::pow(x,g);
+  {
+    if (x < 0.0031308f)
+      x *= 12.92f;
+    else
+      x = 1.055f * std::pow(x,conversion_exponent) - 0.055f;
+  }
 }
 
-void image::hdr_to_ldr()
+uint16_t image::luminance_to_bin(float luminance)
 {
-  // adapted from:
-  //================================================================================================
-  //
-  //  Baking Lab
-  //  by MJP and David Neubelt
-  //  http://mynameismjp.wordpress.com/
-  //
-  //  All code licensed under the MIT license
-  //
-  //================================================================================================
+  // avoid log(0)
+  if (luminance < 0.005f)
+    return 0.0f;
 
-  // Code originally written by Stephen Hill (@self_shadow), who deserves all
-  // credit for coming up with this fit and implementing it.
-  /*
+  // calculate the log luminance and remap it linearly to [0.0, 1.0]
+  float log_lum{clamp((std::log(luminance) - min_log_lum) * inverse_log_lum_range, 0.0f, 1.0f)};
 
-  MIT License
+  // map [0, 1] to [1, 255]
+  // the zeroth bin is handled by the edge case check above.
+  return static_cast<uint16_t>(log_lum * 254.0f + 1.0f);
+}
 
-  Copyright (c) 2016 MJP
+float image::bin_to_log_luminance(uint16_t bin)
+{
+  return ((bin - 1.0f) * log_lum_range / 254.0f) + min_log_lum;
+}
 
-  Permission is hereby granted, free of charge, to any person obtaining a copy
-  of this software and associated documentation files (the "Software"), to deal
-  in the Software without restriction, including without limitation the rights
-  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-  copies of the Software, and to permit persons to whom the Software is
-  furnished to do so, subject to the following conditions:
-
-  The above copyright notice and this permission notice shall be included in all
-  copies or substantial portions of the Software.
-
-  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-  SOFTWARE.
-  */
-
-  // sRGB => XYZ => D65_2_D60 => AP1 => RRT_SAT
-  static constexpr glm::mat3
-  ACESInputMat
-  {
-    {0.59719, 0.07600, 0.02840},
-    {0.35458, 0.90834, 0.13383},
-    {0.04823, 0.01566, 0.83777}
-  };
-
-  // ODT_SAT => XYZ => D60_2_D65 => sRGB
-  static const glm::mat3
-  ACESOutputMat
-  {
-    { 1.60475, -0.10208, -0.00327},
-    {-0.53108,  1.10813, -0.07276},
-    {-0.07367, -0.00605,  1.07602}
-  };
-
-  static constexpr auto RRTAndODTFit = [](const color& c) -> vec3
-  {
-      vec3 a = c * (c + 0.0245786f) - 0.000090537f;
-      vec3 b = c * (0.983729f * c + 0.4329510f) + 0.238081f;
-      return a / b;
-  };
+float image::exposure()
+{
+  std::array<uint32_t,256> histogram;
+  histogram.fill(0u);
 
   for (size_t i = 0; i < image_buffer.size(); i+=3)
   {
     color c{image_buffer[i],image_buffer[i+1],image_buffer[i+2]};
-    c = ACESInputMat * c;
+    // RGB to luminance
+    float lum{dot(c,rgb_to_luma)};
 
-    // Apply RRT and ODT
-    c = RRTAndODTFit(c);
+    ++histogram[luminance_to_bin(lum)];
+  }
 
-    c = ACESOutputMat * c;
+  // dark percentage of pixels to ignore, value in [0.0,1.0]
+  constexpr float low_threshold{0.05f};
+  // bright percentage of pixels to ignore, value in [0.0,1.0]
+  constexpr float high_threshold{0.05f};
 
-    image_buffer[i]   = clamp(c.r, 0.0f, 1.0f);
-    image_buffer[i+1] = clamp(c.g, 0.0f, 1.0f);
-    image_buffer[i+2] = clamp(c.b, 0.0f, 1.0f);
+  const size_t pxl_number{image_buffer.size() / 3u};
+
+  // ignore the lowest low_threshold % of values
+  size_t clamplow{static_cast<size_t>(pxl_number * low_threshold)};
+  // ignore the top high_threshold % of values
+  size_t clamphigh{pxl_number - static_cast<size_t>(pxl_number * high_threshold)};
+
+  size_t total_pxl_sum{0u};
+  size_t relevant_pxl_sum{0u};
+  float log_avg{0.0f};
+  float lum_min{-infinity};
+  float lum_max{-infinity};
+
+  for (size_t i = 0; i < histogram.size(); ++i)
+  {
+    total_pxl_sum += histogram[i];
+    if (total_pxl_sum < clamplow)
+      continue;
+    if (total_pxl_sum > clamphigh)
+    {
+      lum_max = std::exp(bin_to_log_luminance(i-1));
+      break;
+    }
+    if (lum_min == -infinity)
+      lum_min = std::exp(bin_to_log_luminance(i));
+
+    relevant_pxl_sum += histogram[i];
+    log_avg += bin_to_log_luminance(i) * histogram[i];
+  }
+
+  if (relevant_pxl_sum == 0u)
+    return 0.0f;
+
+  log_avg /= static_cast<float>(relevant_pxl_sum);
+  float avg = std::exp(log_avg);
+
+  // Reinhard--Ward--Pattanaik--Debevec--Heidrich--Myszkowksi,
+  // "High Dynamic Range Imaging"
+  float exponent{(2.0f * std::log2(avg) - std::log2(lum_max) - std::log2(lum_min))
+    / (std::log2(lum_max) - std::log2(lum_min))};
+
+  float alpha{0.18f * std::pow(4.0f, exponent)};
+
+  return alpha / avg;
+}
+
+void image::hdr_to_ldr(bool autoexposure)
+{
+  #ifdef TONEMAP_HABLE_UNCHARTED2
+  // Uncharted 2 tonemapping curve, credits to John Hable
+  // http://filmicworlds.com/blog/filmic-tonemapping-operators/
+  constexpr float A = 0.15f;
+  constexpr float B = 0.50f;
+  constexpr float C = 0.10f;
+  constexpr float D = 0.20f;
+  constexpr float E = 0.02f;
+  constexpr float F = 0.30f;
+  constexpr float W = 11.2f;
+
+  auto static constexpr map = [=](float x){ return ((x*(A*x+C*B)+D*E)/(x*(A*x+B)+D*F))-E/F; };
+  #endif
+  #ifdef TONEMAP_REINHARD_1
+  auto static constexpr map = [](float x){ return x / (x + 1.0f); };
+  #endif
+
+  float scale;
+  if (autoexposure)
+    scale = exposure();
+  else
+    scale = 1.0f;
+
+  for (size_t i = 0; i < image_buffer.size(); i+=3)
+  {
+    #ifdef TONEMAP_HABLE_UNCHARTED2
+    if (autoexposure)
+    {
+      image_buffer[i]   *= scale;
+      image_buffer[i+1] *= scale;
+      image_buffer[i+2] *= scale;
+    }
+    image_buffer[i]   = map(image_buffer[i]  );
+    image_buffer[i+1] = map(image_buffer[i+1]);
+    image_buffer[i+2] = map(image_buffer[i+2]);
+    #endif
+
+    #ifdef TONEMAP_REINHARD_1
+    color k{image_buffer[i],image_buffer[i+1],image_buffer[i+2]};
+
+    float l_w{dot(k,rgb_to_luma)};
+    float l_m{autoexposure ? scale * l_w : l_w};
+
+    float correction{map(l_m) / l_w};
+
+    image_buffer[i]   *= correction;
+    image_buffer[i+1] *= correction;
+    image_buffer[i+2] *= correction;
+    #endif
   }
 }
 
