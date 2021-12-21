@@ -5,7 +5,7 @@ A path tracing renderer for static glTF 2.0 scenes.
 ## Dependencies
 The program requires the Boost library to build.
 ### Optional dependencies
-In order to have the denosing option available (recommended), the library
+In order to have the deniosing option available (recommended), the library
 [Intel(R) Open Image Denoise](https://www.openimagedenoise.org/) is required (see also
 the project's [GitHub page](https://github.com/OpenImageDenoise/oidn)); precompiled
 binary packages can be downloaded [here](https://www.openimagedenoise.org/downloads.html).
