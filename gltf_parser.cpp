@@ -259,7 +259,7 @@ std::vector<mesh*> store_mesh( int index
 {
   std::vector<mesh*> res;
 
-  simdjson::ondemand::array document_meshes = doc["meshes"];
+  auto document_meshes = doc["meshes"];
   int j = 0;
   for (auto mesh_iterator : document_meshes)
   {
@@ -276,7 +276,7 @@ std::vector<mesh*> store_mesh( int index
     if (!err_mesh_name)
       mesh_name = mesh_nameview;
 
-    simdjson::ondemand::array mesh_primitives = json_mesh["primitives"];
+    auto mesh_primitives = json_mesh["primitives"];
     for (auto primitive_iterator : mesh_primitives)
     {
       gltf_primitive prim;
@@ -287,38 +287,43 @@ std::vector<mesh*> store_mesh( int index
 
       // record intermediate representation
       auto json_primitive = primitive_iterator.get_object();
-      for (auto property : json_primitive)
+      for (auto property_t : json_primitive)
       {
-        if (property.key() == "attributes")
+        auto property = property_t.value_unsafe();
+        if (property.key().is_equal("attributes"))
         {
-          simdjson::ondemand::object attr_dict = property.value();
-          for (auto attr : attr_dict)
+          simdjson::ondemand::object attr_dict;
+          auto err_attr_dict = property.value().get(attr_dict);
+          if (err_attr_dict)
+            std::exit(1);
+          for (auto attr_t : attr_dict)
           {
-            if (attr.key() == "POSITION")
-              prim.attr_vertices = attr.value().get_uint64();
-            if (attr.key() == "NORMAL")
-              prim.attr_normals = attr.value().get_uint64();
-            if (attr.key() == "TANGENT")
-              prim.attr_tangents = attr.value().get_uint64();
-            if (attr.key() == "TEXCOORD_0")
-              prim.attr_texcoord0 = attr.value().get_uint64();
-            if (attr.key() == "TEXCOORD_1")
-              prim.attr_texcoord1 = attr.value().get_uint64();
-            if (attr.key() == "COLOR_0")
-              prim.attr_color0 = attr.value().get_uint64();
+            simdjson::ondemand::field attr = attr_t.value_unsafe();
+            if (attr.key().is_equal("POSITION"))
+              prim.attr_vertices = attr.value().get_uint64().value_unsafe();
+            if (attr.key().is_equal("NORMAL"))
+              prim.attr_normals = attr.value().get_uint64().value_unsafe();
+            if (attr.key().is_equal("TANGENT"))
+              prim.attr_tangents = attr.value().get_uint64().value_unsafe();
+            if (attr.key().is_equal("TEXCOORD_0"))
+              prim.attr_texcoord0 = attr.value().get_uint64().value_unsafe();
+            if (attr.key().is_equal("TEXCOORD_1"))
+              prim.attr_texcoord1 = attr.value().get_uint64().value_unsafe();
+            if (attr.key().is_equal("COLOR_0"))
+              prim.attr_color0 = attr.value().get_uint64().value_unsafe();
           }
         }
-        if (property.key() == "indices")
+        if (property.key().is_equal("indices"))
         {
-          prim.indices = property.value().get_uint64();
+          prim.indices = property.value().get_uint64().value_unsafe();
           // TODO if not defined, the mesh has to be created differently
           // (i.e. following GL's drawArrays() instead of drawElements())
         }
-        if (property.key() == "material")
-          prim.material = property.value().get_uint64();
-        if (property.key() == "mode")
+        if (property.key().is_equal("material"))
+          prim.material = property.value().get_uint64().value_unsafe();
+        if (property.key().is_equal("mode"))
         {
-          prim.mode = property.value().get_uint64();
+          prim.mode = property.value().get_uint64().value_unsafe();
           if (prim.mode != 4)
           {
             std::cerr << "ERROR: currently supporting only triangle meshes as primitives\n";
@@ -378,7 +383,7 @@ std::vector<mesh*> store_mesh( int index
           }
         } else {
           // reverse triangles winding
-          uint remainder{0u};
+          unsigned int remainder{0u};
           for (int i = offset; i < offset + length ; i+=s_component)
           {
             size_t current_index{0};
@@ -451,7 +456,7 @@ std::vector<mesh*> store_mesh( int index
       if (prim.material == -1)
       {
         std::cerr << "ERROR: missing material for mesh \"" << prim.name << "\"\n";
-        exit(1);
+        std::exit(1);
         // TODO instead of exiting, use default material and warn about this
       }
 
@@ -499,20 +504,20 @@ camera store_camera(int camera_index, simdjson::ondemand::document& doc, uint16_
   {
     if (i == camera_index)
     {
-      simdjson::ondemand::object cam_obj = doc_camera.get_object();
+      auto cam_obj = doc_camera.get_object();
       // type is a required field
-      if (cam_obj["type"].get_string() == std::string_view("orthographic"))
+      if (cam_obj["type"].get_string().value_unsafe() == std::string_view("orthographic"))
       {
         std::cerr << "ERROR: orthographic camera detected, ";
         std::cerr << "currently only perspective cameras are supported\n";
         std::exit(2);
-      } else if (cam_obj["type"].get_string() != std::string_view("perspective")) {
+      } else if (cam_obj["type"].get_string().value_unsafe() != std::string_view("perspective")) {
         std::cerr << "ERROR: invalid camera\n";
         std::exit(1);
       }
-      simdjson::ondemand::object persp_obj = cam_obj["perspective"].get_object();
-      float yfov = persp_obj["yfov"].get_double();
-      float znear = persp_obj["znear"].get_double();
+      auto persp_obj = cam_obj["perspective"].get_object();
+      float yfov = persp_obj["yfov"].get_double().value_unsafe();
+      float znear = persp_obj["znear"].get_double().value_unsafe();
       camera cam{yfov,znear};
       double aspect_ratio{16.0f/9.0f};
       error = persp_obj["aspectRatio"].get(aspect_ratio);
@@ -643,7 +648,10 @@ void parse_gltf( const std::string& filename
 {
   simdjson::ondemand::parser parser;
   auto gltf = simdjson::padded_string::load(filename);
-  simdjson::ondemand::document doc = parser.iterate(gltf);
+  simdjson::ondemand::document doc;
+  auto err_doc = parser.iterate(gltf).get(doc);
+  if (err_doc)
+    std::exit(1);
 
   // check version
   {
@@ -698,7 +706,10 @@ void parse_gltf( const std::string& filename
           std::exit(1);
         }
         for (auto node : scene_nodes)
-          roots_indices.emplace_back(node.get_uint64());
+        {
+          uint64_t x = node.get_uint64().value_unsafe();
+          roots_indices.push_back(x);
+        }
       }
       ++j;
     }
@@ -718,14 +729,15 @@ void parse_gltf( const std::string& filename
     for (auto document_buffer : document_buffers)
     {
       auto buffer_obj = document_buffer.get_object();
-      int byte_length;
+      uint64_t byte_length;
       std::string_view uri;
-      for (auto property : buffer_obj)
+      for (auto property_t : buffer_obj)
       {
-        if (property.key() == "byteLength")
-          byte_length = property.value().get_uint64();
-        if (property.key() == "uri")
-          uri = property.value().get_string();
+        auto property = property_t.value_unsafe();
+        if (property.key().is_equal("byteLength"))
+          byte_length = property.value().get_uint64().value_unsafe();
+        if (property.key().is_equal("uri"))
+          uri = property.value().get_string().value_unsafe();
       }
 
       gltf_buffer current;
@@ -767,16 +779,17 @@ void parse_gltf( const std::string& filename
       auto b_view_obj = b.get_object();
       buffer_view current;
 
-      for (auto property : b_view_obj)
+      for (auto property_t : b_view_obj)
       {
-        if (property.key() == "buffer")
-          current.buffer_index = property.value().get_uint64();
-        if (property.key() == "byteOffset")
-          current.byte_offset = property.value().get_uint64();
-        if (property.key() == "byteLength")
-          current.byte_length = property.value().get_uint64();
-        if (property.key() == "byteStride")
-          current.byte_stride = property.value().get_uint64();
+        auto property = property_t.value_unsafe();
+        if (property.key().is_equal("buffer"))
+          current.buffer_index = property.value().get_uint64().value_unsafe();
+        if (property.key().is_equal("byteOffset"))
+          current.byte_offset = property.value().get_uint64().value_unsafe();
+        if (property.key().is_equal("byteLength"))
+          current.byte_length = property.value().get_uint64().value_unsafe();
+        if (property.key().is_equal("byteStride"))
+          current.byte_stride = property.value().get_uint64().value_unsafe();
       }
       views.push_back(current);
     }
@@ -797,20 +810,22 @@ void parse_gltf( const std::string& filename
       auto acc_obj = a.get_object();
       accessor current;
 
-      for (auto property : acc_obj)
+      for (auto property_t : acc_obj)
       {
-        if (property.key() == "bufferView")
-          current.buffer_view = property.value().get_uint64();
-        if (property.key() == "byteOffset")
-          current.byte_offset = property.value().get_uint64();
-        if (property.key() == "componentType")
-          current.component_type = property.value().get_uint64();
-        if (property.key() == "normalized")
-          current.is_normalized = property.value().get_bool();
-        if (property.key() == "count")
-          current.count = property.value().get_uint64();
-        if (property.key() == "type")
-          current.type = std::string(std::string_view(property.value()));
+        auto property = property_t.value_unsafe();
+
+        if (property.key().is_equal("bufferView"))
+          current.buffer_view = property.value().get_uint64().value_unsafe();
+        if (property.key().is_equal("byteOffset"))
+          current.byte_offset = property.value().get_uint64().value_unsafe();
+        if (property.key().is_equal("componentType"))
+          current.component_type = property.value().get_uint64().value_unsafe();
+        if (property.key().is_equal("normalized"))
+          current.is_normalized = property.value().get_bool().value_unsafe();
+        if (property.key().is_equal("count"))
+          current.count = property.value().get_uint64().value_unsafe();
+        if (property.key().is_equal("type"))
+          current.type = std::string(std::string_view(property.value().get_string().value_unsafe()));
       }
       accessors.push_back(current);
     }
@@ -828,39 +843,49 @@ void parse_gltf( const std::string& filename
         auto mat_obj = a.get_object();
         gltf_material current;
 
-        for (auto property : mat_obj)
+        for (auto property_t : mat_obj)
         {
-          if (property.key() == "alphaCutoff")
-            current.alpha_cutoff = property.value().get_double();
-          if (property.key() == "doubleSided")
-            current.double_sided = property.value().get_bool();
-          if (property.key() == "alphaMode")
-            current.alpha_mode = std::string(std::string_view(property.value()));
-          if (property.key() == "emissiveFactor")
+          auto property = property_t.value_unsafe();
+
+          if (property.key().is_equal("alphaCutoff"))
+            current.alpha_cutoff = property.value().get_double().value_unsafe();
+          if (property.key().is_equal("doubleSided"))
+            current.double_sided = property.value().get_bool().value_unsafe();
+          if (property.key().is_equal("alphaMode"))
+            current.alpha_mode = std::string(property.value().get_string().value_unsafe());
+          if (property.key().is_equal("emissiveFactor"))
           {
             int i = 0;
-            for (double x : property.value())
+            simdjson::ondemand::array vals;
+            auto err_vals = property.value().get(vals);
+            if (err_vals)
+              std::exit(1);
+            for (auto v : vals)
             {
+              double x = v.get_double().value_unsafe();
               current.emissive_factor[i] = x;
               ++i;
             }
           }
-          if (property.key() == "pbrMetallicRoughness")
+          if (property.key().is_equal("pbrMetallicRoughness"))
           {
             auto pbrmr_obj = property.value().get_object();
             gltf_pbr_metallic_roughness mr;
 
-            for (auto mr_property : pbrmr_obj)
+            for (auto mr_property_t : pbrmr_obj)
             {
-              if (mr_property.key() == "metallicFactor")
-                mr.metallic_factor = mr_property.value().get_double();
-              if (mr_property.key() == "roughnessFactor")
-                mr.roughness_factor = mr_property.value().get_double();
-              if (mr_property.key() == "baseColorFactor")
+              simdjson::ondemand::field mr_property = mr_property_t.value_unsafe();
+
+              if (mr_property.key().is_equal("metallicFactor"))
+                mr.metallic_factor = mr_property.value().get_double().value_unsafe();
+              if (mr_property.key().is_equal("roughnessFactor"))
+                mr.roughness_factor = mr_property.value().get_double().value_unsafe();
+              if (mr_property.key().is_equal("baseColorFactor"))
               {
                 int i = 0;
-                for (double x : mr_property.value())
+                for (auto v : mr_property.value())
                 {
+                  double x = v.get_double().value_unsafe();
                   mr.base_color_factor[i] = x;
                   ++i;
                 }
@@ -914,8 +939,12 @@ void parse_gltf( const std::string& filename
         if (!error)
         {
           current_node.has_children = true;
-          for (uint64_t k : children)
+          for (auto l : children)
+          {
+            uint64_t k = l.get_uint64().value_unsafe();
             current_node.children.push_back(k);
+          }
+
         }
       }
       { // matrix
@@ -926,8 +955,9 @@ void parse_gltf( const std::string& filename
           float* mat_ptr = glm::value_ptr(current_node.matrix);
           current_node.has_matrix = true;
           int i = 0;
-          for (double k : matrix)
+          for (auto l : matrix)
           {
+            double k = l.get_double().value_unsafe();
             mat_ptr[i] = k;
             ++i;
           }
@@ -940,8 +970,9 @@ void parse_gltf( const std::string& filename
         {
           current_node.has_rotation = true;
           int i = 0;
-          for (double k : rotation)
+          for (auto l : rotation)
           {
+            double k = l.get_double().value_unsafe();
             current_node.rotation[i] = k;
             ++i;
           }
@@ -954,8 +985,9 @@ void parse_gltf( const std::string& filename
         {
           current_node.has_scale = true;
           int i = 0;
-          for (double k : scale)
+          for (auto l : scale)
           {
+            double k = l.get_double().value_unsafe();
             current_node.scale[i] = k;
             ++i;
           }
@@ -968,8 +1000,9 @@ void parse_gltf( const std::string& filename
         {
           current_node.has_translation = true;
           int i = 0;
-          for (double k : translation)
+          for (auto l : translation)
           {
+            double k = l.get_double().value_unsafe();
             current_node.translation[i] = k;
             ++i;
           }

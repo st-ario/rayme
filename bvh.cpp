@@ -104,7 +104,7 @@ bvh_tree::bvh_tree(std::vector<std::unique_ptr<const primitive>>&& primitives)
     float sah_split = infinity;
 
     // binning method
-    constexpr uint n_bins{16u};
+    constexpr int n_bins{16};
     std::array<size_t,n_bins> bins_counter;
     bins_counter.fill(0u);
 
@@ -126,7 +126,7 @@ bvh_tree::bvh_tree(std::vector<std::unique_ptr<const primitive>>&& primitives)
 
       // pick the splitting bin
       size_t cumulative_count{0u};
-      for (uint i = 0; i < n_bins - 1; ++i)
+      for (int i = 0; i < n_bins - 1; ++i)
       {
         if (bins_counter[i] == 0)
           continue;

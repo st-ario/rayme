@@ -239,12 +239,12 @@ void render( image& picture
 #else
 
   // get the number of cores available
-  uint n_cores{std::thread::hardware_concurrency()};
+  unsigned int n_cores{std::thread::hardware_concurrency()};
   if (n_cores == 0)
   {
     // TODO give the user a chance to manually specify how many threads to use
     std::cout << "ERROR: unable to determine the number of CPU cores available to the system";
-    exit(1);
+    std::exit(1);
   } else {
     std::cout << "Number of cores detected: " << n_cores << "\n";
   }
@@ -255,7 +255,7 @@ void render( image& picture
   std::cout << "Rendering in progress...\n";
   std::cout << "Rendering " << n_cores << " tiles concurrently\n";
 
-  for (uint i = 0; i < n_cores; ++i)
+  for (int i = 0; i < n_cores; ++i)
   {
     jobs.push_back(std::async(std::launch::async,
       render_tiles_job, &picture

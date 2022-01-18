@@ -6,16 +6,32 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(CMAKE_CXX_FLAGS "-O3")
-set(CMAKE_CXX_FLAGS_DEBUG "-g -O3")
+##set (CMAKE_CXX_COMPILER "/usr/bin/clang++")
+
 ##set(CMAKE_CXX_FLAGS_DEBUG "-g -gdwarf-4 -fvar-tracking-assignments -O3")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 ## set(GCC_WARNING_FLAGS "-Wall -Wextra -Wno-deprecated -fno-elide-type -fdiagnostics-show-template-tree -Wall -Wextra -Wpedantic -Wvla -Wextra-semi -Wnull-dereference -Wswitch-enum -Wduplicated-cond -Wduplicated-branches -Wsuggest-override  -Wfloat-conversion")
 set(GCC_WARNING_FLAGS "")
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
-find_package(Boost 1.60 COMPONENTS program_options REQUIRED)
+
+if(WIN32)
+    set(CMAKE_CXX_FLAGS "/O2 /EHsc")
+    set(CMAKE_CXX_FLAGS_DEBUG "/O2 /DEBUG:FASTLINK /EHsc")
+    set(CMAKE_CXX_FLAGS_RELEASE "/O2 /EHsc")
+
+    set(Boost_USE_STATIC_LIBS ON)
+    set(Boost_USE_MULTITHREADED ON)
+    set(Boost_USE_STATIC_RUNTIME OFF)
+
+    find_package(Boost COMPONENTS program_options REQUIRED)
+    include_directories(${Boost_INCLUDE_DIRS})
+else()
+    set(CMAKE_CXX_FLAGS "-O3")
+    set(CMAKE_CXX_FLAGS_DEBUG "-g -O3")
+    set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+    find_package(Boost 1.60 COMPONENTS program_options REQUIRED)
+endif()
 
 #####    DOWNLOAD ALL THE SUBMODULES
 find_package(Git QUIET)
@@ -61,7 +77,7 @@ if (NOT OID)
         WITHOUT denosing options")
     add_compile_definitions(NO_DENOISE=1)
 
-    add_executable(rayme
+    add_executable(${PROJECT_NAME}
       bdf.cpp
       bvh.cpp
       camera.cpp
@@ -78,7 +94,7 @@ if (NOT OID)
       )
 else()
     ## compile with denoise
-    add_executable(rayme
+    add_executable(${PROJECT_NAME}
       bdf.cpp
       bvh.cpp
       camera.cpp
@@ -94,9 +110,18 @@ else()
       extern/simdjson/singleheader/simdjson.cpp
       2d_samples/hardcoded_2d_rng.cpp
       )
-target_link_libraries(rayme PRIVATE "${OID}")
+target_link_libraries(${PROJECT_NAME} PRIVATE "${OID}")
 endif()
 
+## g++ optimizations break the parsing of some keys
+## TODO determine the source of the issue
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+set_source_files_properties( gltf_parser.cpp
+                             PROPERTIES
+                             COMPILE_FLAGS -O1 )
+endif()
+
+## manually disable denoising capabilities, for testing purposes
 ## add_compile_definitions(NO_DENOISE=1)
 
 ## force GLM to use the avx512 instruction set
@@ -104,8 +129,8 @@ endif()
 ## create makefile with "cmake -DNO_AVX512=ON" instead
 option(NO_AVX512 "Do not use AVX512 intrinsics" OFF)
 
-target_link_libraries(rayme PRIVATE Boost::program_options)
-target_link_libraries(rayme PRIVATE Threads::Threads)
+target_link_libraries(${PROJECT_NAME} PRIVATE Boost::program_options)
+target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads)
 
 target_link_directories(${PROJECT_NAME}
     PRIVATE extern/stb

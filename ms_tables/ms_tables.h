@@ -26,7 +26,7 @@ inline float ms_lookup_Eavg(float key, const std::array<std::array<float,2>,N>& 
 {
   // dirty trick, using that the sampling interval is known
   // IMPORTANT to be modified if the table changes
-  uint n{static_cast<uint>(key * 32.0f)};
+  unsigned int n{static_cast<unsigned int>(key * 32.0f)};
   n = (n == 32) ? n-1 : n;
   return table[n][1];
 
@@ -55,9 +55,9 @@ inline float ms_lookup_E( const std::array<float,2>& key
 {
   // dirty trick, using that the sampling intervals are known
   // IMPORTANT to be modified if the table changes
-  uint a{static_cast<uint>(key[0] * 32.0f)};
+  unsigned int a{static_cast<unsigned int>(key[0] * 32.0f)};
   a = (a == 32) ? 31 : a;
-  uint m{static_cast<uint>(key[1] * 33.0f - 1.0f)};
+  unsigned int m{static_cast<unsigned int>(key[1] * 33.0f - 1.0f)};
   m = (m == 32) ? 31 : m;
 
   return table[32u * a + m].second;
